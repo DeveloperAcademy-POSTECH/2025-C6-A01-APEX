@@ -17,6 +17,7 @@ struct client {
     let email: String
     let phoneNumber: String
     let linkedinURL: String
-    let memo: String
-    let action: String
+    let memo: String?
+    let action: String?
+    let isFavorite: Bool
 }
