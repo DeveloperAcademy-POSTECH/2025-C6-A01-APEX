@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct APEXTextFieldStyle: View {
+struct APEXTextField: View {
     enum Style { case field, editor }
     
     let style: Style
@@ -102,7 +102,7 @@ struct APEXTextFieldStyle: View {
 }
 
 #Preview {
-    APEXTextFieldStyle(
+    APEXTextField(
         style: .field,
         label: "성 / Surname",
         placeholder: "성 입력",
