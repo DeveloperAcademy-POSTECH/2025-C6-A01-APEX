@@ -7,17 +7,20 @@
 import Foundation
 import SwiftUI
 
-struct client {
-    let profile: Image // 샘플데이터용 타입
-    let nameCard: Image // 샘플데이터용 타입
+struct Client: Identifiable {
+    let id = UUID()
+    let profile: UIImage? // 샘플데이터용 타입
+    let nameCard: Image? // 샘플데이터용 타입
     let surname: String
     let name: String
-    let position: String
+    let position: String?
     let company: String
-    let email: String
-    let phoneNumber: String
-    let linkedinURL: String
+    let email: String?
+    let phoneNumber: String?
+    let linkedinURL: String?
     let memo: String?
     let action: String?
-    let isFavorite: Bool
+    let favorite: Bool
+    let pin: Bool
+    let notes: [Note]
 }
