@@ -11,4 +11,5 @@ extension Font {
     static let body1 = Font.system(size: 16).weight(.semibold)
     static let body2 = Font.system(size: 16).weight(.medium)
     static let body6 = Font.system(size: 14).weight(.regular)
+    static let title4 = Font.system(size: 20).weight(.medium)
 }
