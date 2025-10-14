@@ -11,16 +11,16 @@ struct APEXTextField: View {
     enum Style { case field, editor }
     
     let style: Style
-    let label: String
+    var label: String? = nil
     let placeholder: String
     @Binding var text: String
-    
     var isRequired: Bool = false
-    var showError: Bool = false
-    var showSuccess: Bool = false
     var guide: String? = nil
     
+    @State private var showSuccess: Bool = false
+    @State private var showError: Bool = false
     @FocusState private var focused: Bool
+    @State private var hadFocusOnce: Bool = false
     
     private var labelColor: Color {
         return focused ? .primaryDefault : .gray
@@ -37,9 +37,11 @@ struct APEXTextField: View {
     
     var body: some View {
         VStack(alignment: .leading) {
-            Text(label)
-                .font(.caption)
-                .foregroundColor(labelColor)
+            if let label = label {
+                Text(label)
+                    .font(.caption)
+                    .foregroundColor(labelColor)
+            }
             
             if style == .field {
                 HStack {
@@ -47,7 +49,6 @@ struct APEXTextField: View {
                         .textFieldStyle(.plain)
                         .focused($focused)
                         .font(.title4)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
                         .foregroundColor(.primary)
                         .padding(.horizontal, 8)
                     
@@ -98,15 +99,56 @@ struct APEXTextField: View {
                     .padding(.top, 4)
             }
         }
+        .onChange(of: focused) { newFocus in
+            guard isRequired else {
+                showSuccess = false
+                showError = false
+                return
+            }
+            if newFocus { // 포커스 진입
+                hadFocusOnce = true
+                showSuccess = false
+                showError = false
+            } else { // 포커스 해제
+                let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                if trimmed.isEmpty {
+                    showError = hadFocusOnce
+                    showSuccess = focused
+                } else {
+                    showSuccess = true
+                    showError = false
+                }
+            }
+        }
     }
 }
 
 #Preview {
-    APEXTextField(
-        style: .field,
-        label: "성 / Surname",
-        placeholder: "성 입력",
-        text: .constant(""),
-        guide: "안내문구"
-    )
+    struct PreviewContainer: View {
+        @State var text1: String = ""
+        @State var text2: String = ""
+        
+        var body: some View {
+            VStack {
+                APEXTextField(
+                    style: .field,
+                    label: "성 / Surname",
+                    placeholder: "성 입력",
+                    text: $text1,
+                    guide: "안내문구"
+                )
+                .padding()
+                
+                APEXTextField(
+                    style: .field,
+                    placeholder: "성 입력",
+                    text: $text2,
+                    isRequired: true,
+                )
+                .padding()
+            }
+        }
+    }
+    
+    return PreviewContainer()
 }
