@@ -124,11 +124,31 @@ struct APEXTextField: View {
 }
 
 #Preview {
-    APEXTextField(
-        style: .field,
-        label: "성 / Surname",
-        placeholder: "성 입력",
-        text: .constant(""),
-        guide: "안내문구"
-    )
+    struct PreviewContainer: View {
+        @State var text1: String = ""
+        @State var text2: String = ""
+        
+        var body: some View {
+            VStack {
+                APEXTextField(
+                    style: .field,
+                    label: "성 / Surname",
+                    placeholder: "성 입력",
+                    text: $text1,
+                    guide: "안내문구"
+                )
+                .padding()
+                
+                APEXTextField(
+                    style: .field,
+                    placeholder: "성 입력",
+                    text: $text2,
+                    isRequired: true,
+                )
+                .padding()
+            }
+        }
+    }
+    
+    return PreviewContainer()
 }
