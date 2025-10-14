@@ -11,7 +11,7 @@ struct APEXTextField: View {
     enum Style { case field, editor }
     
     let style: Style
-    let label: String?
+    var label: String? = nil
     let placeholder: String
     @Binding var text: String
     var isRequired: Bool = false
