@@ -28,18 +28,18 @@ struct APEXTextFieldTheme: Equatable {
 
     init(
         textFont: Font = .title4,
-        labelFont: Font = .body2,
-        helperFont: Font = .body6,
-        textColor: Color = .primary,
+        labelFont: Font = .caption1,
+        helperFont: Font = .caption1,
+        textColor: Color = .black,
         placeholderColor: Color = Color("BackgoundDisabled"),
-        labelColor: Color = .secondary,
-        helperColor: Color = .secondary,
+        labelColor: Color = .gray,
+        helperColor: Color = .gray,
         errorColor: Color = Color("Error"),
-        successColor: Color = Color("PrimaryDefault"),
+        successColor: Color = Color("Primary"),
         lineNormal: Color = Color("BackgoundDisabled"),
-        lineFocused: Color = Color("PrimaryDefault"),
+        lineFocused: Color = Color("Primary"),
         lineError: Color = Color("Error"),
-        background: Color = Color("BackgroundPrimary")
+        background: Color = Color("Background")
     ) {
         self.textFont = textFont
         self.labelFont = labelFont
@@ -200,7 +200,7 @@ struct APEXTextField: View {
                 Text(helper)
                     .font(theme.helperFont)
                     .foregroundColor(helperColor)
-                    .padding(.top, 2)
+                    .padding(.top, 4)
             }
         }
         .opacity(isDisabled ? 0.6 : 1)
@@ -224,6 +224,11 @@ struct APEXTextField: View {
     }
 
     // MARK: - Private
+
+    private var textFont: Font {
+        if case .multiLine = kind { return .body2 }
+        return .title4
+    }
 
     @State private var internalState: APEXTextFieldState = .normal(helper: nil)
 
@@ -274,7 +279,7 @@ struct APEXTextField: View {
         HStack(spacing: 8) {
             TextField("", text: $text, prompt: Text(placeholder).foregroundColor(theme.placeholderColor))
                 .textFieldStyle(.plain)
-                .font(theme.textFont)
+                .font(textFont)
                 .foregroundColor(theme.textColor)
                 .disabled(isDisabled)
                 .focused($focused)
@@ -298,9 +303,7 @@ struct APEXTextField: View {
                     .transition(.opacity)
             }
         }
-        .padding(.horizontal, 2)
         .padding(.vertical, 8)
-        .background(theme.background.opacity(0.001))
         .overlay(alignment: .bottom) {
             Rectangle()
                 .frame(height: 1)
@@ -312,27 +315,26 @@ struct APEXTextField: View {
     private func multiLineEditor(minHeight: CGFloat) -> some View {
         ZStack(alignment: .topLeading) {
             TextEditor(text: $text)
-                .font(theme.textFont)
+                .font(textFont)
                 .foregroundColor(theme.textColor)
                 .frame(minHeight: minHeight)
                 .disabled(isDisabled)
                 .focused($focused)
-                .padding(.horizontal, 2)
-                .padding(.vertical, 8)
+                .padding(.vertical, 4)
 
             if text.isEmpty && !focused {
                 Text(placeholder)
-                    .font(theme.textFont)
+                    .font(textFont)
                     .foregroundColor(theme.placeholderColor)
                     .padding(.top, 10)
                     .padding(.leading, 6)
                     .allowsHitTesting(false)
             }
         }
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .frame(height: 1)
-                .foregroundColor(lineColor)
+        .overlay {
+            RoundedRectangle(cornerRadius: 4)
+                .inset(by: 0.5)
+                .stroke(lineColor, lineWidth: 1)
                 .animation(.easeInOut(duration: 0.2), value: lineColor)
         }
     }
@@ -364,8 +366,8 @@ struct APEXTextField: View {
                 )
                 .apexTextFieldTheme(
                     .init(
-                        successColor: Color("SecondaryDefault"),
-                        lineFocused: Color("SecondaryDefault")
+                        successColor: Color("Primary"),
+                        lineFocused: Color("Primary")
                     )
                 )
 
