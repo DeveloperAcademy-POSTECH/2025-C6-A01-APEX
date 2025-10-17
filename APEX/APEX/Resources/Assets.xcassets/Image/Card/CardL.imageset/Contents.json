@@ -1,15 +1,17 @@
 {
   "images" : [
     {
-      "filename" : "DefaultProfile.png",
+      "filename" : "Property 1=Card L.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
     {
+      "filename" : "Property 1=Card L2.png",
       "idiom" : "universal",
       "scale" : "2x"
     },
     {
+      "filename" : "Property 1=Card L3.png",
       "idiom" : "universal",
       "scale" : "3x"
     }
