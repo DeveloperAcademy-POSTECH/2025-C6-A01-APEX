@@ -225,7 +225,14 @@ struct APEXTextField: View {
 
     // MARK: - Private
 
+    private var hasLabelOrHelper: Bool {
+        if label != nil { return true }
+        if let helper = helperText, !helper.isEmpty { return true }
+        return false
+    }
+
     private var textFont: Font {
+        if !hasLabelOrHelper { return .body2 }
         if case .multiLine = kind { return .body2 }
         return .title4
     }
@@ -362,7 +369,6 @@ struct APEXTextField: View {
                     kind: .singleLine,
                     placeholder: "닉네임 입력",
                     text: $text2,
-                    state: .normal(helper: "2-12자, 특수문자 제외")
                 )
                 .apexTextFieldTheme(
                     .init(
