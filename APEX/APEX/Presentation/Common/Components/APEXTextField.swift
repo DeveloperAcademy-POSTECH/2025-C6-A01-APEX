@@ -224,7 +224,6 @@ struct APEXTextField: View {
     }
 
     // MARK: - Private
-
     private var hasLabelOrHelper: Bool {
         if label != nil { return true }
         if let helper = helperText, !helper.isEmpty { return true }
