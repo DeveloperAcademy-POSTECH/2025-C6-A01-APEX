@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		1D0F00012E80000000000001 /* PhoneNumberKit in Frameworks */ = {isa = PBXBuildFile; productRef = 1D0F00022E80000000000002 /* PhoneNumberKit */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		0DCB62372E7EC7C40065DA6C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -22,10 +26,6 @@
 			remoteInfo = APEX;
 		};
 /* End PBXContainerItemProxy section */
-
-/* Begin PBXBuildFile section */
-		1D0F00012E80000000000001 /* PhoneNumberKit in Frameworks */ = {isa = PBXBuildFile; productRef = 1D0F00022E80000000000002 /* PhoneNumberKit */; };
-/* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		0DCB62292E7EC7C20065DA6C /* APEX.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = APEX.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -201,13 +201,13 @@
 			);
 			mainGroup = 0DCB62202E7EC7C20065DA6C;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				1D0F00032E80000000000003 /* XCRemoteSwiftPackageReference "PhoneNumberKit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 0DCB622A2E7EC7C20065DA6C /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			packageReferences = (
-				1D0F00032E80000000000003 /* XCRemoteSwiftPackageReference "PhoneNumberKit" */,
-			);
 			targets = (
 				0DCB62282E7EC7C20065DA6C /* APEX */,
 				0DCB62352E7EC7C40065DA6C /* APEXTests */,
