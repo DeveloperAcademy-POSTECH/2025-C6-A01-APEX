@@ -10,6 +10,9 @@ struct ContactsRow: View {
     private let avatarSize: CGFloat = 48
     private let horizontalPadding: CGFloat = 16
 
+    // Design tokens
+    private var labelGray: Color { Color("Gray") }
+
     var body: some View {
         Button {
             onTap?()
@@ -24,7 +27,7 @@ struct ContactsRow: View {
 
                     Text(subtitle)
                         .font(.body6)
-                        .foregroundColor(.gray)
+                        .foregroundColor(labelGray) // 변경: 회색 토큰 적용
                         .lineLimit(1)
                 }
                 Spacer(minLength: 8)
@@ -41,7 +44,7 @@ struct ContactsRow: View {
                 } label: {
                     Image(systemName: client.favorite ? "star.slash" : "star")
                 }
-                .tint(Color("Primary", bundle: .main) ?? .blue)
+                .tint(Color("Primary"))
             }
         }
     }

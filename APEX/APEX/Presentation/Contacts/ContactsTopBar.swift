@@ -43,7 +43,7 @@ struct ContactsTopBar: View {
 
             Rectangle()
                 .fill(separatorColor)
-                .frame(height: 1)
+                .frame(height: 0)
         }
         .onAppear {
             for family: String in UIFont.familyNames {

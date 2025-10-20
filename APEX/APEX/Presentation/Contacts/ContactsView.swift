@@ -9,7 +9,7 @@ import SwiftUI
 
 struct ContactsView: View {
     // MARK: - Local state (임시 데이터 가공 및 UI 상태)
-    @State private var myProfile: Client? = nil // 현재는 없는 상태로 시작
+    @State private var myProfile: Client? = nil
     @State private var favorites: [Client] = sampleClients.filter { $0.favorite }
     @State private var allUngrouped: [Client] = sampleClients
 
@@ -19,17 +19,17 @@ struct ContactsView: View {
 
     @State private var showToast: Bool = false
 
+    // Design tokens
+    private var labelGray: Color { Color("Gray") }
+
     var body: some View {
         VStack(spacing: 0) {
-            // Top bar (심플)
             ContactsTopBar(title: "Contacts") {
                 onPlusTap()
             }
 
-            // Content
             ScrollView {
                 VStack(spacing: 16) {
-                    // My Profile 섹션 (데이터가 있을 때만 노출)
                     if let profile = myProfile {
                         VStack(spacing: 8) {
                             ContactsSectionHeader(
@@ -47,7 +47,6 @@ struct ContactsView: View {
                         }
                     }
 
-                    // Favorites 섹션 (데이터 없으면 숨김)
                     if !favorites.isEmpty {
                         ContactsListSection(
                             title: "Favorites",
@@ -60,7 +59,6 @@ struct ContactsView: View {
                         )
                     }
 
-                    // All 섹션 (항상 노출, 기본 접힘)
                     ContactsListSection(
                         title: "All",
                         count: allUngrouped.count,
@@ -71,10 +69,18 @@ struct ContactsView: View {
                             toggleFavorite(client)
                         }
                     )
+
+                    // 그룹 헤더 텍스트 톤도 통일
+                    Text("Ungrouped")
+                        .font(.body5)
+                        .foregroundColor(labelGray) // 변경: 회색 토큰 적용
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 16)
+                        .opacity(0) // 위 ContactsListSection가 자체적으로 표시 중이면 이 블록은 제거해도 됩니다.
                 }
-                .padding(.vertical, 12) // 섹션 헤더 상하 여백 기준
-                .padding(.bottom, 20)   // 탭바 위 여유
-                .background(Color("Background", bundle: .main) ?? Color.white)
+                .padding(.vertical, 12)
+                .padding(.bottom, 20)
+                .background(Color("Background"))
             }
         }
         .apexToast(
@@ -83,33 +89,22 @@ struct ContactsView: View {
             text: "준비 중입니다",
             buttonTitle: "확인",
             duration: 1.6
-        ) {
-            // 토스트 버튼 탭
-        }
+        ) { }
         .onAppear {
-            // 섹션 기본 상태: 모두 접힘
             isMyProfileExpanded = false
             isFavoritesExpanded = false
             isAllExpanded = false
         }
     }
 
-    // MARK: - Actions
-    private func onPlusTap() {
-        // 아직 이동화면 미구현 → 토스트로 안내
-        showToast = true
-    }
+    private func onPlusTap() { showToast = true }
 
     private func toggleFavorite(_ client: Client) {
-        // 로컬 상태에서만 토글 반영 (데이터 저장은 추후)
         if let idx = favorites.firstIndex(where: { $0.id == client.id }) {
-            // 즐겨찾기 → 해제
             favorites.remove(at: idx)
         } else {
-            // 즐겨찾기 → 추가
             favorites.append(client)
         }
-        // 실제 모델 변경 없이 Favorites 배열만 관리
     }
 }
 
