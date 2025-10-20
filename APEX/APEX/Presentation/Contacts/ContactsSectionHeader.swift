@@ -1,46 +1,42 @@
 import SwiftUI
 
-/// 섹션 제목 + 카운트(포함 프로필 개수) + 접힘/펼침 토글
+/// 섹션 제목 + 개수(0이면 숨김) + 접힘/펼침 토글
+/// 내부는 좌우 패딩 16, 높이 36 보장. 구분선은 이 컴포넌트에서 그리지 않음.
 struct ContactsSectionHeader: View {
     let title: String
-    /// 제목 옆에 붙는 개수 텍스트(예: "4") — 포함된 프로필 개수
-    let countText: String?
+    let count: Int
     @Binding var isExpanded: Bool
 
-    // Style tokens
-    private let horizontalPadding: CGFloat = 16
-    private let height: CGFloat = 44
+    private enum Metrics {
+        static let horizontalPadding: CGFloat = 16
+        static let hStackSpacing: CGFloat = 0
+        static let titleCountSpacing: CGFloat = 4
+        static let chevronSize: CGFloat = 14
+        static let tappableSize: CGFloat = 36    // 최소 터치 영역
+        static let headerHeight: CGFloat = 36
+    }
 
-    // Design tokens
-    // 시스템 회색 사용으로 변경
-    private var labelGray: Color { .secondary }
-
-    // Press feedback
     @State private var pressed: Bool = false
 
     var body: some View {
-        Button {
-            withAnimation(.easeInOut(duration: 0.1)) {
-                isExpanded.toggle()
-            }
-        } label: {
-            HStack(spacing: 8) {
-                Text(composedTitle)
-                    .font(.body1) // Pretendard Semibold 16
-                    .foregroundColor(labelGray)
-                    .lineLimit(1)
-                    .accessibilityLabel(Text(accessibilityTitle))
+        Button(action: toggleExpanded) {
+            HStack(spacing: Metrics.hStackSpacing) {
+                HStack(spacing: Metrics.titleCountSpacing) {
+                    titleView
+                    if count > 0 { countView }
+                }
 
-                Spacer(minLength: 8)
+                Spacer()
 
-                Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                    .font(.body1)
-                    .foregroundColor(labelGray)
+                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                    .font(.system(size: Metrics.chevronSize, weight: .semibold))
+                    .frame(width: Metrics.tappableSize, height: Metrics.tappableSize)
+                    .contentShape(Rectangle())
                     .accessibilityHidden(true)
             }
+            .padding(.horizontal, Metrics.horizontalPadding) // 좌우 16
+            .frame(height: Metrics.headerHeight) // 헤더 높이 36
             .contentShape(Rectangle())
-            .padding(.horizontal, horizontalPadding)
-            .frame(height: height)
             .scaleEffect(pressed ? 0.98 : 1.0)
             .animation(.easeInOut(duration: 0.12), value: pressed)
         }
@@ -50,39 +46,60 @@ struct ContactsSectionHeader: View {
                 .onChanged { _ in pressed = true }
                 .onEnded { _ in pressed = false }
         )
+        .foregroundStyle(.gray) // 시스템 gray
         .accessibilityAddTraits(.isHeader)
+        .accessibilityLabel(accessibilityTitle)
+        .accessibilityHint(accessibilityHint)
+        // List 기본 여백/구분선 제거(필수 강제)
+        .listRowInsets(.init(top: 0, leading: 0, bottom: 0, trailing: 0))
+        .listRowSeparator(.hidden)
+        .listRowBackground(Color.clear)
+        // 필요 시 All 헤더에만 시각적 접착 보정(-1) 적용할 수 있음.
+        // .padding(.top, -1)
     }
 
-    private var composedTitle: String {
-        if let countText, !countText.isEmpty {
-            return "\(title) \(countText)"
+    // MARK: - Subviews
+    private var titleView: some View {
+        Text(title)
+            .font(.body1)
+            .lineLimit(1)
+            .truncationMode(.tail)
+    }
+
+    private var countView: some View {
+        Text("\(count)")
+            .font(.body1)
+            .accessibilityLabel("\(count) items")
+    }
+
+    // MARK: - Actions
+    private func toggleExpanded() {
+        withAnimation(.easeInOut(duration: 0.1)) {
+            isExpanded.toggle()
         }
-        return title
     }
 
+    // MARK: - Accessibility
     private var accessibilityTitle: String {
-        if let countText, !countText.isEmpty {
-            return "\(title), \(countText) items, \(isExpanded ? "expanded" : "collapsed")"
+        let state = isExpanded ? "expanded" : "collapsed"
+        return count > 0 ? "\(title), \(count), \(state)" : "\(title), \(state)"
+    }
+
+    private var accessibilityHint: String {
+        isExpanded ? "Collapse section" : "Expand section"
+    }
+}
+
+#Preview(traits: .sizeThatFitsLayout) {
+    struct Wrapper: View {
+        @State var expanded = false
+        var body: some View {
+            List {
+                ContactsSectionHeader(title: "Favorites", count: 4, isExpanded: $expanded)
+                ContactsSectionHeader(title: "All", count: 600, isExpanded: $expanded)
+            }
+            .listStyle(.plain)
         }
-        return "\(title), \(isExpanded ? "expanded" : "collapsed")"
     }
-}
-
-#Preview {
-    StatefulPreviewWrapper(false) { isExpanded in
-        ContactsSectionHeader(title: "Favorites", countText: "4", isExpanded: isExpanded)
-    }
-}
-
-// 미리보기용 작은 유틸
-struct StatefulPreviewWrapper<Value, Content: View>: View {
-    @State var value: Value
-    var content: (Binding<Value>) -> Content
-
-    init(_ value: Value, content: @escaping (Binding<Value>) -> Content) {
-        _value = State(initialValue: value)
-        self.content = content
-    }
-
-    var body: some View { content($value) }
+    return Wrapper()
 }

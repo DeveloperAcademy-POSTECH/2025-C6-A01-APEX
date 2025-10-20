@@ -8,80 +8,74 @@
 import SwiftUI
 
 struct ContactsView: View {
-    // MARK: - Local state (임시 데이터 가공 및 UI 상태)
     @State private var myProfile: Client? = nil
     @State private var favorites: [Client] = sampleClients.filter { $0.favorite }
     @State private var allUngrouped: [Client] = sampleClients
 
-    @State private var isMyProfileExpanded: Bool = false
-    @State private var isFavoritesExpanded: Bool = false
-    @State private var isAllExpanded: Bool = false
+    @State private var isMyProfileExpanded: Bool = true
+    @State private var isFavoritesExpanded: Bool = true
+    @State private var isAllExpanded: Bool = true
 
     @State private var showToast: Bool = false
 
-    // Design tokens
-    private var labelGray: Color { Color("Gray") }
-
     var body: some View {
         VStack(spacing: 0) {
-            ContactsTopBar(title: "Contacts") {
-                onPlusTap()
-            }
+            ContactsTopBar(title: "Contacts") { onPlusTap() }
 
-            ScrollView {
-                VStack(spacing: 16) {
-                    if let profile = myProfile {
-                        VStack(spacing: 8) {
-                            ContactsSectionHeader(
-                                title: "My Profile",
-                                countText: nil,
-                                isExpanded: $isMyProfileExpanded
-                            )
-
-                            if isMyProfileExpanded {
-                                VStack(spacing: 8) {
-                                    ContactsRow(client: profile)
-                                }
-                                .transition(.opacity)
-                            }
-                        }
-                    }
-
-                    if !favorites.isEmpty {
-                        ContactsListSection(
-                            title: "Favorites",
-                            count: favorites.count,
-                            isExpanded: $isFavoritesExpanded,
-                            clients: favorites,
-                            onToggleFavorite: { client in
-                                toggleFavorite(client)
-                            }
+            List {
+                // My Profile 섹션
+                if let profile = myProfile {
+                    Section {
+                        ContactsSectionHeader(
+                            title: "My Profile",
+                            count: 0,
+                            isExpanded: $isMyProfileExpanded
                         )
-                    }
+                        // 기본 여백 제거
+                        .listRowInsets(.init(top: 0, leading: 0, bottom: 0, trailing: 0))
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
 
-                    ContactsListSection(
-                        title: "All",
-                        count: allUngrouped.count,
-                        isExpanded: $isAllExpanded,
-                        clients: allUngrouped,
-                        groupHeaderTitle: "Ungrouped",
-                        onToggleFavorite: { client in
-                            toggleFavorite(client)
+                        if isMyProfileExpanded {
+                            ContactsRow(client: profile)
+                                .listRowSeparator(.hidden)
+                                // 기본 여백 제거
+                                .listRowInsets(.init(top: 0, leading: 0, bottom: 0, trailing: 0))
+                                .listRowBackground(Color.clear)
                         }
-                    )
-
-                    // 그룹 헤더 텍스트 톤도 통일
-                    Text("Ungrouped")
-                        .font(.body5)
-                        .foregroundColor(labelGray) // 변경: 회색 토큰 적용
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 16)
-                        .opacity(0) // 위 ContactsListSection가 자체적으로 표시 중이면 이 블록은 제거해도 됩니다.
+                    }
+                    // 섹션 단위 기본 간격 제거
+                    .listSectionSeparator(.hidden)
                 }
-                .padding(.vertical, 12)
-                .padding(.bottom, 20)
-                .background(Color("Background"))
+
+                // Favorites 섹션
+                if !favorites.isEmpty {
+                    ContactsListSection(
+                        title: "Favorites",
+                        count: favorites.count,
+                        isExpanded: $isFavoritesExpanded,
+                        clients: favorites,
+                        onToggleFavorite: { toggleFavorite($0) },
+                        onDelete: { deleteClient($0) },
+                        showsSeparatorBelowHeader: true // 섹션 끝 구분선(8) 추가
+                    )
+                }
+
+                // All 섹션
+                ContactsListSection(
+                    title: "All",
+                    count: allUngrouped.count,
+                    isExpanded: $isAllExpanded,
+                    clients: allUngrouped,
+                    groupHeaderTitle: "Ungrouped",
+                    onToggleFavorite: { toggleFavorite($0) },
+                    onDelete: { deleteClient($0) },
+                    showsSeparatorBelowHeader: false // 구분선 없음
+                )
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(Color("Background"))
         }
         .apexToast(
             isPresented: $showToast,
@@ -90,11 +84,6 @@ struct ContactsView: View {
             buttonTitle: "확인",
             duration: 1.6
         ) { }
-        .onAppear {
-            isMyProfileExpanded = false
-            isFavoritesExpanded = false
-            isAllExpanded = false
-        }
     }
 
     private func onPlusTap() { showToast = true }
@@ -106,8 +95,15 @@ struct ContactsView: View {
             favorites.append(client)
         }
     }
+
+    private func deleteClient(_ client: Client) {
+        if let idx = allUngrouped.firstIndex(where: { $0.id == client.id }) {
+            allUngrouped.remove(at: idx)
+        }
+        if let fidx = favorites.firstIndex(where: { $0.id == client.id }) {
+            favorites.remove(at: fidx)
+        }
+    }
 }
 
-#Preview {
-    ContactsView()
-}
+#Preview { ContactsView() }
