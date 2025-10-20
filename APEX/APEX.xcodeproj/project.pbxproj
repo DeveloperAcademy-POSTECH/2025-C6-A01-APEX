@@ -33,9 +33,22 @@
 		0DCB62402E7EC7C40065DA6C /* APEXUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = APEXUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		3FAE6E8C2EA664C500243114 /* Exceptions for "APEX" folder in "APEX" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 0DCB62282E7EC7C20065DA6C /* APEX */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		0DCB622B2E7EC7C20065DA6C /* APEX */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				3FAE6E8C2EA664C500243114 /* Exceptions for "APEX" folder in "APEX" target */,
+			);
 			path = APEX;
 			sourceTree = "<group>";
 		};
@@ -411,6 +424,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = APEX/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -448,6 +462,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = APEX/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

@@ -21,7 +21,7 @@ extension Font {
             case .medium:
                 return "PretandardVariable-Medium"
             case .semibold:
-                return "PretandardVariable-Semibold"
+                return "PretendardVariable-SemiBold"
             case .bold:
                 return "PretandardVariable-Bold"
             }
