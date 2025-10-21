@@ -21,12 +21,16 @@ struct ContactsView: View {
 
     private enum Metrics {
         static let gap: CGFloat = 8
+        // ContactsTopBar와 동일 수치
+        static let barContentHeight: CGFloat = 44
+        static let barHorizontalPadding: CGFloat = 16
+        static let barVerticalPadding: CGFloat = 8
+        static let plusButtonSize: CGFloat = 44
+        static let plusIconSize: CGFloat = 20
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            ContactsTopBar(title: "Contacts") { onPlusTap() }
-
+        NavigationStack {
             List {
                 myProfileSection()
 
@@ -54,12 +58,47 @@ struct ContactsView: View {
                 )
             }
             .listStyle(.plain)
-            .listRowSpacing(0) // iOS 16/17+에서 유효. 시스템 기본 행 간격 개입 제거
-            .environment(\.defaultMinListRowHeight, 1) // 최소 행 높이 낮춰 간격 통제
+            .listRowSpacing(0)
+            .environment(\.defaultMinListRowHeight, 1)
             .scrollContentBackground(.hidden)
             .background(Color("Background"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color("Background"), for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbar {
+                // principal에 가로 폭을 '강제'로 꽉 채워 좌/우 끝으로 보내기
+                ToolbarItem(placement: .principal) {
+                    ZStack { // 네비바가 중앙 정렬하려는 성향을 상쇄하기 위한 래퍼
+                        HStack(spacing: 0) {
+                            // 타이틀 (좌측 정렬, 가변 폭)
+                            Text("Contacts")
+                                .font(.title1)
+                                .foregroundColor(Color("Dark"))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+
+                            // 우측 + 버튼 (고정 폭/높이로 오른쪽 끝에 고정)
+                            PlusToolbarButton(
+                                size: Metrics.plusButtonSize,
+                                iconSize: Metrics.plusIconSize,
+                                normalColor: Color("Primary"),
+                                pressedColor: Color("PrimaryHover"),
+                                action: onPlusTap
+                            )
+                            .frame(width: Metrics.plusButtonSize, height: Metrics.plusButtonSize, alignment: .trailing)
+                            .accessibilityLabel(Text("추가"))
+                        }
+                        .frame(height: Metrics.barContentHeight)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, Metrics.barHorizontalPadding)
+                        .padding(.vertical, Metrics.barVerticalPadding)
+                        .contentShape(Rectangle())
+                    }
+                    .frame(maxWidth: .infinity) // principal 컨테이너 자체도 가로 전체 사용
+                    .background(Color("Background"))
+                }
+            }
         }
-        .border(.red, width: 2.0)
+        .background(Color("Background"))
         .apexToast(
             isPresented: $showToast,
             image: Image(systemName: "star"),
@@ -101,11 +140,9 @@ struct ContactsView: View {
 
     private func toggleFavorite(_ client: Client) {
         if let idx = favorites.firstIndex(where: { $0.id == client.id }) {
-            // 이미 즐겨찾기 → 해제
             favorites.remove(at: idx)
             toastText = "즐겨찾기를 해제했습니다"
         } else {
-            // 즐겨찾기 추가
             favorites.append(client)
             toastText = "즐겨찾기를 추가했습니다"
         }
@@ -132,10 +169,8 @@ struct ContactsView: View {
     }
 
     private func presentToast() {
-        // 빠르게 여러 번 호출되더라도 자연스럽게 다시 나타나도록 재설정
         if showToast {
             showToast = false
-            // 약간의 지연 후 다시 true로 전환해 transition이 보장되도록
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
                 showToast = true
             }
@@ -148,12 +183,50 @@ struct ContactsView: View {
 // MARK: - Utilities (local only)
 
 private extension View {
-    // 파일 로컬 전용으로 정의(다른 파일의 동일 이름 private 확장과 충돌 없음)
     func applyListRowCleaning() -> some View {
         self
             .listRowInsets(.init(top: 0, leading: 0, bottom: 0, trailing: 0))
             .listRowSeparator(.hidden)
             .listRowBackground(Color.clear)
+    }
+}
+
+// MARK: - Toolbar Plus Button (ContactsTopBar의 PlusButton 동일 외형/동작)
+
+private struct PlusToolbarButton: View {
+    let size: CGFloat
+    let iconSize: CGFloat
+    let normalColor: Color
+    let pressedColor: Color
+    let action: () -> Void
+
+    @State private var isPressed: Bool = false
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .frame(width: size, height: size)
+
+                Image(systemName: "plus")
+                    .font(.system(size: iconSize, weight: .semibold))
+                    .foregroundColor(isPressed ? pressedColor : normalColor)
+            }
+            .frame(width: size, height: size)
+            .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .glassEffect()
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    withAnimation(.easeInOut(duration: 0.12)) { isPressed = true }
+                }
+                .onEnded { _ in
+                    withAnimation(.easeInOut(duration: 0.12)) { isPressed = false }
+                }
+        )
     }
 }
 

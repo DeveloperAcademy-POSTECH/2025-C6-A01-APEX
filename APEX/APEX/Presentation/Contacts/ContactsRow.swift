@@ -120,9 +120,13 @@ private struct BackgroundHoverRowStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         let isPressed = configuration.isPressed
+        let shape = RoundedRectangle(cornerRadius: 20, style: .continuous)
+
         return configuration.label
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isPressed ? pressed : normal)
+            .background(
+                shape.fill(isPressed ? pressed : normal)
+            )
             .brightness(isPressed ? pressedBrightness : 0)
             .scaleEffect(isPressed ? pressedScale : 1.0)
             .animation(.easeInOut(duration: duration), value: isPressed)
