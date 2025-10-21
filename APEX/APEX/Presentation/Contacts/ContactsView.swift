@@ -24,7 +24,7 @@ struct ContactsView: View {
 
     private enum Metrics {
         static let gap: CGFloat = 8
-        static let myProfileRowHeight: CGFloat = 76
+        static let myProfileRowHeight: CGFloat = 72
     }
 
     var body: some View {
