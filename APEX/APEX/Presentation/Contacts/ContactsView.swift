@@ -59,6 +59,7 @@ struct ContactsView: View {
             .scrollContentBackground(.hidden)
             .background(Color("Background"))
         }
+        .border(.red, width: 2.0)
         .apexToast(
             isPresented: $showToast,
             image: Image(systemName: "star"),
