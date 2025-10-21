@@ -28,27 +28,8 @@ struct ContactsView: View {
             ContactsTopBar(title: "Contacts") { onPlusTap() }
 
             List {
-                // My Profile 섹션(헤더 → gap 8 → 내용) — ListSection 스타일과 동일
-                if let profile = myProfile {
-                    ContactsSectionHeader(
-                        title: "My Profile",
-                        count: 0,
-                        isExpanded: $isMyProfileExpanded
-                    )
-                    .applyListRowCleaning()
+                myProfileSection()
 
-                    Rectangle()
-                        .fill(Color.clear)
-                        .frame(height: Metrics.gap)
-                        .applyListRowCleaning()
-
-                    if isMyProfileExpanded {
-                        ContactsRow(client: profile)
-                            .applyListRowCleaning()
-                    }
-                }
-
-                // Favorites 섹션
                 if !favorites.isEmpty {
                     ContactsListSection(
                         title: "Favorites",
@@ -57,11 +38,10 @@ struct ContactsView: View {
                         clients: favorites,
                         onToggleFavorite: { toggleFavorite($0) },
                         onDelete: { deleteClient($0) },
-                        showsSeparatorBelowHeader: true // 섹션 끝 구분선(8) 추가
+                        showsSeparatorBelowHeader: true
                     )
                 }
 
-                // All 섹션
                 ContactsListSection(
                     title: "All",
                     count: allUngrouped.count,
@@ -70,11 +50,11 @@ struct ContactsView: View {
                     groupHeaderTitle: "Ungrouped",
                     onToggleFavorite: { toggleFavorite($0) },
                     onDelete: { deleteClient($0) },
-                    showsSeparatorBelowHeader: false // 구분선 없음
+                    showsSeparatorBelowHeader: false
                 )
             }
             .listStyle(.plain)
-            .listRowSpacing(0) // 시스템 기본 행 간격 제거
+            .listRowSpacing(0) // iOS 16/17+에서 유효. 시스템 기본 행 간격 개입 제거
             .environment(\.defaultMinListRowHeight, 1) // 최소 행 높이 낮춰 간격 통제
             .scrollContentBackground(.hidden)
             .background(Color("Background"))
@@ -88,9 +68,34 @@ struct ContactsView: View {
         ) { }
     }
 
+    // MARK: - Sections
+
+    @ViewBuilder
+    private func myProfileSection() -> some View {
+        Group {
+            if let profile = myProfile {
+                ContactsSectionHeader(
+                    title: "My Profile",
+                    count: 0,
+                    isExpanded: $isMyProfileExpanded
+                )
+                .applyListRowCleaning()
+
+                gapRow()
+
+                if isMyProfileExpanded {
+                    ContactsRow(client: profile)
+                        .applyListRowCleaning()
+                }
+            }
+        }
+    }
+
+    // MARK: - Actions
+
     private func onPlusTap() {
         toastText = "새 연락처 추가를 준비 중입니다"
-        showToast = true
+        presentToast()
     }
 
     private func toggleFavorite(_ client: Client) {
@@ -103,7 +108,7 @@ struct ContactsView: View {
             favorites.append(client)
             toastText = "즐겨찾기를 추가했습니다"
         }
-        showToast = true
+        presentToast()
     }
 
     private func deleteClient(_ client: Client) {
@@ -114,10 +119,35 @@ struct ContactsView: View {
             favorites.remove(at: fidx)
         }
     }
+
+    // MARK: - Small Helpers
+
+    @ViewBuilder
+    private func gapRow() -> some View {
+        Rectangle()
+            .fill(Color.clear)
+            .frame(height: Metrics.gap)
+            .applyListRowCleaning()
+    }
+
+    private func presentToast() {
+        // 빠르게 여러 번 호출되더라도 자연스럽게 다시 나타나도록 재설정
+        if showToast {
+            showToast = false
+            // 약간의 지연 후 다시 true로 전환해 transition이 보장되도록
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
+                showToast = true
+            }
+        } else {
+            showToast = true
+        }
+    }
 }
 
+// MARK: - Utilities (local only)
+
 private extension View {
-    // ContactsListSection의 applyListRowCleaning과 동일
+    // 파일 로컬 전용으로 정의(다른 파일의 동일 이름 private 확장과 충돌 없음)
     func applyListRowCleaning() -> some View {
         self
             .listRowInsets(.init(top: 0, leading: 0, bottom: 0, trailing: 0))
@@ -127,4 +157,3 @@ private extension View {
 }
 
 #Preview { ContactsView() }
-

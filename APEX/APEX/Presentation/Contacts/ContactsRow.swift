@@ -47,12 +47,12 @@ struct ContactsRow: View {
             }
             .padding(.horizontal, Metrics.contentHorizontalPadding)
             .frame(height: Metrics.cellHeight)
-            .contentShape(Rectangle())
+            // label 내부 contentShape는 제거(중복 방지)
         }
         // 기본 Background, 눌림 시 BackgroundHover로 자연스럽게 전환
         .buttonStyle(BackgroundHoverRowStyle())
         .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
+        .contentShape(Rectangle()) // 터치 영역 명확화(외부 한 곳만 유지)
         // 좌측 스와이프: 즐겨찾기 토글
         .swipeActions(edge: .leading, allowsFullSwipe: false) {
             if let onToggleFavorite {
@@ -77,6 +77,7 @@ struct ContactsRow: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(client.name) \(client.surname), \(subtitle)")
+        .accessibilityAddTraits(.isButton) // 행이 버튼 역할임을 명확히
     }
 
     private var subtitle: String {

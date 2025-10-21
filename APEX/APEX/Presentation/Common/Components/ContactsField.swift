@@ -1,10 +1,3 @@
-//
-//  ContactsField.swift
-//  APEX
-//
-//  Created by 조운경 on 10/17/25.
-//
-
 import SwiftUI
 
 struct ContactsField: View {
@@ -70,6 +63,7 @@ struct ContactsField: View {
                         }
                         .padding(.trailing, 4)
                         .padding(.vertical, 9)
+                        .contentShape(Rectangle()) // 탭 영역 명확화
                     }
                     .buttonStyle(UnderlineButtonStyle(normalColor: .gray, pressedColor: theme.lineFocused))
                 } else {
@@ -222,6 +216,8 @@ private struct RegionPicker: View {
                 regionRow(region)
             }
             .listStyle(.plain)
+            .listRowSpacing(0) // Contacts 전체 리스트 간격과 일치
+            .environment(\.defaultMinListRowHeight, 1)
             .searchable(text: $query)
             .navigationTitle("국가 선택")
             .navigationBarTitleDisplayMode(.inline)
@@ -254,6 +250,7 @@ private struct RegionPicker: View {
                 }
             }
             .frame(height: 20)
+            .contentShape(Rectangle()) // 탭 영역 명확화
         }
         .buttonStyle(.plain)
     }

@@ -36,7 +36,7 @@ struct ContactsListSection: View {
                 }
 
                 // 3-2) 연락처 리스트(행 사이 간격은 0, 요구 범위 아님)
-                ForEach(Array(clients.enumerated()), id: \.element.id) { _, client in
+                ForEach(clients) { client in
                     ContactsRow(
                         client: client,
                         onToggleFavorite: { onToggleFavorite(client) },

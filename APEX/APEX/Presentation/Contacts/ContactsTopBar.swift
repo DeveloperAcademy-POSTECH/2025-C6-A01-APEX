@@ -45,14 +45,6 @@ struct ContactsTopBar: View {
                 .fill(separatorColor)
                 .frame(height: 0)
         }
-        .onAppear {
-            for family: String in UIFont.familyNames {
-                            print(family)
-                            for names : String in UIFont.fontNames(forFamilyName: family){
-                                print("=== \(names)")
-                            }
-                        }
-        }
     }
 }
 
@@ -72,7 +64,6 @@ private struct PlusButton: View {
                 Circle()
                     .fill(.ultraThinMaterial)
                     .frame(width: size, height: size)
-                  
 
                 // 아이콘
                 Image(systemName: "plus")
