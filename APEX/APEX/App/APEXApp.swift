@@ -11,10 +11,7 @@ import SwiftUI
 struct APEXApp: App {
     var body: some Scene {
         WindowGroup {
-                        RootView()
-                .border(.yellow, width: 5.0)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .ignoresSafeArea()
+            RootView()
         }
     }
 }

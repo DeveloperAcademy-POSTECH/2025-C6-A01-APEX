@@ -29,7 +29,6 @@ struct RootView: View {
                 
             }
         }
-        .border(.blue, width: 3.0)
     }
 }
 

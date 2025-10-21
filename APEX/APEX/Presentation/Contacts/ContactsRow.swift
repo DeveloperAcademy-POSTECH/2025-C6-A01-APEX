@@ -8,6 +8,10 @@ struct ContactsRow: View {
     var onDelete: (() -> Void)? = nil
     var onTap: (() -> Void)? = nil
 
+    // 새로 추가: 행 높이/부제 오버라이드
+    var rowHeight: CGFloat? = nil
+    var subtitleOverride: String? = nil
+
     // Style tokens
     private enum Metrics {
         static let cellHeight: CGFloat = 64
@@ -46,7 +50,8 @@ struct ContactsRow: View {
                 Spacer(minLength: Metrics.trailingSpacerMin)
             }
             .padding(.horizontal, Metrics.contentHorizontalPadding)
-            .frame(height: Metrics.cellHeight)
+            .frame(height: rowHeight ?? Metrics.cellHeight)
+            .border(.red)
             // label 내부 contentShape는 제거(중복 방지)
         }
         // 기본 Background, 눌림 시 BackgroundHover로 자연스럽게 전환
@@ -81,6 +86,9 @@ struct ContactsRow: View {
     }
 
     private var subtitle: String {
+        if let override = subtitleOverride, !override.isEmpty {
+            return override
+        }
         let trimmed = client.position?.trimmingCharacters(in: .whitespacesAndNewlines)
         if let value = trimmed, !value.isEmpty {
             return value
@@ -138,6 +146,8 @@ private struct BackgroundHoverRowStyle: ButtonStyle {
         client: sampleClients.first!,
         onToggleFavorite: { },
         onDelete: { },
-        onTap: { }
+        onTap: { },
+        rowHeight: 76,
+        subtitleOverride: "My Profile"
     )
 }

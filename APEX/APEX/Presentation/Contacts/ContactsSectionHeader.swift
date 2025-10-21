@@ -38,6 +38,7 @@ struct ContactsSectionHeader: View {
             .contentShape(Rectangle())
             .scaleEffect(pressed ? 0.98 : 1.0)
             .animation(.easeInOut(duration: 0.12), value: pressed)
+            .border(.blue)
         }
         .buttonStyle(.plain)
         .simultaneousGesture(

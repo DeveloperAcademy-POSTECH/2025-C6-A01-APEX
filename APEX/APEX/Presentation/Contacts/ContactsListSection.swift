@@ -15,7 +15,8 @@ struct ContactsListSection: View {
     private enum Metrics {
         static let groupTitleHeight: CGFloat = 20
         static let horizontalPadding: CGFloat = 16
-        static let gap: CGFloat = 8
+        static let gap: CGFloat = 8                 // 기본 간격(헤더 아래, 기타)
+        static let groupGapAfterTitle: CGFloat = 4  // Ungrouped 아래 전용 간격
         static let separatorHeight: CGFloat = 8
     }
 
@@ -29,13 +30,13 @@ struct ContactsListSection: View {
 
             // 3) 펼침 상태일 때 내용
             if isExpanded {
-                // 3-1) 그룹 헤더(예: Ungrouped) 앞뒤 간격 8 유지
+                // 3-1) 그룹 헤더(예: Ungrouped)
                 if let groupHeaderTitle {
                     groupHeaderRow(title: groupHeaderTitle)
-                    gapRow
+                    groupGapRow // 그룹 헤더 아래만 4로 축소
                 }
 
-                // 3-2) 연락처 리스트(행 사이 간격은 0, 요구 범위 아님)
+                // 3-2) 연락처 리스트(행 사이 간격은 0)
                 ForEach(clients) { client in
                     ContactsRow(
                         client: client,
@@ -75,13 +76,22 @@ struct ContactsListSection: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, Metrics.horizontalPadding)
             .applyListRowCleaning()
+            .border(.yellow)
     }
 
-    // 8pt 고정 간격(독립 row) — Color.clear 대신 Rectangle(.clear) 사용
+    // 기본 8pt gap
     private var gapRow: some View {
         Rectangle()
             .fill(Color.clear)
             .frame(height: Metrics.gap)
+            .applyListRowCleaning()
+    }
+
+    // Ungrouped 아래 전용 4pt gap
+    private var groupGapRow: some View {
+        Rectangle()
+            .fill(Color.clear)
+            .frame(height: Metrics.groupGapAfterTitle)
             .applyListRowCleaning()
     }
 
@@ -136,9 +146,8 @@ private extension View {
                 )
             }
             .listStyle(.plain)
-            // 권장: 시스템 기본 행 간격 개입 최소화
-            .listRowSpacing(0) // iOS 16/17+에서 유효
-            .environment(\.defaultMinListRowHeight, 1) // 필요 시 최소 행 높이 낮춤
+            .listRowSpacing(0)
+            .environment(\.defaultMinListRowHeight, 1)
         }
     }
     return Wrapper()

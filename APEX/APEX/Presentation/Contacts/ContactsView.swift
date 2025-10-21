@@ -8,11 +8,14 @@
 import SwiftUI
 
 struct ContactsView: View {
-    @State private var myProfile: Client? = nil
+    @State private var myProfile: Client? = {
+        // 실제 사용자 프로필로 교체하세요.
+        sampleClients.first
+    }()
+
     @State private var favorites: [Client] = sampleClients.filter { $0.favorite }
     @State private var allUngrouped: [Client] = sampleClients
 
-    @State private var isMyProfileExpanded: Bool = true
     @State private var isFavoritesExpanded: Bool = true
     @State private var isAllExpanded: Bool = true
 
@@ -21,19 +24,28 @@ struct ContactsView: View {
 
     private enum Metrics {
         static let gap: CGFloat = 8
-        // ContactsTopBar와 동일 수치
-        static let barContentHeight: CGFloat = 44
-        static let barHorizontalPadding: CGFloat = 16
-        static let barVerticalPadding: CGFloat = 8
-        static let plusButtonSize: CGFloat = 44
-        static let plusIconSize: CGFloat = 20
+        static let myProfileRowHeight: CGFloat = 76
     }
 
     var body: some View {
         NavigationStack {
             List {
-                myProfileSection()
+                // MARK: - My Profile (TopBar와 0 간격, Favorites와는 8 간격)
+                if let profile = myProfile {
+                    ContactsRow(
+                        client: profile,
+                        onToggleFavorite: nil,
+                        onDelete: nil,
+                        onTap: nil,
+                        rowHeight: Metrics.myProfileRowHeight,
+                        subtitleOverride: "My Profile"
+                    )
+                    .applyListRowCleaning()
 
+                    gapRow() // Favorites와 8 간격
+                }
+
+                // MARK: - Favorites
                 if !favorites.isEmpty {
                     ContactsListSection(
                         title: "Favorites",
@@ -46,6 +58,7 @@ struct ContactsView: View {
                     )
                 }
 
+                // MARK: - All / Ungrouped
                 ContactsListSection(
                     title: "All",
                     count: allUngrouped.count,
@@ -65,40 +78,15 @@ struct ContactsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(Color("Background"), for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
-            .toolbar {
-                // principal에 가로 폭을 '강제'로 꽉 채워 좌/우 끝으로 보내기
-                ToolbarItem(placement: .principal) {
-                    ZStack { // 네비바가 중앙 정렬하려는 성향을 상쇄하기 위한 래퍼
-                        HStack(spacing: 0) {
-                            // 타이틀 (좌측 정렬, 가변 폭)
-                            Text("Contacts")
-                                .font(.title1)
-                                .foregroundColor(Color("Dark"))
-                                .frame(maxWidth: .infinity, alignment: .leading)
-
-                            // 우측 + 버튼 (고정 폭/높이로 오른쪽 끝에 고정)
-                            PlusToolbarButton(
-                                size: Metrics.plusButtonSize,
-                                iconSize: Metrics.plusIconSize,
-                                normalColor: Color("Primary"),
-                                pressedColor: Color("PrimaryHover"),
-                                action: onPlusTap
-                            )
-                            .frame(width: Metrics.plusButtonSize, height: Metrics.plusButtonSize, alignment: .trailing)
-                            .accessibilityLabel(Text("추가"))
-                        }
-                        .frame(height: Metrics.barContentHeight)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, Metrics.barHorizontalPadding)
-                        .padding(.vertical, Metrics.barVerticalPadding)
-                        .contentShape(Rectangle())
-                    }
-                    .frame(maxWidth: .infinity) // principal 컨테이너 자체도 가로 전체 사용
-                    .background(Color("Background"))
-                }
-            }
         }
         .background(Color("Background"))
+        .safeAreaInset(edge: .top) {
+            ContactsTopBarReplica(
+                title: "Contacts",
+                onPlus: onPlusTap
+            )
+            .background(Color("Background"))
+        }
         .apexToast(
             isPresented: $showToast,
             image: Image(systemName: "star"),
@@ -106,29 +94,6 @@ struct ContactsView: View {
             buttonTitle: "되돌리기",
             duration: 1.6
         ) { }
-    }
-
-    // MARK: - Sections
-
-    @ViewBuilder
-    private func myProfileSection() -> some View {
-        Group {
-            if let profile = myProfile {
-                ContactsSectionHeader(
-                    title: "My Profile",
-                    count: 0,
-                    isExpanded: $isMyProfileExpanded
-                )
-                .applyListRowCleaning()
-
-                gapRow()
-
-                if isMyProfileExpanded {
-                    ContactsRow(client: profile)
-                        .applyListRowCleaning()
-                }
-            }
-        }
     }
 
     // MARK: - Actions
@@ -168,6 +133,7 @@ struct ContactsView: View {
             .applyListRowCleaning()
     }
 
+    // 토스트를 재표시하기 위한 헬퍼(표시 중에도 다시 트리거 가능)
     private func presentToast() {
         if showToast {
             showToast = false
@@ -191,7 +157,49 @@ private extension View {
     }
 }
 
-// MARK: - Toolbar Plus Button (ContactsTopBar의 PlusButton 동일 외형/동작)
+// MARK: - TopBar Replica (툴바 슬롯을 대체하는 안전영역 상단 커스텀 바)
+
+private struct ContactsTopBarReplica: View {
+    let title: String
+    let onPlus: () -> Void
+
+    private enum Metrics {
+        static let barContentHeight: CGFloat = 44
+        static let barHorizontalPadding: CGFloat = 16
+        static let barVerticalPadding: CGFloat = 8
+        static let plusButtonSize: CGFloat = 44
+        static let plusIconSize: CGFloat = 20
+    }
+
+    var body: some View {
+        ZStack {
+            HStack(spacing: 0) {
+                Text(title)
+                    .font(.title1)
+                    .foregroundColor(Color("Dark"))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                PlusToolbarButton(
+                    size: Metrics.plusButtonSize,
+                    iconSize: Metrics.plusIconSize,
+                    normalColor: Color("Primary"),
+                    pressedColor: Color("PrimaryHover"),
+                    action: onPlus
+                )
+                .frame(width: Metrics.plusButtonSize, height: Metrics.plusButtonSize, alignment: .trailing)
+                .accessibilityLabel(Text("추가"))
+            }
+            .frame(height: Metrics.barContentHeight)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, Metrics.barHorizontalPadding)
+            .padding(.vertical, Metrics.barVerticalPadding)
+            .contentShape(Rectangle())
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+// MARK: - Toolbar Plus Button
 
 private struct PlusToolbarButton: View {
     let size: CGFloat
