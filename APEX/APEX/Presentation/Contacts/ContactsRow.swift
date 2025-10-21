@@ -22,8 +22,6 @@ struct ContactsRow: View {
     // 임시 디폴트(직책 없음 표시) - 나중에 제거/변경하기 쉽게 상수로 분리
     private static let placeholderSubtitle = "Designer"
 
-    private var labelGray: Color { Color("Gray") }
-
     var body: some View {
         Button {
             onTap?()
