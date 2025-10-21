@@ -82,7 +82,7 @@ struct APEXSheetTopBar: View {
 
         return Button(action: onRightTap) {
             Text(rightTitle)
-                .font(.body4)
+                .font(.title6)
         }
         .buttonStyle(
             TopBarTextButtonStyle(
