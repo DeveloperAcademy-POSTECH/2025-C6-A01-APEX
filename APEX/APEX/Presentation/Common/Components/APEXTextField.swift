@@ -111,6 +111,7 @@ struct APEXTextField: View {
     private var isRequired: Bool
     private var isDisabled: Bool
     private var showsClearButton: Bool
+    private var maxLength: Int?
     private var onEditingEndValidate: ((String) -> APEXTextFieldState)?
     private var success: Bool?
     private var error: Bool?
@@ -129,6 +130,7 @@ struct APEXTextField: View {
         text: Binding<String>,
         isRequired: Bool = false,
         guide: String? = nil,
+        maxLength: Int? = nil,
         showSuccess: Bool? = nil,
         showError: Bool? = nil
     ) {
@@ -140,6 +142,7 @@ struct APEXTextField: View {
         self.isRequired = isRequired
         self.isDisabled = false
         self.showsClearButton = true
+        self.maxLength = maxLength
         self.onEditingEndValidate = nil
         self.success = showSuccess
         self.error = showError
@@ -155,6 +158,7 @@ struct APEXTextField: View {
         isRequired: Bool = false,
         isDisabled: Bool = false,
         showsClearButton: Bool = true,
+        maxLength: Int? = nil,
         onEditingEndValidate: ((String) -> APEXTextFieldState)? = nil,
         showSuccess: Bool? = nil,
         showError: Bool? = nil
@@ -167,6 +171,7 @@ struct APEXTextField: View {
         self.isRequired = isRequired
         self.isDisabled = isDisabled
         self.showsClearButton = showsClearButton
+        self.maxLength = maxLength
         self.onEditingEndValidate = onEditingEndValidate
         self.success = showSuccess
         self.error = showError
@@ -196,11 +201,23 @@ struct APEXTextField: View {
                 multiLineEditor(minHeight: minHeight)
             }
 
-            if let helper = helperText, !helper.isEmpty {
-                Text(helper)
-                    .font(theme.helperFont)
-                    .foregroundColor(helperColor)
-                    .padding(.top, 4)
+            if shouldShowFooterRow {
+                HStack {
+                    if let helper = helperText, !helper.isEmpty {
+                        Text(helper)
+                            .font(theme.helperFont)
+                            .foregroundColor(helperColor)
+                    }
+
+                    Spacer()
+
+                    if let max = editorMaxLength {
+                        Text("\(text.count)/\(max)")
+                            .font(.body5)
+                            .foregroundColor(text.count > max ? theme.errorColor : theme.helperColor)
+                    }
+                }
+                .padding(.top, 4)
             }
         }
         .opacity(isDisabled ? 0.6 : 1)
@@ -270,6 +287,16 @@ struct APEXTextField: View {
     }
 
     private var helperText: String? { effectiveState.helperText }
+
+    private var editorMaxLength: Int? {
+        if case .multiLine = kind { return maxLength }
+        return nil
+    }
+
+    private var shouldShowFooterRow: Bool {
+        let hasHelper = (helperText?.isEmpty == false)
+        return hasHelper || editorMaxLength != nil
+    }
 
     private var showSuccessIcon: Bool {
         if case .success = effectiveState { return true }
@@ -346,47 +373,4 @@ struct APEXTextField: View {
     }
 }
 
-#Preview {
-    struct PreviewContainer: View {
-        @State var text1: String = ""
-        @State var text2: String = ""
-        @State var intro: String = ""
-
-        var body: some View {
-            VStack(spacing: 24) {
-                APEXTextField(
-                    style: .field,
-                    label: "성 / Surname",
-                    placeholder: "성 입력",
-                    text: $text1,
-                    isRequired: true,
-                    guide: "안내문구"
-                )
-                .padding()
-
-                APEXTextField(
-                    kind: .singleLine,
-                    placeholder: "닉네임 입력",
-                    text: $text2,
-                )
-                .apexTextFieldTheme(
-                    .init(
-                        successColor: Color("Primary"),
-                        lineFocused: Color("Primary")
-                    )
-                )
-
-                APEXTextField(
-                    kind: .multiLine(minHeight: 144),
-                    label: "소개 / Bio",
-                    placeholder: "자기소개를 입력해주세요",
-                    text: $intro,
-                    state: .normal(helper: "최대 200자")
-                )
-            }
-            .padding()
-        }
-    }
-
-    return PreviewContainer()
-}
+// Preview removed to keep file concise.
