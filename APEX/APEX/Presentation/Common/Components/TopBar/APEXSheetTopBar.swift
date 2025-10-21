@@ -57,10 +57,6 @@ struct APEXSheetTopBar: View {
                     .padding(.horizontal, 12)
                     .allowsHitTesting(false)
             }
-
-            Rectangle()
-                .fill(separator)
-                .frame(height: 1)
         }
     }
 
