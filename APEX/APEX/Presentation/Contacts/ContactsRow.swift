@@ -51,7 +51,6 @@ struct ContactsRow: View {
             }
             .padding(.horizontal, Metrics.contentHorizontalPadding)
             .frame(height: rowHeight ?? Metrics.cellHeight)
-            .border(.red)
             // label 내부 contentShape는 제거(중복 방지)
         }
         // 기본 Background, 눌림 시 BackgroundHover로 자연스럽게 전환
