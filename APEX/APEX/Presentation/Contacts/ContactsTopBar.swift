@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Contacts 전용 상단 타이틀바
+/// Contacts 전용 상단 타이틀바 (리스트와 시각적으로 '붙어' 보이도록 분리선/그림자 없음)
 struct ContactsTopBar: View {
     var title: String = "Contacts"
     var onPlus: () -> Void
@@ -12,7 +12,6 @@ struct ContactsTopBar: View {
 
     // Colors (확정된 Asset 이름 사용)
     private var backgroundColor: Color { Color("Background") }
-    private var separatorColor: Color { Color("BackgroundDisabled") }
     private var titleColor: Color { Color("Dark") }
     private var plusNormalColor: Color { Color("Primary") }
     private var plusPressedColor: Color { Color("PrimaryHover") }
@@ -40,11 +39,9 @@ struct ContactsTopBar: View {
             .padding(.horizontal, horizontalPadding)
             .padding(.vertical, verticalPadding)
             .background(backgroundColor)
-
-            Rectangle()
-                .fill(separatorColor)
-                .frame(height: 1)
         }
+        // 분리감 방지를 위해 하단 구분선/그림자 없음
+        .background(backgroundColor)
     }
 }
 
@@ -64,11 +61,6 @@ private struct PlusButton: View {
                 Circle()
                     .fill(.ultraThinMaterial)
                     .frame(width: size, height: size)
-                    .overlay(
-                        Circle()
-                            .stroke(Color.white.opacity(0.12), lineWidth: 0.5)
-                    )
-                    .shadow(color: .black.opacity(0.06), radius: 10, x: 0, y: 4)
 
                 // 아이콘
                 Image(systemName: "plus")
@@ -79,6 +71,7 @@ private struct PlusButton: View {
             .contentShape(Circle())
         }
         .buttonStyle(.plain)
+        .glassEffect()
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in

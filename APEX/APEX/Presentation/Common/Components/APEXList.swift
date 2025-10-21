@@ -106,7 +106,7 @@ struct APEXListRow: View {
             avatar
             VStack(alignment: .leading, spacing: 2) {
                 Text(fullName)
-                    .font(.body1)
+                    .font(.body2)
                     .foregroundColor(.primary)
                     .lineLimit(1)
 
@@ -120,9 +120,9 @@ struct APEXListRow: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.gray)
         }
-        .frame(height: 56)
+        .frame(height: 64)
         .contentShape(Rectangle())
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 0)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(fullName), \(subtitle)")
     }
@@ -139,7 +139,7 @@ struct APEXListRow: View {
                     .scaledToFit()
             }
         }
-        .frame(width: 40, height: 40)
+        .frame(width: 48, height: 48)
     }
 }
 
