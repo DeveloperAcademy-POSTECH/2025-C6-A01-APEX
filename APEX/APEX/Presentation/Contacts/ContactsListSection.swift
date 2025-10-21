@@ -10,49 +10,32 @@ struct ContactsListSection: View {
     var onToggleFavorite: (Client) -> Void
     var onDelete: ((Client) -> Void)? = nil
     var onTapRow: ((Client) -> Void)? = nil
-    var showsSeparatorBelowHeader: Bool = false   // 이 섹션 끝에 구분선 표시 여부(Favorites만 true)
+    var showsSeparatorBelowHeader: Bool = false   // Favorites만 true (섹션 하단에 색 있는 구분선 표시)
 
-    private enum Insets {
-        static let zero = EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0)
+    private enum Metrics {
+        static let groupTitleHeight: CGFloat = 20
+        static let horizontalPadding: CGFloat = 16
+        static let gap: CGFloat = 8
+        static let separatorHeight: CGFloat = 8
     }
 
-    private let groupTitleHeight: CGFloat = 20
-
     var body: some View {
-        // 구분선 위치 결정
-        let shouldShowHeaderSeparator = showsSeparatorBelowHeader && (!isExpanded || clients.isEmpty)
-        let shouldShowBottomSeparator = showsSeparatorBelowHeader && isExpanded && !clients.isEmpty
+        Group {
+            // 1) 섹션 헤더
+            headerRow
 
-        Section {
-            // 1) 헤더
-            ContactsSectionHeader(
-                title: title,
-                count: count ?? 0,
-                isExpanded: $isExpanded
-            )
-            .listRowInsets(Insets.zero)
-            .listRowSeparator(.hidden)
-            .listRowBackground(Color.clear)
+            // 2) 헤더 아래 고정 간격 8
+            gapRow
 
-            // 접힘/비어있음: 헤더 바로 뒤 구분선
-            if shouldShowHeaderSeparator {
-                separatorRow
-            }
-
-            // 2) 펼쳐졌을 때 그룹 타이틀/셀
+            // 3) 펼침 상태일 때 내용
             if isExpanded {
+                // 3-1) 그룹 헤더(예: Ungrouped) 앞뒤 간격 8 유지
                 if let groupHeaderTitle {
-                    Text(groupHeaderTitle)
-                        .font(.body1)
-                        .foregroundColor(.primary)
-                        .frame(height: groupTitleHeight)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 16)
-                        .listRowInsets(Insets.zero)
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
+                    groupHeaderRow(title: groupHeaderTitle)
+                    gapRow
                 }
 
+                // 3-2) 연락처 리스트(행 사이 간격은 0, 요구 범위 아님)
                 ForEach(Array(clients.enumerated()), id: \.element.id) { _, client in
                     ContactsRow(
                         client: client,
@@ -60,27 +43,63 @@ struct ContactsListSection: View {
                         onDelete: { onDelete?(client) },
                         onTap: { onTapRow?(client) }
                     )
-                    .listRowSeparator(.hidden)
-                    .listRowInsets(Insets.zero)
-                    .listRowBackground(Color.clear)
+                    .applyListRowCleaning()
                 }
 
-                // 3) 마지막 셀 아래 구분선
-                if shouldShowBottomSeparator {
-                    separatorRow
+                // 3-3) Favorites 전용: 마지막 연락처 셀 ↔ 구분선 간격 8, 그리고 구분선 ↔ 다음 섹션(All 헤더) 간격 8
+                if showsSeparatorBelowHeader, !clients.isEmpty {
+                    gapRow                  // 마지막 연락처 셀과 구분선 사이 8
+                    separatorBarRow         // 색 있는 구분선(높이 8)
+                    gapRow                  // 구분선과 다음 섹션(=All 헤더) 사이 8
                 }
             }
         }
-        // 섹션 단위 기본 간격 제거(iOS 16+)
-        .listSectionSeparator(.hidden)
-        .listRowSpacing(0)
     }
 
-    private var separatorRow: some View {
+    // MARK: - Subviews
+
+    private var headerRow: some View {
+        ContactsSectionHeader(
+            title: title,
+            count: count ?? 0,
+            isExpanded: $isExpanded
+        )
+        .applyListRowCleaning()
+    }
+
+    private func groupHeaderRow(title: String) -> some View {
+        Text(title)
+            .font(.body1)
+            .foregroundColor(.primary)
+            .frame(height: Metrics.groupTitleHeight)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, Metrics.horizontalPadding)
+            .applyListRowCleaning()
+    }
+
+    // 8pt 고정 간격(독립 row) — Color.clear 대신 Rectangle(.clear) 사용
+    private var gapRow: some View {
+        Rectangle()
+            .fill(Color.clear)
+            .frame(height: Metrics.gap)
+            .applyListRowCleaning()
+    }
+
+    // 색 있는 구분선(독립 row)
+    private var separatorBarRow: some View {
         Rectangle()
             .fill(Color("BackgroundSecondary"))
-            .frame(height: 8)
-            .listRowInsets(Insets.zero)
+            .frame(height: Metrics.separatorHeight)
+            .applyListRowCleaning()
+    }
+}
+
+// MARK: - View Modifiers (공통 list row 정리)
+
+private extension View {
+    func applyListRowCleaning() -> some View {
+        self
+            .listRowInsets(.init(top: 0, leading: 0, bottom: 0, trailing: 0))
             .listRowSeparator(.hidden)
             .listRowBackground(Color.clear)
     }
@@ -88,31 +107,38 @@ struct ContactsListSection: View {
 
 #Preview {
     struct Wrapper: View {
-        @State var expanded = true
+        @State var expandedFavorites = true
+        @State var expandedAll = true
+
         var body: some View {
             List {
+                // Favorites
                 ContactsListSection(
                     title: "Favorites",
                     count: 4,
-                    isExpanded: $expanded,
+                    isExpanded: $expandedFavorites,
                     clients: sampleClients,
                     onToggleFavorite: { _ in },
                     onDelete: { _ in },
-                    showsSeparatorBelowHeader: true // Favorites만 true
+                    showsSeparatorBelowHeader: true // Favorites만 구분선 표시
                 )
 
+                // All
                 ContactsListSection(
                     title: "All",
                     count: 600,
-                    isExpanded: $expanded,
+                    isExpanded: $expandedAll,
                     clients: sampleClients,
                     groupHeaderTitle: "Ungrouped",
                     onToggleFavorite: { _ in },
                     onDelete: { _ in },
-                    showsSeparatorBelowHeader: false // All에는 구분선 없음
+                    showsSeparatorBelowHeader: false // All에는 하단 구분선 없음
                 )
             }
             .listStyle(.plain)
+            // 권장: 시스템 기본 행 간격 개입 최소화
+            .listRowSpacing(0) // iOS 16/17+에서 유효
+            .environment(\.defaultMinListRowHeight, 1) // 필요 시 최소 행 높이 낮춤
         }
     }
     return Wrapper()

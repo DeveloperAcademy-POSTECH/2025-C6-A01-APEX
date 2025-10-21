@@ -13,7 +13,6 @@ struct ContactsSectionHeader: View {
         static let titleCountSpacing: CGFloat = 4
         static let chevronSize: CGFloat = 14
         static let tappableSize: CGFloat = 36    // 최소 터치 영역
-        static let headerHeight: CGFloat = 36
     }
 
     @State private var pressed: Bool = false
@@ -35,7 +34,7 @@ struct ContactsSectionHeader: View {
                     .accessibilityHidden(true)
             }
             .padding(.horizontal, Metrics.horizontalPadding) // 좌우 16
-            .frame(height: Metrics.headerHeight) // 헤더 높이 36
+            .frame(height: 36) // 헤더 높이 36
             .contentShape(Rectangle())
             .scaleEffect(pressed ? 0.98 : 1.0)
             .animation(.easeInOut(duration: 0.12), value: pressed)
@@ -50,12 +49,9 @@ struct ContactsSectionHeader: View {
         .accessibilityAddTraits(.isHeader)
         .accessibilityLabel(accessibilityTitle)
         .accessibilityHint(accessibilityHint)
-        // List 기본 여백/구분선 제거(필수 강제)
         .listRowInsets(.init(top: 0, leading: 0, bottom: 0, trailing: 0))
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
-        // 필요 시 All 헤더에만 시각적 접착 보정(-1) 적용할 수 있음.
-        // .padding(.top, -1)
     }
 
     // MARK: - Subviews

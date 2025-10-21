@@ -1,13 +1,14 @@
 import SwiftUI
 
-/// 연락처 리스트의 한 행(공통)
+/// 연락처 리스트의 한 행(공통) - 플랫 스타일
+/// 기본 배경: Background, 눌림 시: BackgroundHover로 자연스럽게 전환
 struct ContactsRow: View {
     let client: Client
     var onToggleFavorite: (() -> Void)? = nil
     var onDelete: (() -> Void)? = nil
     var onTap: (() -> Void)? = nil
 
-    // Style tokens (확정 스펙 반영)
+    // Style tokens
     private enum Metrics {
         static let cellHeight: CGFloat = 64
         static let avatarSize: CGFloat = 48
@@ -16,10 +17,9 @@ struct ContactsRow: View {
         static let nameSubtitleSpacing: CGFloat = 2
         static let contentHorizontalPadding: CGFloat = 16
         static let trailingSpacerMin: CGFloat = 8
-        static let cornerRadius: CGFloat = 4
     }
 
-    // 임시 디폴트(직책 없음 표시) - 나중에 제거/변경하기 쉽게 상수로 분리
+    // 임시 디폴트(직책 없음 표시)
     private static let placeholderSubtitle = "Designer"
 
     var body: some View {
@@ -29,7 +29,6 @@ struct ContactsRow: View {
             HStack(alignment: .center, spacing: Metrics.hStackSpacing) {
                 avatar
 
-                // 텍스트 박스(이름/서브타이틀) 높이 38 고정, 수직 중앙 정렬
                 VStack(alignment: .leading, spacing: Metrics.nameSubtitleSpacing) {
                     Text("\(client.name) \(client.surname)")
                         .font(.body2)
@@ -40,7 +39,6 @@ struct ContactsRow: View {
                         .font(.body6)
                         .foregroundColor(.gray)
                         .lineLimit(1)
-                        
                 }
                 .frame(height: Metrics.textBoxHeight)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -48,13 +46,12 @@ struct ContactsRow: View {
                 Spacer(minLength: Metrics.trailingSpacerMin)
             }
             .padding(.horizontal, Metrics.contentHorizontalPadding)
-            .frame(height: Metrics.cellHeight) // 셀 전체 높이 64 고정
+            .frame(height: Metrics.cellHeight)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        // 기본 Background, 눌림 시 BackgroundHover로 자연스럽게 전환
+        .buttonStyle(BackgroundHoverRowStyle())
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.clear)
-        .cornerRadius(Metrics.cornerRadius)
         .contentShape(Rectangle())
         // 좌측 스와이프: 즐겨찾기 토글
         .swipeActions(edge: .leading, allowsFullSwipe: false) {
@@ -87,7 +84,6 @@ struct ContactsRow: View {
         if let value = trimmed, !value.isEmpty {
             return value
         } else {
-            // 직책이 없을 때 임시 표시
             return Self.placeholderSubtitle
         }
     }
@@ -106,6 +102,29 @@ struct ContactsRow: View {
         }
         .frame(width: Metrics.avatarSize, height: Metrics.avatarSize)
         .clipShape(Circle())
+    }
+}
+
+// MARK: - ButtonStyle: Background ↔ BackgroundHover 전환(자연스러운 눌림 감)
+
+private struct BackgroundHoverRowStyle: ButtonStyle {
+    // 컬러 자산(프로젝트에 존재하는 키 사용)
+    private let normal = Color("Background")
+    private let pressed = Color("BackgroundHover")
+
+    // 미세한 눌림 감(과하지 않게)
+    private let pressedBrightness: CGFloat = -0.015
+    private let pressedScale: CGFloat = 0.997
+    private let duration: Double = 0.12
+
+    func makeBody(configuration: Configuration) -> some View {
+        let isPressed = configuration.isPressed
+        return configuration.label
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(isPressed ? pressed : normal)
+            .brightness(isPressed ? pressedBrightness : 0)
+            .scaleEffect(isPressed ? pressedScale : 1.0)
+            .animation(.easeInOut(duration: duration), value: isPressed)
     }
 }
 

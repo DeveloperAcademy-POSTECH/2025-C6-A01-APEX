@@ -72,11 +72,7 @@ private struct PlusButton: View {
                 Circle()
                     .fill(.ultraThinMaterial)
                     .frame(width: size, height: size)
-                    .overlay(
-                        Circle()
-                            .stroke(Color.white.opacity(0.12), lineWidth: 0.5)
-                    )
-                    .shadow(color: .black.opacity(0.06), radius: 10, x: 0, y: 4)
+                  
 
                 // 아이콘
                 Image(systemName: "plus")
@@ -87,6 +83,7 @@ private struct PlusButton: View {
             .contentShape(Circle())
         }
         .buttonStyle(.plain)
+        .glassEffect()
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in

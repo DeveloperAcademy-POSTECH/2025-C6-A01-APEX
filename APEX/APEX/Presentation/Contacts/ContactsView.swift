@@ -79,9 +79,9 @@ struct ContactsView: View {
         }
         .apexToast(
             isPresented: $showToast,
-            image: Image(systemName: "plus"),
-            text: "준비 중입니다",
-            buttonTitle: "확인",
+            image: Image(systemName: "star"),
+            text: "즐겨찾기를 추가했습니다",
+            buttonTitle: "되돌리기",
             duration: 1.6
         ) { }
     }
@@ -94,6 +94,8 @@ struct ContactsView: View {
         } else {
             favorites.append(client)
         }
+        // 즐겨찾기 토글 시 토스트 표시
+        showToast = true
     }
 
     private func deleteClient(_ client: Client) {
@@ -107,3 +109,4 @@ struct ContactsView: View {
 }
 
 #Preview { ContactsView() }
+
