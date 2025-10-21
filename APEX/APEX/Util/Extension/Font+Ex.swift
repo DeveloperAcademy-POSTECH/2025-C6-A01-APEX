@@ -17,17 +17,18 @@ extension Font {
         var fontName: String {
             switch self {
             case .regular:
-                return "PretandardVariable-Regular"
+                return "PretendardVariable-Regular"
             case .medium:
-                return "PretandardVariable-Medium"
+                return "PretendardVariable-Medium"
             case .semibold:
                 return "PretendardVariable-SemiBold"
             case .bold:
-                return "PretandardVariable-Bold"
+                return "PretendardVariable-Bold"
             }
         }
     }
     
+    // Kept the function name 'pretandard' to avoid breaking existing call sites.
     static func pretandard(_ weight: PretendardWeight, size: CGFloat) -> Font {
         return .custom(weight.fontName, size: size)
     }

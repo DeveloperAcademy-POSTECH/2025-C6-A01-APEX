@@ -76,7 +76,6 @@ struct ContactsListSection: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, Metrics.horizontalPadding)
             .applyListRowCleaning()
-            .border(.yellow)
     }
 
     // 기본 8pt gap
