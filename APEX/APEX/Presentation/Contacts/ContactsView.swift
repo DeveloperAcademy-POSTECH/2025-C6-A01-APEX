@@ -58,17 +58,8 @@ struct ContactsView: View {
                     )
                 }
 
-                // MARK: - All / Ungrouped
-                ContactsListSection(
-                    title: "All",
-                    count: allUngrouped.count,
-                    isExpanded: $isAllExpanded,
-                    clients: allUngrouped,
-                    groupHeaderTitle: "Ungrouped",
-                    onToggleFavorite: { toggleFavorite($0) },
-                    onDelete: { deleteClient($0) },
-                    showsSeparatorBelowHeader: false
-                )
+                // MARK: - All (회사별 그룹핑을 All 섹션 안에 렌더링)
+                allCompanySectionsInsideAll
             }
             .listStyle(.plain)
             .listRowSpacing(0)
@@ -94,6 +85,54 @@ struct ContactsView: View {
             buttonTitle: "되돌리기",
             duration: 1.6
         ) { }
+    }
+
+    // MARK: - All 섹션 안에 회사별 그룹핑 렌더링
+    private var allCompanySectionsInsideAll: some View {
+        // 1) company 값 기준으로 그룹화
+        let groups = Dictionary(grouping: allUngrouped) { (client: Client) -> String in
+            let trimmed = client.company.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? "None" : trimmed
+        }
+
+        // 2) 키 정렬: "None"은 존재할 때만 맨 뒤, 나머지는 오름차순
+        let sortedKeys: [String] = {
+            let nonNone = groups.keys.filter { $0 != "None" }.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+            let none = groups.keys.contains("None") ? ["None"] : []
+            return nonNone + none
+        }()
+
+        return Group {
+            // All 섹션 헤더
+            ContactsSectionHeader(
+                title: "All",
+                count: allUngrouped.count,
+                isExpanded: $isAllExpanded
+            )
+            .applyListRowCleaning()
+
+            // 헤더 아래 간격 8
+            gapRow()
+
+            // 펼쳐져 있을 때만 회사별 그룹 렌더링
+            if isAllExpanded {
+                ForEach(sortedKeys, id: \.self) { key in
+                    if let clients = groups[key] {
+                        ContactsListSection(
+                            title: "", // All 헤더를 별도로 그렸으므로 내부 타이틀은 비움
+                            count: clients.count,
+                            isExpanded: .constant(true), // 하위 그룹은 항상 펼침(원하면 개별 토글도 가능)
+                            clients: clients,
+                            groupHeaderTitle: key,
+                            groupHeaderColor: (key == "None") ? .blue : .black, // None은 파랑, 회사명은 검정
+                            onToggleFavorite: { toggleFavorite($0) },
+                            onDelete: { deleteClient($0) },
+                            showsSeparatorBelowHeader: false
+                        )
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - Actions

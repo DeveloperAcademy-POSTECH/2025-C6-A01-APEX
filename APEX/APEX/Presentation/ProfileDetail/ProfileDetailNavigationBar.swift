@@ -21,6 +21,7 @@ struct ProfileDetailNavigationBar: View {
     private enum Metrics {
         static let totalHeight: CGFloat = 40
         static let contentHeight: CGFloat = 24
+        static let iconHeight: CGFloat = 44
         static let horizontalPadding: CGFloat = 16
         static let verticalPadding: CGFloat = 8
         static let tappableSize: CGFloat = 26
@@ -65,7 +66,6 @@ struct ProfileDetailNavigationBar: View {
                 .font(.system(size: Metrics.iconSize, weight: .semibold))
                 .foregroundColor(.black)
                 .frame(width: Metrics.tappableSize, height: Metrics.tappableSize)
-                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .glassEffect()
