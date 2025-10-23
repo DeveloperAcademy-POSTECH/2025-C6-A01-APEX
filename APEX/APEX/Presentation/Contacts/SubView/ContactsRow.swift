@@ -102,6 +102,7 @@ struct ContactsRow: View {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
+                    .frame(width: 48, height: 48)
             } else {
                 Image("ProfileS")
                     .resizable()
