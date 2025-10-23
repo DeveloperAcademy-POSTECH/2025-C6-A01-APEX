@@ -21,6 +21,7 @@ struct ContactsView: View {
 
     @State private var showToast: Bool = false
     @State private var toastText: String = "즐겨찾기를 추가했습니다"
+    @State private var isProfileAddPresented: Bool = false
 
     private enum Metrics {
         static let gap: CGFloat = 8
@@ -64,7 +65,8 @@ struct ContactsView: View {
                     count: allUngrouped.count,
                     isExpanded: $isAllExpanded,
                     clients: allUngrouped,
-                    groupHeaderTitle: "Ungrouped",
+                    groupHeaderTitle: nil,
+                    groupByCompany: true,
                     onToggleFavorite: { toggleFavorite($0) },
                     onDelete: { deleteClient($0) },
                     showsSeparatorBelowHeader: false
@@ -87,6 +89,15 @@ struct ContactsView: View {
             )
             .background(Color("Background"))
         }
+        .sheet(isPresented: $isProfileAddPresented) {
+            ProfileAddView(onComplete: { newClient in
+                allUngrouped.insert(newClient, at: 0)
+                isProfileAddPresented = false
+                toastText = "연락처가 추가되었습니다"
+                presentToast()
+            })
+            .padding(.top, 30)
+        }
         .apexToast(
             isPresented: $showToast,
             image: Image(systemName: "star"),
@@ -99,8 +110,7 @@ struct ContactsView: View {
     // MARK: - Actions
 
     private func onPlusTap() {
-        toastText = "새 연락처 추가를 준비 중입니다"
-        presentToast()
+        isProfileAddPresented = true
     }
 
     private func toggleFavorite(_ client: Client) {
