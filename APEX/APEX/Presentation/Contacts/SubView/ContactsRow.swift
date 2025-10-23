@@ -4,13 +4,13 @@ import SwiftUI
 /// 기본 배경: Background, 눌림 시: BackgroundHover로 자연스럽게 전환
 struct ContactsRow: View {
     let client: Client
-    var onToggleFavorite: (() -> Void)? = nil
-    var onDelete: (() -> Void)? = nil
-    var onTap: (() -> Void)? = nil
+    var onToggleFavorite: (() -> Void)?
+    var onDelete: (() -> Void)?
+    var onTap: (() -> Void)?
 
     // 새로 추가: 행 높이/부제 오버라이드
-    var rowHeight: CGFloat? = nil
-    var subtitleOverride: String? = nil
+    var rowHeight: CGFloat?
+    var subtitleOverride: String?
 
     // Style tokens
     private enum Metrics {
@@ -104,9 +104,16 @@ struct ContactsRow: View {
                     .scaledToFill()
                     .frame(width: 48, height: 48)
             } else {
-                Image("ProfileS")
-                    .resizable()
-                    .scaledToFit()
+                let trimmedName = client.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                let trimmedSurname = client.surname.trimmingCharacters(in: .whitespacesAndNewlines)
+                let base = trimmedName.isEmpty ? trimmedSurname : trimmedName
+                ZStack {
+                    Circle()
+                        .fill(Color("PrimaryContainer"))
+                    Text(String(base.prefix(1)).uppercased())
+                        .font(.system(size: 30.72, weight: .semibold))
+                        .foregroundColor(.white)
+                }
             }
         }
         .frame(width: Metrics.avatarSize, height: Metrics.avatarSize)
