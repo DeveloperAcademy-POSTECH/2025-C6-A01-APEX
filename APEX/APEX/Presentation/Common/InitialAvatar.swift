@@ -19,7 +19,7 @@ struct InitialAvatar: View {
                 .fill(Color("PrimaryContainer"))
             Text(letter)
                 .font(.system(size: fontSize, weight: .semibold))
-                .foregroundColor(Color("Primary"))
+                .foregroundColor(.white)
         }
         .frame(width: size, height: size)
     }
