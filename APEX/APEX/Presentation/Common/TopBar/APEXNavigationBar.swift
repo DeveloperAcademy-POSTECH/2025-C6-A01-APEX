@@ -20,7 +20,7 @@ struct APEXNavigationBar: View {
 
     // Theme
     private var background: Color = Color("Background")
-    private var separator: Color = Color("BackgoundDisabled")
+    private var separator: Color = Color("BackgroundDisabled")
     private var foreground: Color = .black
     private var height: CGFloat = 52
 
@@ -75,7 +75,6 @@ struct APEXNavigationBar: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .glassEffect()
         }
     }
 
@@ -107,7 +106,6 @@ struct APEXNavigationBar: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .glassEffect()
 
                 Button(action: onMenu) {
                     Image(systemName: "line.3.horizontal")
@@ -117,7 +115,6 @@ struct APEXNavigationBar: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .glassEffect()
             }
         }
     }

@@ -17,7 +17,7 @@ struct APEXSheetTopBar: View {
 
     // Theme
     private var background: Color = Color("Background")
-    private var separator: Color = Color("BackgoundDisabled")
+    private var separator: Color = Color("BackgroundDisabled")
     private var foreground: Color = .black
     private var height: CGFloat = 52
 
@@ -57,10 +57,6 @@ struct APEXSheetTopBar: View {
                     .padding(.horizontal, 12)
                     .allowsHitTesting(false)
             }
-
-            Rectangle()
-                .fill(separator)
-                .frame(height: 1)
         }
     }
 
@@ -73,7 +69,6 @@ struct APEXSheetTopBar: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .glassEffect()
         .accessibilityLabel(Text("닫기"))
     }
 
@@ -82,7 +77,9 @@ struct APEXSheetTopBar: View {
 
         return Button(action: onRightTap) {
             Text(rightTitle)
-                .font(.body4)
+                .font(.title6)
+                .frame(width: 52, height: 44)
+                .glassEffect()
         }
         .buttonStyle(
             TopBarTextButtonStyle(
@@ -101,15 +98,15 @@ private struct TopBarTextButtonStyle: ButtonStyle {
         let effectivePressed = configuration.isPressed && isEnabled
 
         let textColor: Color = {
-            if !isEnabled { return Color("BackgoundDisabled") }
-            if effectivePressed { return Color("PrimaryHover") }
-            return Color("Primary")
+            if !isEnabled { return Color("BackgroundDisabled") }
+            if effectivePressed { return Color("BackgroundSecondary") }
+            return .black
         }()
 
         return configuration.label
             .foregroundColor(textColor)
             .frame(height: 44)
-            .padding(.horizontal, 8)
+            .padding(6)
             .contentShape(Rectangle())
             .animation(.easeInOut(duration: 0.12), value: effectivePressed)
     }

@@ -10,7 +10,8 @@ import SwiftUI
 struct Client: Identifiable {
     let id = UUID()
     let profile: UIImage? // 샘플데이터용 타입
-    let nameCard: Image? // 샘플데이터용 타입
+    let nameCardFront: Image? // 샘플데이터용 타입
+    let nameCardBack: Image? 
     let surname: String
     let name: String
     let position: String?

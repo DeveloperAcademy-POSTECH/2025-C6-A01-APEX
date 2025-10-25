@@ -185,7 +185,8 @@ private extension String {
             let now = Date()
             let clientOne = Client(
                 profile: nil,
-                nameCard: nil,
+                nameCardFront: nil,
+                nameCardBack: nil,
                 surname: "Choi",
                 name: "Ara",
                 position: "Account Executive",
@@ -204,7 +205,8 @@ private extension String {
             )
             let clientTwo = Client(
                 profile: nil,
-                nameCard: nil,
+                nameCardFront: nil,
+                nameCardBack: nil,
                 surname: "Han",
                 name: "Yuri",
                 position: "Marketer",

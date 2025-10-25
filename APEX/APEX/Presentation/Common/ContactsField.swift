@@ -3,7 +3,7 @@ import SwiftUI
 struct ContactsField: View {
     @Binding var phone: String
 
-    var label: String
+    var label: String?
     var placeholder: String
     var isRequired: Bool
     var helper: String?
@@ -17,7 +17,7 @@ struct ContactsField: View {
 
     init(
         phone: Binding<String>,
-        label: String = "전화번호",
+        label: String? = nil,
         placeholder: String = "전화번호 입력",
         isRequired: Bool = true,
         helper: String? = nil,
@@ -35,7 +35,7 @@ struct ContactsField: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            if !label.isEmpty {
+            if let label = label {
                 HStack(spacing: 4) {
                     Text(label)
                         .font(theme.labelFont)

@@ -6,5 +6,11 @@
 	<array>
 		<string>PretendardVariable.ttf</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>프로필/명함 사진 촬영을 위해 카메라가 필요합니다.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>크롭된 이미지를 사진첩에 저장하려면 권한이 필요합니다.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>프로필/명함 사진을 선택하려면 사진 접근이 필요합니다.</string>
 </dict>
 </plist>

@@ -31,9 +31,9 @@ struct ProfileDetailView: View {
                         onTapMemo: { /* 연결 예정 */ }
                     )
 
-                    if client.nameCard != nil {
+                    if client.nameCardFront != nil {
                         ProfileCarouselView(
-                            images: [client.nameCard].compactMap { $0 },
+                            images: [client.nameCardFront].compactMap { $0 },
                             currentPage: $currentPage
                         )
                     }

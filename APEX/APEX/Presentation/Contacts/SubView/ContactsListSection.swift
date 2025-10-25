@@ -7,6 +7,7 @@ struct ContactsListSection: View {
     @Binding var isExpanded: Bool
     let clients: [Client]
     var groupHeaderTitle: String? = nil
+    var groupByCompany: Bool = false
     var onToggleFavorite: (Client) -> Void
     var onDelete: ((Client) -> Void)? = nil
     var onTapRow: ((Client) -> Void)? = nil
@@ -30,28 +31,56 @@ struct ContactsListSection: View {
 
             // 3) 펼침 상태일 때 내용
             if isExpanded {
-                // 3-1) 그룹 헤더(예: Ungrouped)
-                if let groupHeaderTitle {
-                    groupHeaderRow(title: groupHeaderTitle)
-                    groupGapRow // 그룹 헤더 아래만 4로 축소
-                }
+                if groupByCompany {
+                    // 회사명 기준으로 그룹핑. 공백/빈 문자열은 "Ungrouped" 처리
+                    let grouped = Dictionary(grouping: clients) { client in
+                        let trimmed = client.company.trimmingCharacters(in: .whitespacesAndNewlines)
+                        return trimmed.isEmpty ? "Ungrouped" : trimmed
+                    }
+                    let sortedKeys: [String] = grouped.keys.sorted { lhs, rhs in
+                        if lhs == "Ungrouped" { return false }
+                        if rhs == "Ungrouped" { return true }
+                        return lhs.localizedCaseInsensitiveCompare(rhs) == .orderedAscending
+                    }
 
-                // 3-2) 연락처 리스트(행 사이 간격은 0)
-                ForEach(clients) { client in
-                    ContactsRow(
-                        client: client,
-                        onToggleFavorite: { onToggleFavorite(client) },
-                        onDelete: { onDelete?(client) },
-                        onTap: { onTapRow?(client) }
-                    )
-                    .applyListRowCleaning()
-                }
+                    ForEach(sortedKeys, id: \.self) { key in
+                        groupHeaderRow(title: key)
+                        groupGapRow
+                        let groupClients = grouped[key] ?? []
+                        ForEach(groupClients) { client in
+                            ContactsRow(
+                                client: client,
+                                onToggleFavorite: { onToggleFavorite(client) },
+                                onDelete: { onDelete?(client) },
+                                onTap: { onTapRow?(client) }
+                            )
+                            .applyListRowCleaning()
+                        }
+                    }
+                } else {
+                    // 3-1) 그룹 헤더(예: Ungrouped)
+                    if let groupHeaderTitle {
+                        groupHeaderRow(title: groupHeaderTitle)
+                        groupGapRow // 그룹 헤더 아래만 4로 축소
+                    }
 
-                // 3-3) Favorites 전용: 마지막 연락처 셀 ↔ 구분선 간격 8, 그리고 구분선 ↔ 다음 섹션(All 헤더) 간격 8
-                if showsSeparatorBelowHeader, !clients.isEmpty {
-                    gapRow                  // 마지막 연락처 셀과 구분선 사이 8
-                    separatorBarRow         // 색 있는 구분선(높이 8)
-                    gapRow                  // 구분선과 다음 섹션(=All 헤더) 사이 8
+                    // 3-2) 연락처 리스트(행 사이 간격은 0)
+                    ForEach(clients) { client in
+                        ContactsRow(
+                            client: client,
+                            onToggleFavorite: { onToggleFavorite(client) },
+                            onDelete: { onDelete?(client) },
+                            onTap: { onTapRow?(client) }
+                        )
+                        .applyListRowCleaning()
+                    }
+
+                    // 3-3) Favorites 전용: 마지막 연락처 셀 ↔ 구분선 간격 8, 그리고 구분선 ↔ 다음 섹션(All 헤더) 간격 8
+                    if showsSeparatorBelowHeader, !clients.isEmpty {
+                        gapRow                  // 마지막 연락처 셀과 구분선 사이 8
+                        separatorBarRow         // 색 있는 구분선(높이 8)
+                        gapRow                  // 구분선과 다음 섹션(=All 헤더) 사이 8
+                    }
                 }
             }
         }
@@ -138,7 +167,8 @@ private extension View {
                     count: 600,
                     isExpanded: $expandedAll,
                     clients: sampleClients,
-                    groupHeaderTitle: "Ungrouped",
+                    groupHeaderTitle: nil,
+                    groupByCompany: true,
                     onToggleFavorite: { _ in },
                     onDelete: { _ in },
                     showsSeparatorBelowHeader: false // All에는 하단 구분선 없음
