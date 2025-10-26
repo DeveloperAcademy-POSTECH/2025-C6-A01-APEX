@@ -33,17 +33,17 @@ struct MyProfileNavigationBar: View {
                 .accessibilityLabel("뒤로")
             }
             .buttonStyle(.plain)
-
+            
             Spacer()
-
+            
             // 제목
             Text(title)
                 .font(.title5)
                 .foregroundColor(.black)
                 .accessibilityAddTraits(.isHeader)
-
+            
             Spacer()
-
+            
             // 편집 버튼 (상태별 처리)
             Button(action: onEdit) {
                 Text("편집")
@@ -62,8 +62,8 @@ struct MyProfileNavigationBar: View {
             .accessibilityLabel("편집")
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .frame(width: 393, alignment: .center)
+        .padding(.vertical, 0)
+        .frame(maxWidth: .infinity, alignment: .center)
         .background(.white)
     }
 }
@@ -79,82 +79,106 @@ struct MyProfileHeaderView: View {
 
     private var pages: [Kind] {
         var arr: [Kind] = []
-        if let img = client.profile { arr.append(.profile(img)) }
-        if let f = client.nameCardFront { arr.append(.cardFront(f)) }
-        if let b = client.nameCardBack { arr.append(.cardBack(b)) }
-        if arr.isEmpty {
+        
+        // 명함이 있는 경우: 이니셜 → 명함 앞면 → 명함 뒷면 순서
+        if client.nameCardFront != nil || client.nameCardBack != nil {
+            // 1. 이니셜 먼저 추가
             let initials = makeInitials(name: client.name, surname: client.surname)
-            arr = [.avatar(initials)]
+            arr.append(.avatar(initials))
+            
+            // 2. 명함 앞면 추가
+            if let f = client.nameCardFront {
+                arr.append(.cardFront(f))
+            }
+            
+            // 3. 명함 뒷면 추가  
+            if let b = client.nameCardBack {
+                arr.append(.cardBack(b))
+            }
+        } else {
+            // 명함이 없는 경우: 프로필 또는 이니셜만
+            if let img = client.profile {
+                arr.append(.profile(img))
+            } else {
+                let initials = makeInitials(name: client.name, surname: client.surname)
+                arr.append(.avatar(initials))
+            }
         }
+        
         return arr
     }
 
     var body: some View {
         let items = pages
         
-        VStack(alignment: .center, spacing: 16) {
-            // 원형 컨테이너 (메인 프로필/명함/아바타 영역)
-            ZStack {
-                // 원형 배경
-                Circle()
-                    .fill(Color(red: 0.93, green: 0.94, blue: 0.96))
-                    .frame(width: 232, height: 232)
-                
-                // TabView로 스와이프 가능한 콘텐츠
-                TabView(selection: $page) {
-                    ForEach(Array(items.indices), id: \.self) { index in
-                        content(for: items[index])
-                            .tag(index)
-                            .onTapGesture {
-                                let current = items[index]
-                                if case .cardFront(_) = current, let callback = onCardTapped {
-                                    callback()
-                                } else if case .cardBack(_) = current, let callback = onCardTapped {
-                                    callback()
-                                }
+        VStack(alignment: .center, spacing: 0) {
+            // 메인 콘텐츠 영역
+            TabView(selection: $page) {
+                ForEach(Array(items.indices), id: \.self) { index in
+                    content(for: items[index])
+                        .tag(index)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .contentShape(Rectangle()) // 터치 영역 확보
+                        .onTapGesture {
+                            let current = items[index]
+                            if case .cardFront(_) = current {
+                                onCardTapped?()
+                            } else if case .cardBack(_) = current {
+                                onCardTapped?()
                             }
-                    }
+                        }
                 }
-                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never)) // 기본 인디케이터 숨김
-                .frame(width: 232, height: 232)
             }
+            .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
+            .frame(height: 250) // 충분한 터치 영역 확보
+            .background(Color.red.opacity(0.1)) // 임시 디버깅용
             
-            // 커스텀 도트 인디케이터 (여러 페이지가 있을 때만 표시)
-            if items.count > 1 {
-                HStack(spacing: 8) {
-                    ForEach(Array(items.indices), id: \.self) { idx in
+            Spacer().frame(height: 4) // 메인 콘텐츠와 도트 사이
+            
+            // 커스텀 도트 인디케이터 (이니셜만 있을 때 숨김 처리, 간격은 유지)
+            HStack(spacing: 8) {
+                ForEach(0..<max(1, items.count), id: \.self) { idx in
+                    if idx < items.count {
                         Circle()
-                            .fill(idx == page ? Color.black : Color.gray.opacity(0.4))
-                            .frame(width: 6, height: 6)
-                            .onTapGesture { 
-                                withAnimation(.easeInOut(duration: 0.3)) {
-                                    page = idx 
-                                }
-                            }
+                            .fill(idx == page ? Color(hex: "404040") : Color(hex: "D9D9D9"))
+                            .frame(width: 8, height: 8)
+                    } else {
+                        // 빈 도트 (이니셜만 있을 때)
+                        Circle()
+                            .fill(Color.clear)
+                            .frame(width: 8, height: 8)
                     }
                 }
-                .padding(.vertical, 4)
             }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 8)
+            .background(items.count > 1 ? Color.white.opacity(0.8) : Color.clear)
+            .cornerRadius(50)
+            .opacity(items.count > 1 ? 1.0 : 0.0) // 1개일 때 숨김, 간격은 유지
             
-            // 텍스트 섹션 (원형 영역 밖)
+            Spacer().frame(height: 4) // 도트와 텍스트 사이 (총 12pt 중 8pt는 도트 패딩에서 처리)
+            
+            // 텍스트 섹션
             VStack(alignment: .center, spacing: 2) {
-                // 이름 (title/title02)
+                // 이름 (title2 - 24pt medium)
                 Text("\(client.surname)\(client.name)")
-                    .font(.pretandard(.medium, size: 24))
+                    .font(.title2)
                     .multilineTextAlignment(.center)
-                    .foregroundColor(Color(red: 0.1, green: 0.1, blue: 0.1))
                 
-                // 직책 (body/body05)
+                // 직책 (body5 - 14pt medium)
                 Text(subtitle)
-                    .font(.pretandard(.medium, size: 14))
-                    .foregroundColor(Color(red: 0.55, green: 0.55, blue: 0.55))
+                    .font(.body5)
+                    .foregroundColor(Color(.gray))
             }
         }
-        .onChange(of: pages.count) { _ in
-            page = min(page, max(pages.count - 1, 0))
+        .frame(maxWidth: .infinity) // 헤더 전체가 화면 너비에 맞춤
+        .padding(.horizontal, 16) // 좌우 패딩 16
+        .padding(.bottom, 16)
+        .onChange(of: pages.count) { newCount in
+            page = min(page, max(newCount - 1, 0))
         }
     }
-
+    
     private var subtitle: String {
         let company = client.company.trimmingCharacters(in: .whitespacesAndNewlines)
         let position = (client.position ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
@@ -173,19 +197,21 @@ struct MyProfileHeaderView: View {
                 .scaledToFill()
                 .frame(width: 200, height: 200)
                 .clipShape(Circle())
+            
 
         case .cardFront(let image), .cardBack(let image):
+            // 명함 - 좌우 패딩 16씩 제외한 전체 화면 너비 사용
             image
                 .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(maxWidth: 180, maxHeight: 108)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .aspectRatio(contentMode: .fit) // fit으로 변경하여 비율 유지
+                .frame(maxWidth: .infinity) // 화면 전체 너비 사용
+                .frame(height: 232) // 높이는 고정
+                .background(Color("PrimaryContainer"))
+                .clipShape(RoundedRectangle(cornerRadius: 9.28, style: .continuous))
 
         case .avatar(let initials):
-            // 이니셜 아바타 - 큰 사이즈로 원형 배경에 맞춤
-            Text(initials)
-                .font(.pretandard(.medium, size: 96))
-                .foregroundColor(.white)
+            // InitialAvatar 컴포넌트 사용
+            InitialAvatar(letter: initials, size: 232, fontSize: 128)
         }
     }
 }
@@ -231,6 +257,35 @@ private extension Array {
     }
 }
 
+// MARK: - Color Extensions
+
+private extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let a, r, g, b: UInt64
+        switch hex.count {
+        case 3: // RGB (12-bit)
+            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
+        case 6: // RGB (24-bit)
+            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
+        case 8: // ARGB (32-bit)
+            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+        default:
+            (a, r, g, b) = (1, 1, 1, 0)
+        }
+
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue:  Double(b) / 255,
+            opacity: Double(a) / 255
+        )
+    }
+}
+
 #Preview("Navigation Bar - 기본") {
     MyProfileNavigationBar(
         title: "김하경",
@@ -251,12 +306,36 @@ private extension Array {
     .background(Color("Background"))
 }
 
-#Preview("Profile Header") {
+#Preview("Profile Header - 이니셜만") {
     MyProfileHeaderView(
         client: Client(
             profile: nil,
             nameCardFront: nil, 
             nameCardBack: nil,
+            surname: "김",
+            name: "하경",
+            position: "크리에이티브 디렉터", 
+            company: "전략기획 마케팅부",
+            email: "karynkim@postech.ac.kr",
+            phoneNumber: "+82 010-2360-6221",
+            linkedinURL: "https://www.linkedin.com/in/karyn",
+            memo: "태국 박람회에서 만남...",
+            action: nil,
+            favorite: false,
+            pin: false,
+            notes: []
+        ),
+        page: .constant(0),
+        onCardTapped: { print("Card tapped") }
+    )
+}
+
+#Preview("Profile Header - 명함 있음") {
+    MyProfileHeaderView(
+        client: Client(
+            profile: nil,
+            nameCardFront: Image("CardL"), 
+            nameCardBack: Image("CardL"),
             surname: "김",
             name: "하경",
             position: "크리에이티브 디렉터", 

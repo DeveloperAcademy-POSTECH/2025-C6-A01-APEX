@@ -42,7 +42,7 @@ struct MyProfileView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 16) {
+            VStack(spacing: 0) { // spacing을 0으로 변경하여 정확한 간격 제어
                 // 네비게이션 바
                 MyProfileNavigationBar(
                     title: "\(client.surname)\(client.name)",
@@ -57,14 +57,15 @@ struct MyProfileView: View {
                     page: $currentPageIndex,
                     onCardTapped: { isShowingCardViewer = true }
                 )
-                .padding(.top, 8)
+                .padding(.top, 12) // 네비게이션과 합산 12pt
+                         
 
                 // 프라이머리 액션
                 MyProfilePrimaryActionView(title: "메모하기") {
                     // TODO: 메모하기 액션
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 8)
+                .padding(.top, 16) // 헤더와 메모하기 사이 16pt
                 .accessibilityLabel("메모하기")
 
                 // 연락처 섹션
@@ -78,9 +79,12 @@ struct MyProfileView: View {
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)
+                .padding(.top, 24) // 메모하기와 연락처 사이 간격
 
                 // 저장공간
-                Divider().padding(.horizontal, 16).padding(.top, 8)
+                Divider()
+                    .padding(.horizontal, 16)
+                    .padding(.top, 24)
                 MyProfileStorageSection(
                     usedText: "5.62GB",
                     isPurgeEnabled: false,
@@ -88,22 +92,29 @@ struct MyProfileView: View {
                     onPurgeTapped: { /* TODO */ }
                 )
                 .padding(.horizontal, 16)
+                .padding(.top, 8)
 
                 // 앱 정보
-                Divider().padding(.horizontal, 16)
+                Divider()
+                    .padding(.horizontal, 16)
+                    .padding(.top, 24)
                 MyProfileAppInfoSection(
                     versionText: Bundle.main.apexVersionString(),
                     onTermsTapped: { /* TODO: 약관 화면/URL */ }
                 )
                 .padding(.horizontal, 16)
+                .padding(.top, 8)
 
                 // 위험 구역
-                Divider().padding(.horizontal, 16)
+                Divider()
+                    .padding(.horizontal, 16)
+                    .padding(.top, 24)
                 MyProfileDangerZoneSection(
                     onLogout: { /* TODO */ },
                     onDeleteAccount: { /* TODO */ }
                 )
                 .padding(.horizontal, 16)
+                .padding(.top, 8)
 
                 Spacer(minLength: 24)
             }

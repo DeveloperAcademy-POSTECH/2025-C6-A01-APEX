@@ -46,8 +46,8 @@ struct DummyClient: Identifiable, Equatable {
 
 let sampleMyProfileClient = DummyClient(
     profile: nil,
-    nameCardFront: nil,
-    nameCardBack: nil,
+    nameCardFront: Image("CardL"),
+    nameCardBack: Image("CardL"),
     surname: "김",
     name: "하경",
     position: "크리에이티브 디렉터",

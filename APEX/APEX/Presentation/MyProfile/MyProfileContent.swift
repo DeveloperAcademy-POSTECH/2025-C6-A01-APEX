@@ -23,7 +23,7 @@ struct MyProfilePrimaryActionView: View {
                     backgroundEnabled: Color("Primary"),
                     backgroundPressed: Color("PrimaryHover"),
                     backgroundDisabled: Color("BackgroundDisabled"),
-                    cornerRadius: 8,
+                    cornerRadius: 4, // 디자인 스펙에 맞게 4로 변경
                     height: 56,
                     horizontalPadding: 0
                 )
