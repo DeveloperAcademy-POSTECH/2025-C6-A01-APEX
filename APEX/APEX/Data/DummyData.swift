@@ -10,7 +10,8 @@ import Foundation
 let sampleClients: [Client] = [
     Client(
         profile: nil,
-        nameCard: nil,
+        nameCardFront: nil,
+        nameCardBack: nil,
         surname: "Kim",
         name: "Minjun",
         position: "Software Engineer",
@@ -26,7 +27,8 @@ let sampleClients: [Client] = [
     ),
     Client(
         profile: nil,
-        nameCard: nil,
+        nameCardFront: nil,
+        nameCardBack: nil,
         surname: "Lee",
         name: "Sujin",
         position: "Product Manager",
@@ -42,7 +44,8 @@ let sampleClients: [Client] = [
     ),
     Client(
         profile: nil,
-        nameCard: nil,
+        nameCardFront: nil,
+        nameCardBack: nil,
         surname: "Park",
         name: "Jihun",
         position: "Designer",

@@ -31,12 +31,12 @@ struct APEXTextFieldTheme: Equatable {
         labelFont: Font = .caption1,
         helperFont: Font = .caption1,
         textColor: Color = .black,
-        placeholderColor: Color = Color("BackgoundDisabled"),
+        placeholderColor: Color = Color("BackgroundDisabled"),
         labelColor: Color = .gray,
         helperColor: Color = .gray,
         errorColor: Color = Color("Error"),
         successColor: Color = Color("Primary"),
-        lineNormal: Color = Color("BackgoundDisabled"),
+        lineNormal: Color = Color("BackgroundDisabled"),
         lineFocused: Color = Color("Primary"),
         lineError: Color = Color("Error"),
         background: Color = Color("Background")
@@ -111,6 +111,7 @@ struct APEXTextField: View {
     private var isRequired: Bool
     private var isDisabled: Bool
     private var showsClearButton: Bool
+    private var maxLength: Int?
     private var onEditingEndValidate: ((String) -> APEXTextFieldState)?
     private var success: Bool?
     private var error: Bool?
@@ -130,7 +131,8 @@ struct APEXTextField: View {
         isRequired: Bool = false,
         guide: String? = nil,
         showSuccess: Bool? = nil,
-        showError: Bool? = nil
+        showError: Bool? = nil,
+        maxLength: Int? = nil
     ) {
         self.kind = (style == .field) ? .singleLine : .multiLine()
         self.label = label
@@ -140,6 +142,7 @@ struct APEXTextField: View {
         self.isRequired = isRequired
         self.isDisabled = false
         self.showsClearButton = true
+        self.maxLength = maxLength
         self.onEditingEndValidate = nil
         self.success = showSuccess
         self.error = showError
@@ -157,7 +160,8 @@ struct APEXTextField: View {
         showsClearButton: Bool = true,
         onEditingEndValidate: ((String) -> APEXTextFieldState)? = nil,
         showSuccess: Bool? = nil,
-        showError: Bool? = nil
+        showError: Bool? = nil,
+        maxLength: Int? = nil
     ) {
         self.kind = kind
         self.label = label
@@ -167,6 +171,7 @@ struct APEXTextField: View {
         self.isRequired = isRequired
         self.isDisabled = isDisabled
         self.showsClearButton = showsClearButton
+        self.maxLength = maxLength
         self.onEditingEndValidate = onEditingEndValidate
         self.success = showSuccess
         self.error = showError
@@ -193,7 +198,17 @@ struct APEXTextField: View {
             case .singleLine:
                 singleLineField
             case .multiLine(let minHeight):
-                multiLineEditor(minHeight: minHeight)
+                VStack(alignment: .trailing, spacing: 4) {
+                    multiLineEditor(minHeight: minHeight)
+                    if let max = editorMaxLength {
+                        HStack {
+                            Spacer()
+                            Text("\(text.count) / \(max)")
+                                .font(theme.helperFont)
+                                .foregroundColor(helperColor)
+                        }
+                    }
+                }
             }
 
             if let helper = helperText, !helper.isEmpty {
@@ -270,6 +285,9 @@ struct APEXTextField: View {
     }
 
     private var helperText: String? { effectiveState.helperText }
+
+    // Separate max length source from helper
+    private var editorMaxLength: Int? { maxLength }
 
     private var showSuccessIcon: Bool {
         if case .success = effectiveState { return true }

@@ -17,17 +17,24 @@ struct RootView: View {
     
     var body: some View {
         TabView(selection: $selection) {
-            Tab("Contacts", systemImage: "person.3.fill", value: .contacts) {
-                ContactsView()
-            }
-            
-            Tab("Notes", systemImage: "note.text", value: .search) {
-                NotesView()
-            }
-            
-            Tab(value: .search, role: .search) {
-                
-            }
+            ContactsView()
+                .tabItem {
+                    Label("Contacts", systemImage: "person.3.fill")
+                }
+                .tag(Tabs.contacts)
+
+            NotesView()
+                .tabItem {
+                    Label("Notes", systemImage: "note.text")
+                }
+                .tag(Tabs.notes)
+
+            // Fallback search tab for iOS 17-style API
+            Text("")
+                .tabItem {
+                    Label("Search", systemImage: "magnifyingglass")
+                }
+                .tag(Tabs.search)
         }
     }
 }

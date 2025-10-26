@@ -4,13 +4,13 @@ import SwiftUI
 /// 기본 배경: Background, 눌림 시: BackgroundHover로 자연스럽게 전환
 struct ContactsRow: View {
     let client: Client
-    var onToggleFavorite: (() -> Void)? = nil
-    var onDelete: (() -> Void)? = nil
-    var onTap: (() -> Void)? = nil
+    var onToggleFavorite: (() -> Void)?
+    var onDelete: (() -> Void)?
+    var onTap: (() -> Void)?
 
     // 새로 추가: 행 높이/부제 오버라이드
-    var rowHeight: CGFloat? = nil
-    var subtitleOverride: String? = nil
+    var rowHeight: CGFloat?
+    var subtitleOverride: String?
 
     // Style tokens
     private enum Metrics {
@@ -102,10 +102,16 @@ struct ContactsRow: View {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
+                    .frame(width: 48, height: 48)
             } else {
-                Image("ProfileS")
-                    .resizable()
-                    .scaledToFit()
+                let initials = makeInitials(name: client.name, surname: client.surname)
+                ZStack {
+                    Circle()
+                        .fill(Color("PrimaryContainer"))
+                    Text(initials)
+                        .font(.system(size: 30.72, weight: .semibold))
+                        .foregroundColor(.white)
+                }
             }
         }
         .frame(width: Metrics.avatarSize, height: Metrics.avatarSize)
@@ -114,6 +120,30 @@ struct ContactsRow: View {
 }
 
 // MARK: - ButtonStyle: Background ↔ BackgroundHover 전환(자연스러운 눌림 감)
+
+// MARK: - Initials helpers
+private func makeInitials(name: String, surname: String) -> String {
+    let givenName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    let familyName = surname.trimmingCharacters(in: .whitespacesAndNewlines)
+    if givenName.isEmpty && familyName.isEmpty { return "" }
+    if containsHangul(givenName) || containsHangul(familyName) {
+        return String((familyName.isEmpty ? givenName : familyName).prefix(1))
+    } else {
+        let first = givenName.isEmpty ? "" : String(givenName.prefix(1)).uppercased()
+        let last = familyName.isEmpty ? "" : String(familyName.prefix(1)).uppercased()
+        return first + last
+    }
+}
+
+private func containsHangul(_ text: String) -> Bool {
+    for scalar in text.unicodeScalars {
+        let scalarValue = scalar.value
+        if (0xAC00...0xD7A3).contains(scalarValue) || (0x1100...0x11FF).contains(scalarValue) || (0x3130...0x318F).contains(scalarValue) {
+            return true
+        }
+    }
+    return false
+}
 
 private struct BackgroundHoverRowStyle: ButtonStyle {
     // 컬러 자산(프로젝트에 존재하는 키 사용)
