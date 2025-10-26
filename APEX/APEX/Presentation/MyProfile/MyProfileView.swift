@@ -8,200 +8,198 @@
 import SwiftUI
 
 struct MyProfileView: View {
-    let client: Client
+    @Binding var client: DummyClient
+    @State private var isPresentingEdit = false
+    @State private var showingContactAction: ContactType?
+    @State private var isShowingCardViewer = false
+    @State private var alertMessage: String?
+    @State private var currentPageIndex: Int = 0
 
-    // Header page: 0 = Profile, 1 = Card Front, 2 = Card Back
-    @State private var page: Int = 0
-
-    // Toast
-    @State private var showToast: Bool = false
-    @State private var toastText: String = ""
-
-    // Actions (상위에서 주입 가능하도록 콜백 보유)
-    var onBack: (() -> Void)?
-    var onEdit: ((Client) -> Void)?
-    var onMemo: ((Client) -> Void)?
-    var onOpenTerms: (() -> Void)?
-    var onLogout: (() -> Void)?
-    var onDeleteAccount: (() -> Void)?
+    // 임시 어댑터: DummyClient -> Client (헤더뷰 연결용)
+    private var adaptedClient: Client {
+        Client(
+            profile: client.profile,
+            nameCardFront: client.nameCardFront,
+            nameCardBack: client.nameCardBack,
+            surname: client.surname,
+            name: client.name,
+            position: client.position,
+            company: client.company,
+            email: client.email,
+            phoneNumber: client.phoneNumber,
+            linkedinURL: client.linkedinURL,
+            memo: client.memo,
+            action: client.action,
+            favorite: client.favorite,
+            pin: client.pin,
+            notes: client.notes.map { _ in
+                // DummyClient.notes는 [String]이므로, 최소 Note로 변환
+                // 실제 데이터 연결 전까지는 빈 텍스트 Note로 어댑트
+                Note(date: Date(), attachment: .text(""))
+            }
+        )
+    }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // 상단 바: 중앙 타이틀, 좌 백 버튼, 우 편집 버튼
-            topBar
+        ScrollView {
+            VStack(spacing: 16) {
+                // 네비게이션 바
+                MyProfileNavigationBar(
+                    title: "\(client.surname)\(client.name)",
+                    onBack: { /* TODO: dismiss/pop */ },
+                    onEdit: { isPresentingEdit = true }
+                )
+                .background(Color("Background"))
 
-            ScrollView {
-                VStack(spacing: 0) {
-                    MyProfileHeaderView(client: client, page: $page)
+                // 상단 헤더(프로필/명함/인디케이터/이름/부제까지 포함)
+                MyProfileHeaderView(
+                    client: adaptedClient,
+                    page: $currentPageIndex,
+                    onCardTapped: { isShowingCardViewer = true }
+                )
+                .padding(.top, 8)
 
-                    // 메모하기 CTA
-                    MyProfilePrimaryActionView(title: "메모하기") {
-                        if let onMemo {
-                            onMemo(client)
-                        } else {
-                            toast("메모 화면으로 이동(임시)")
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
-                    .padding(.bottom, 24)
-
-                    // 연락처 섹션
-                    MyProfileContactsSection(
-                        email: client.email,
-                        phone: client.phoneNumber,
-                        linkedin: client.linkedinURL,
-                        onTapEmail: { email in
-                            openMail(email)
-                        },
-                        onTapPhone: { phone in
-                            openPhone(phone)
-                        },
-                        onTapLinkedIn: { url in
-                            openURLString(url)
-                        }
-                    )
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 24)
-
-                    divider
-
-                    // 데이터 및 저장공간
-                    MyProfileStorageSection(
-                        usedText: "5.62GB",
-                        isPurgeEnabled: false,
-                        onManageTapped: {
-                            toast("노트 저장공간 관리(임시)")
-                        },
-                        onPurgeTapped: {
-                            toast("임시 데이터 삭제(임시)")
-                        }
-                    )
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 16)
-
-                    divider
-
-                    // 앱 정보
-                    MyProfileAppInfoSection(
-                        versionText: Bundle.main.apexVersionString(),
-                        onTermsTapped: {
-                            if let onOpenTerms { onOpenTerms() }
-                            else { toast("약관 및 정책(임시)") }
-                        }
-                    )
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 16)
-
-                    divider
-
-                    // 위험 영역
-                    MyProfileDangerZoneSection(
-                        onLogout: {
-                            if let onLogout { onLogout() }
-                            else { toast("로그아웃(임시)") }
-                        },
-                        onDeleteAccount: {
-                            if let onDeleteAccount { onDeleteAccount() }
-                            else { toast("계정 탈퇴(임시)") }
-                        }
-                    )
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 24)
+                // 프라이머리 액션
+                MyProfilePrimaryActionView(title: "메모하기") {
+                    // TODO: 메모하기 액션
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .accessibilityLabel("메모하기")
+
+                // 연락처 섹션
+                MyProfileContactsSection(
+                    email: client.email,
+                    phone: client.phoneNumber,
+                    linkedin: client.linkedinURL,
+                    onTapEmail: { showingContactAction = .email($0) },
+                    onTapPhone: { showingContactAction = .phone($0) },
+                    onTapLinkedIn: { showingContactAction = .link($0) }
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+
+                // 저장공간
+                Divider().padding(.horizontal, 16).padding(.top, 8)
+                MyProfileStorageSection(
+                    usedText: "5.62GB",
+                    isPurgeEnabled: false,
+                    onManageTapped: { /* TODO: DataManagementView 시트 띄우기 */ },
+                    onPurgeTapped: { /* TODO */ }
+                )
+                .padding(.horizontal, 16)
+
+                // 앱 정보
+                Divider().padding(.horizontal, 16)
+                MyProfileAppInfoSection(
+                    versionText: Bundle.main.apexVersionString(),
+                    onTermsTapped: { /* TODO: 약관 화면/URL */ }
+                )
+                .padding(.horizontal, 16)
+
+                // 위험 구역
+                Divider().padding(.horizontal, 16)
+                MyProfileDangerZoneSection(
+                    onLogout: { /* TODO */ },
+                    onDeleteAccount: { /* TODO */ }
+                )
+                .padding(.horizontal, 16)
+
+                Spacer(minLength: 24)
             }
-            .background(Color("Background"))
         }
         .background(Color("Background"))
-        .apexToast(
-            isPresented: $showToast,
-            image: Image(systemName: "info.circle.fill"),
-            text: toastText,
-            buttonTitle: "확인",
-            duration: 1.6
-        ) { }
-    }
-
-    private var topBar: some View {
-        ZStack {
-            // 좌/우
-            HStack {
-                Button {
-                    onBack?()
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.title4)
-                        .foregroundColor(.black)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
+        .sheet(isPresented: $isPresentingEdit) {
+            MyProfileEditSheet(
+                client: client,
+                onCancel: { },
+                onSave: { updated in
+                    self.client = updated
                 }
-                .buttonStyle(.plain)
-
-                Spacer()
-
-                Button {
-                    onEdit?(client)
-                } label: {
-                    Text("편집")
-                        .font(.title6)
-                        .frame(width: 44, height: 44)
-                        .glassEffect()
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 12)
-            .frame(height: 52)
-            .background(Color("Background"))
-
-            // 중앙 타이틀(닉네임/이름)
-            Text(client.name)
-                .font(.title3)
-                .foregroundColor(.black)
-                .lineLimit(1)
-                .padding(.horizontal, 80)
-                .frame(height: 52)
-                .allowsHitTesting(false)
+            )
         }
-    }
-
-    private var divider: some View {
-        Rectangle()
-            .fill(Color("BackgroundSecondary"))
-            .frame(height: 8)
-            .frame(maxWidth: .infinity)
+        .confirmationDialog(
+            contactDialogTitle,
+            isPresented: .init(
+                get: { showingContactAction != nil },
+                set: { if !$0 { showingContactAction = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            if let action = showingContactAction {
+                contactActionButtons(for: action)
+            }
+            Button("취소", role: .cancel) { }
+        }
+        .alert("오류", isPresented: .init(
+            get: { alertMessage != nil },
+            set: { if !$0 { alertMessage = nil } }
+        )) {
+            Button("확인", role: .cancel) { }
+        } message: {
+            Text(alertMessage ?? "")
+        }
+        .fullScreenCover(isPresented: $isShowingCardViewer) {
+            CardViewer(
+                images: [
+                    client.nameCardFront ?? Image("CardL"),
+                    client.nameCardBack  ?? Image("CardL")
+                ],
+                onClose: { isShowingCardViewer = false }
+            )
+        }
     }
 
     // MARK: - Helpers
-    private func toast(_ text: String) {
-        toastText = text
-        if showToast {
-            showToast = false
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
-                showToast = true
-            }
-        } else {
-            showToast = true
+
+    private var contactDialogTitle: String {
+        switch showingContactAction {
+        case .email: return "이메일"
+        case .phone: return "전화번호"
+        case .link:  return "링크"
+        case .none:  return ""
         }
     }
 
-    private func openMail(_ email: String) {
-        guard let url = URL(string: "mailto:\(email)") else { return }
-        UIApplication.shared.open(url)
+    @ViewBuilder
+    private func contactActionButtons(for action: ContactType) -> some View {
+        switch action {
+        case .email(let value):
+            Button("메일 보내기") { openExternal(URL(string: "mailto:\(value)")) }
+            Button("복사하기") { copyToPasteboard(value) }
+        case .phone(let value):
+            Button("전화 걸기") {
+                openExternal(URL(string: "tel:\(value.filter { !$0.isWhitespace })"))
+            }
+            Button("복사하기") { copyToPasteboard(value) }
+        case .link(let value):
+            Button("링크 열기") { openExternal(URL(string: value)) }
+            Button("복사하기") { copyToPasteboard(value) }
+        }
     }
 
-    private func openPhone(_ phone: String) {
-        let digits = phone.filter { $0.isNumber || $0 == "+" }
-        guard let url = URL(string: "tel://\(digits)") else { return }
-        UIApplication.shared.open(url)
+    private func openExternal(_ url: URL?) {
+        guard let url else { alertMessage = "잘못된 주소입니다."; return }
+        UIApplication.shared.open(url, options: [:]) { success in
+            if !success { alertMessage = "열 수 없습니다." }
+        }
     }
 
-    private func openURLString(_ urlString: String) {
-        guard let url = URL(string: urlString) else { return }
-        UIApplication.shared.open(url)
+    private func copyToPasteboard(_ text: String) {
+        UIPasteboard.general.string = text
     }
+}
+
+// MARK: - Models
+
+private enum ContactType: Equatable {
+    case email(String)
+    case phone(String)
+    case link(String)
 }
 
 #Preview {
-    MyProfileView(client: sampleClients.first!)
-}
+    @Previewable @State var client: DummyClient = sampleMyProfileClient
 
+    MyProfileView(client: $client)
+}
