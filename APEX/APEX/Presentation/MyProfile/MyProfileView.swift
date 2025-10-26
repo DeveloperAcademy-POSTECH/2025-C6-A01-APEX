@@ -42,7 +42,7 @@ struct MyProfileView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 0) { // spacing을 0으로 변경하여 정확한 간격 제어
+            VStack(spacing: 0) { 
                 // 네비게이션 바
                 MyProfileNavigationBar(
                     title: "\(client.surname)\(client.name)",
@@ -50,6 +50,8 @@ struct MyProfileView: View {
                     onEdit: { isPresentingEdit = true }
                 )
                 .background(Color("Background"))
+                .padding(.top, 16) // 위로 패딩 16
+                .padding(.bottom, 8) // 아래로 패딩 8
 
                 // 상단 헤더(프로필/명함/인디케이터/이름/부제까지 포함)
                 MyProfileHeaderView(
@@ -57,16 +59,17 @@ struct MyProfileView: View {
                     page: $currentPageIndex,
                     onCardTapped: { isShowingCardViewer = true }
                 )
-                .padding(.top, 12) // 네비게이션과 합산 12pt
-                         
+                .padding(.top, 4) // 프로필 프레임 위로 4
+                // .padding(.bottom, 4) 제거 - 하단 패딩 제거
 
                 // 프라이머리 액션
                 MyProfilePrimaryActionView(title: "메모하기") {
                     // TODO: 메모하기 액션
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 16) // 헤더와 메모하기 사이 16pt
+                .padding(.top, 0) // 32pt → 16pt로 맞추기 위해 0으로 설정
                 .accessibilityLabel("메모하기")
+                .border(.red)
 
                 // 연락처 섹션
                 MyProfileContactsSection(

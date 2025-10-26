@@ -159,23 +159,31 @@ struct MyProfileHeaderView: View {
             Spacer().frame(height: 4) // 도트와 텍스트 사이 (총 12pt 중 8pt는 도트 패딩에서 처리)
             
             // 텍스트 섹션
-            VStack(alignment: .center, spacing: 2) {
+            VStack(alignment: .center, spacing: 0) { // spacing을 0으로 변경하여 간격 제거
                 // 이름 (title2 - 24pt medium)
                 Text("\(client.surname)\(client.name)")
                     .font(.title2)
                     .multilineTextAlignment(.center)
+                    .foregroundColor(.black)
+                    .lineLimit(1) // 라인 높이 제한하여 여백 제거
+                    .border(.blue) // 이름 개별 테두리
+                
+                Spacer().frame(height: 2) // 명시적 2pt 간격
                 
                 // 직책 (body5 - 14pt medium)
                 Text(subtitle)
                     .font(.body5)
-                    .foregroundColor(Color(.gray))
+                    .foregroundColor(.gray)
+                    .lineLimit(1) // 라인 높이 제한하여 여백 제거
+                    .border(.green) // 직책 개별 테두리
             }
+            .border(.purple) // 텍스트 VStack 테두리
         }
         .frame(maxWidth: .infinity) // 헤더 전체가 화면 너비에 맞춤
         .padding(.horizontal, 16) // 좌우 패딩 16
         .padding(.bottom, 16)
-        .onChange(of: pages.count) { newCount in
-            page = min(page, max(newCount - 1, 0))
+        .onChange(of: pages.count) { _ in
+            page = min(page, max(pages.count - 1, 0))
         }
     }
     
