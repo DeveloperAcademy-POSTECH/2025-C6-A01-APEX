@@ -82,12 +82,12 @@ struct MyProfileView: View {
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)
-                .padding(.top, 24) // 메모하기와 연락처 사이 간격
+                .padding(.top, 32) // 메모하기와 연락처 사이 간격
 
                 // 저장공간
                 Divider()
                     .padding(.horizontal, 16)
-                    .padding(.top, 24)
+                    .padding(.top, 32)
                 MyProfileStorageSection(
                     usedText: "5.62GB",
                     isPurgeEnabled: false,
@@ -95,31 +95,33 @@ struct MyProfileView: View {
                     onPurgeTapped: { /* TODO */ }
                 )
                 .padding(.horizontal, 16)
-                .padding(.top, 8)
+                .padding(.top, 10)
+                
 
                 // 앱 정보
                 Divider()
                     .padding(.horizontal, 16)
-                    .padding(.top, 24)
+                    .padding(.top, 32)
                 MyProfileAppInfoSection(
                     versionText: Bundle.main.apexVersionString(),
                     onTermsTapped: { /* TODO: 약관 화면/URL */ }
                 )
                 .padding(.horizontal, 16)
-                .padding(.top, 8)
+                .padding(.top, 10)
+                .border(.red)
 
                 // 위험 구역
                 Divider()
                     .padding(.horizontal, 16)
-                    .padding(.top, 24)
+                    .padding(.top, 32)
                 MyProfileDangerZoneSection(
                     onLogout: { /* TODO */ },
                     onDeleteAccount: { /* TODO */ }
                 )
                 .padding(.horizontal, 16)
-                .padding(.top, 8)
-
-                Spacer(minLength: 24)
+                .padding(.top, 10)
+                .border(.red)
+                    
             }
         }
         .background(Color("Background"))

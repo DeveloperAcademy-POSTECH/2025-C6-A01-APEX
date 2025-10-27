@@ -23,7 +23,7 @@ struct MyProfilePrimaryActionView: View {
                     backgroundEnabled: Color("Primary"),
                     backgroundPressed: Color("PrimaryHover"),
                     backgroundDisabled: Color("BackgroundDisabled"),
-                    cornerRadius: 4, // 디자인 스펙에 맞게 4로 변경
+                    cornerRadius: 4,
                     height: 56,
                     horizontalPadding: 0
                 )
@@ -43,28 +43,38 @@ struct MyProfileContactsSection: View {
     var onTapLinkedIn: (String) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 0) {
+            topSeparator
+
             if let email, !email.isEmpty {
-                item(label: "이메일", value: email, isLink: true) {
-                    onTapEmail(email)
+                ContactCard {
+                    item(label: "이메일", value: email, isLink: true) {
+                        onTapEmail(email)
+                    }
                 }
             }
             if let phone, !phone.isEmpty {
-                item(label: "전화번호 / Mobile", value: phone, isLink: true) {
-                    onTapPhone(phone)
+                ContactCard {
+                    item(label: "전화번호 / Mobile", value: phone, isLink: true) {
+                        onTapPhone(phone)
+                    }
                 }
             }
             if let linkedin, !linkedin.isEmpty {
-                item(label: "링크드인 URL", value: linkedin, isLink: true) {
-                    onTapLinkedIn(linkedin)
+                ContactCard {
+                    item(label: "링크드인 URL", value: linkedin, isLink: true) {
+                        onTapLinkedIn(linkedin)
+                    }
                 }
             }
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 0)
+        .padding(.horizontal, 8) // 섹션 내부 좌우 패딩
     }
 
+    @ViewBuilder
     private func item(label: String, value: String, isLink: Bool, action: @escaping () -> Void) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 2) {
             Text(label)
                 .font(.body6)
                 .foregroundColor(.gray)
@@ -80,6 +90,34 @@ struct MyProfileContactsSection: View {
             .buttonStyle(.plain)
         }
     }
+
+    private var topSeparator: some View {
+        Rectangle()
+            .fill(Color("BackgroundSecondary"))
+            .frame(height: 2)
+            .frame(maxWidth: .infinity)
+    }
+}
+
+private struct ContactCard<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        content
+            .frame(maxWidth: .infinity, minHeight: 64)
+            .padding(.horizontal, 0)
+            .padding(.vertical, 0)
+            .background(Color("Background"))
+    }
+}
+
+// MARK: - Section Metrics
+
+private enum MyProfileSectionMetrics {
+    static let titleHeight: CGFloat = 33     // 섹션 타이틀 전용 높이
+    static let rowHeight: CGFloat = 40       // 일반 행 높이
+    static let interRowSpacing: CGFloat = 4
+    static let verticalPadding: CGFloat = 10
 }
 
 // MARK: - Storage Section
@@ -91,52 +129,102 @@ struct MyProfileStorageSection: View {
     var onPurgeTapped: () -> Void
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(alignment: .leading, spacing: MyProfileSectionMetrics.interRowSpacing) {
+            topSeparator
+
+            // 타이틀 위 간격 10
+            Spacer().frame(height: 10)
+
+            // Title
             Text("데이터 및 저장공간")
-                .font(.body4)
-                .foregroundColor(.gray)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .font(.body1)
+                .foregroundColor(.black)
+                .frame(height: MyProfileSectionMetrics.titleHeight, alignment: .center)
+                .border(.red)
 
-            row(title: "노트 저장공간 관리", trailing: usedText) {
-                onManageTapped()
+            // Row: 노트 저장공간 관리
+            Button(action: onManageTapped) {
+                HStack(spacing: 12) {
+                    Text("노트 저장공간 관리")
+                        .font(.body3)
+                        .foregroundColor(.gray)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if !usedText.isEmpty {
+                        Text(usedText)
+                            .font(.body3)
+                            .foregroundColor(.gray)
+                    }
+                }
+                .frame(height: MyProfileSectionMetrics.rowHeight)
+                .contentShape(Rectangle())
+                .border(.red)
             }
+            .buttonStyle(.plain)
 
+            // Row: 임시 데이터 삭제 (텍스트 동일, 우측 버튼)
             HStack(spacing: 12) {
                 Text("임시 데이터 삭제")
-                    .font(.body2)
-                    .foregroundColor(.primary)
-                Spacer()
-                Button("삭제") { onPurgeTapped() }
-                    .font(.body5)
-                    .foregroundColor(.white)
-                    .frame(width: 60, height: 32)
-                    .background(isPurgeEnabled ? Color("Error") : Color("BackgroundDisabled"))
-                    .cornerRadius(6)
-                    .disabled(!isPurgeEnabled)
+                    .font(.body3)
+                    .foregroundColor(.gray)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                PurgeButton(isEnabled: isPurgeEnabled, action: onPurgeTapped)
             }
-            .frame(height: 44)
+            .frame(height: MyProfileSectionMetrics.rowHeight)
+            .border(.red)
         }
+        .padding(.vertical, MyProfileSectionMetrics.verticalPadding)
+        .padding(.horizontal, 8) // 섹션 내부 좌우 패딩
+        .border(.red)
     }
 
-    private func row(title: String, trailing: String?, action: @escaping () -> Void) -> some View {
+    private var topSeparator: some View {
+        Rectangle()
+            .fill(Color("BackgroundSecondary"))
+            .frame(height: 2)
+            .frame(maxWidth: .infinity)
+    }
+}
+
+// MARK: - Purge Button (지정 스펙 적용)
+
+private struct PurgeButton: View {
+    let isEnabled: Bool
+    let action: () -> Void
+
+    @State private var pressed: Bool = false
+
+    var body: some View {
         Button(action: action) {
-            HStack(spacing: 12) {
-                Text(title)
-                    .font(.body2)
-                    .foregroundColor(.primary)
-                Spacer()
-                if let trailing {
-                    Text(trailing)
-                        .font(.body5)
-                        .foregroundColor(.gray)
-                }
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.gray)
+            HStack(alignment: .center, spacing: 10) {
+                Text("삭제")
+                    .font(.body3)
+                    .foregroundColor(foregroundColor)
             }
-            .frame(height: 44)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 0)
+            .frame(height: 30, alignment: .center)
+            .background(backgroundColor)
+            .cornerRadius(20)
         }
         .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in if isEnabled { withAnimation(.easeInOut(duration: 0.12)) { pressed = true } } }
+                .onEnded { _ in withAnimation(.easeInOut(duration: 0.12)) { pressed = false } }
+        )
+    }
+
+    private var backgroundColor: Color {
+        if !isEnabled { return Color("BackgroundDisabled") }
+        let base = Color(red: 1, green: 0.91, blue: 0.9)
+        return pressed ? base.opacity(0.9) : base
+    }
+
+    private var foregroundColor: Color {
+        if !isEnabled { return Color("BackgroundDisabled").opacity(0.6) }
+        return Color("Error")
     }
 }
 
@@ -147,46 +235,49 @@ struct MyProfileAppInfoSection: View {
     var onTermsTapped: () -> Void
 
     var body: some View {
-        VStack(spacing: 16) {
-            Text("앱 정보")
-                .font(.body4)
-                .foregroundColor(.gray)
-                .frame(maxWidth: .infinity, alignment: .leading)
+        VStack(alignment: .leading, spacing: MyProfileSectionMetrics.interRowSpacing) {
+            topSeparator
 
-            row(title: "약관 및 정책", trailing: nil, action: onTermsTapped)
+            // 타이틀 위 간격 10
+            Spacer().frame(height: 10)
+
+            Text("앱 정보")
+                .font(.body1)
+                .foregroundColor(.black)
+                .frame(height: MyProfileSectionMetrics.titleHeight, alignment: .center)
+
+            Button(action: onTermsTapped) {
+                HStack(spacing: 12) {
+                    Text("약관 및 정책")
+                        .font(.body3)
+                        .foregroundColor(.gray)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(height: MyProfileSectionMetrics.rowHeight)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
 
             HStack(spacing: 12) {
                 Text("현재 버전")
-                    .font(.body2)
-                    .foregroundColor(.primary)
+                    .font(.body3)
+                    .foregroundColor(.gray)
                 Spacer()
                 Text(versionText)
-                    .font(.body5)
+                    .font(.body3)
                     .foregroundColor(.gray)
             }
-            .frame(height: 44)
+            .frame(height: MyProfileSectionMetrics.rowHeight)
         }
+        .padding(.vertical, MyProfileSectionMetrics.verticalPadding)
+        .padding(.horizontal, 8) // 섹션 내부 좌우 패딩
     }
 
-    private func row(title: String, trailing: String?, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                Text(title)
-                    .font(.body2)
-                    .foregroundColor(.primary)
-                Spacer()
-                if let trailing {
-                    Text(trailing)
-                        .font(.body5)
-                        .foregroundColor(.gray)
-                }
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(.gray)
-            }
-            .frame(height: 44)
-        }
-        .buttonStyle(.plain)
+    private var topSeparator: some View {
+        Rectangle()
+            .fill(Color("BackgroundSecondary"))
+            .frame(height: 2)
+            .frame(maxWidth: .infinity)
     }
 }
 
@@ -197,23 +288,46 @@ struct MyProfileDangerZoneSection: View {
     var onDeleteAccount: () -> Void
 
     var body: some View {
-        VStack(spacing: 16) {
-            buttonRow(title: "로그아웃", action: onLogout)
-            buttonRow(title: "계정 탈퇴", action: onDeleteAccount)
+        VStack(alignment: .leading, spacing: MyProfileSectionMetrics.interRowSpacing) {
+            topSeparator
+
+            // 타이틀이 없는 섹션이라 상단 간격 10을 바로 콘텐츠 위에 적용할지 여부를 결정할 수 있습니다.
+            // 만약 동일한 상단 여백 10이 필요하면 아래 Spacer를 유지하세요.
+            Spacer().frame(height: 10)
+
+            Button(action: onLogout) {
+                HStack {
+                    Text("로그아웃")
+                        .font(.body3)
+                        .foregroundColor(.gray)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(height: MyProfileSectionMetrics.rowHeight)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Button(action: onDeleteAccount) {
+                HStack {
+                    Text("계정 탈퇴")
+                        .font(.body3)
+                        .foregroundColor(.gray)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(height: MyProfileSectionMetrics.rowHeight)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
+        .padding(.vertical, MyProfileSectionMetrics.verticalPadding)
+        .padding(.horizontal, 8) // 섹션 내부 좌우 패딩
     }
 
-    private func buttonRow(title: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack {
-                Text(title)
-                    .font(.body2)
-                    .foregroundColor(.primary)
-                Spacer()
-            }
-            .frame(height: 44)
-        }
-        .buttonStyle(.plain)
+    private var topSeparator: some View {
+        Rectangle()
+            .fill(Color("BackgroundSecondary"))
+            .frame(height: 2)
+            .frame(maxWidth: .infinity)
     }
 }
 
@@ -240,8 +354,8 @@ extension Bundle {
         email: "user@example.com",
         phone: "+82 010-2360-6221",
         linkedin: "https://linkedin.com/in/username",
-        onTapEmail: { _ in }, 
-        onTapPhone: { _ in }, 
+        onTapEmail: { _ in },
+        onTapPhone: { _ in },
         onTapLinkedIn: { _ in }
     )
     .padding()
@@ -251,7 +365,7 @@ extension Bundle {
 #Preview("Storage Section") {
     MyProfileStorageSection(
         usedText: "5.62GB",
-        isPurgeEnabled: false,
+        isPurgeEnabled: true,
         onManageTapped: { },
         onPurgeTapped: { }
     )
