@@ -10,7 +10,7 @@ import SwiftUI
 struct MyProfileView: View {
     @Binding var client: DummyClient
     @State private var isPresentingEdit = false
-    @State private var showingContactAction: ContactType?
+    @State private var showingContactAction: ContactType?   // 복구: 섹션 콜백 시 사용
     @State private var isShowingCardViewer = false
     @State private var alertMessage: String?
     @State private var currentPageIndex: Int = 0
@@ -33,8 +33,6 @@ struct MyProfileView: View {
             favorite: client.favorite,
             pin: client.pin,
             notes: client.notes.map { _ in
-                // DummyClient.notes는 [String]이므로, 최소 Note로 변환
-                // 실제 데이터 연결 전까지는 빈 텍스트 Note로 어댑트
                 Note(date: Date(), attachment: .text(""))
             }
         )
@@ -42,7 +40,7 @@ struct MyProfileView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 0) { 
+            VStack(spacing: 0) {
                 // 네비게이션 바
                 MyProfileNavigationBar(
                     title: "\(client.surname)\(client.name)",
@@ -50,44 +48,43 @@ struct MyProfileView: View {
                     onEdit: { isPresentingEdit = true }
                 )
                 .background(Color("Background"))
-                .padding(.top, 16) // 위로 패딩 16
-                .padding(.bottom, 8) // 아래로 패딩 8
+                .padding(.top, 16)
+                .padding(.bottom, 8)
 
-                // 상단 헤더(프로필/명함/인디케이터/이름/부제까지 포함)
+                // 상단 헤더
                 MyProfileHeaderView(
                     client: adaptedClient,
                     page: $currentPageIndex,
                     onCardTapped: { isShowingCardViewer = true }
                 )
-                .padding(.top, 4) // 프로필 프레임 위로 4
-                // .padding(.bottom, 4) 제거 - 하단 패딩 제거
+                .padding(.top, 4)
 
                 // 프라이머리 액션
                 MyProfilePrimaryActionView(title: "메모하기") {
                     // TODO: 메모하기 액션
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 0) // 32pt → 16pt로 맞추기 위해 0으로 설정
+                .padding(.top, 0)
                 .accessibilityLabel("메모하기")
-                .border(.red)
 
                 // 연락처 섹션
+                // 섹션 시그니처 변경에 맞춰 openExternal / copyToPasteboard 유틸 콜백을 전달
                 MyProfileContactsSection(
                     email: client.email,
                     phone: client.phoneNumber,
                     linkedin: client.linkedinURL,
-                    onTapEmail: { showingContactAction = .email($0) },
-                    onTapPhone: { showingContactAction = .phone($0) },
-                    onTapLinkedIn: { showingContactAction = .link($0) }
+                    openExternal: { url in
+                        openExternal(url)
+                    },
+                    copyToPasteboard: { text in
+                        copyToPasteboard(text)
+                    }
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)
-                .padding(.top, 32) // 메모하기와 연락처 사이 간격
+                .padding(.top, 32)
 
-                // 저장공간
-                Divider()
-                    .padding(.horizontal, 16)
-                    .padding(.top, 32)
+                // 저장공간 섹션
                 MyProfileStorageSection(
                     usedText: "5.62GB",
                     isPurgeEnabled: false,
@@ -95,33 +92,23 @@ struct MyProfileView: View {
                     onPurgeTapped: { /* TODO */ }
                 )
                 .padding(.horizontal, 16)
-                .padding(.top, 10)
-                
+                .padding(.top, 32)
 
-                // 앱 정보
-                Divider()
-                    .padding(.horizontal, 16)
-                    .padding(.top, 32)
+                // 앱 정보 섹션
                 MyProfileAppInfoSection(
                     versionText: Bundle.main.apexVersionString(),
                     onTermsTapped: { /* TODO: 약관 화면/URL */ }
                 )
                 .padding(.horizontal, 16)
-                .padding(.top, 10)
-                .border(.red)
+                .padding(.top, 32)
 
-                // 위험 구역
-                Divider()
-                    .padding(.horizontal, 16)
-                    .padding(.top, 32)
+                // 위험 구역 섹션
                 MyProfileDangerZoneSection(
                     onLogout: { /* TODO */ },
                     onDeleteAccount: { /* TODO */ }
                 )
                 .padding(.horizontal, 16)
-                .padding(.top, 10)
-                .border(.red)
-                    
+                .padding(.top, 32)
             }
         }
         .background(Color("Background"))
@@ -134,6 +121,7 @@ struct MyProfileView: View {
                 }
             )
         }
+        // 기존 액션시트 유지(컴파일/동작 보장). Menu 전환 후 제거 예정.
         .confirmationDialog(
             contactDialogTitle,
             isPresented: .init(

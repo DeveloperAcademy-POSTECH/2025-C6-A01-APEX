@@ -26,7 +26,7 @@ struct MyProfileNavigationBar: View {
                         .frame(width: 44, height: 44)
                     Image(systemName: "chevron.left")
                         .font(.system(size: 17, weight: .medium))
-                        .foregroundColor(Color.black) // 명시적으로 Color.black 사용
+                        .foregroundColor(Color.black)
                 }
                 .frame(width: 44, height: 44)
                 .contentShape(Circle())
@@ -48,7 +48,7 @@ struct MyProfileNavigationBar: View {
             Button(action: onEdit) {
                 Text("편집")
                     .font(.title6)
-                    .foregroundColor(isEditEnabled ? Color.black : Color.gray) // 명시적으로 Color.black 사용
+                    .foregroundColor(isEditEnabled ? Color.black : Color.gray)
                     .frame(width: 52, height: 44)
                     .background(
                         Capsule()
@@ -80,23 +80,12 @@ struct MyProfileHeaderView: View {
     private var pages: [Kind] {
         var arr: [Kind] = []
         
-        // 명함이 있는 경우: 이니셜 → 명함 앞면 → 명함 뒷면 순서
         if client.nameCardFront != nil || client.nameCardBack != nil {
-            // 1. 이니셜 먼저 추가
             let initials = makeInitials(name: client.name, surname: client.surname)
             arr.append(.avatar(initials))
-            
-            // 2. 명함 앞면 추가
-            if let f = client.nameCardFront {
-                arr.append(.cardFront(f))
-            }
-            
-            // 3. 명함 뒷면 추가  
-            if let b = client.nameCardBack {
-                arr.append(.cardBack(b))
-            }
+            if let f = client.nameCardFront { arr.append(.cardFront(f)) }
+            if let b = client.nameCardBack { arr.append(.cardBack(b)) }
         } else {
-            // 명함이 없는 경우: 프로필 또는 이니셜만
             if let img = client.profile {
                 arr.append(.profile(img))
             } else {
@@ -104,7 +93,6 @@ struct MyProfileHeaderView: View {
                 arr.append(.avatar(initials))
             }
         }
-        
         return arr
     }
 
@@ -112,13 +100,12 @@ struct MyProfileHeaderView: View {
         let items = pages
         
         VStack(alignment: .center, spacing: 0) {
-            // 메인 콘텐츠 영역
             TabView(selection: $page) {
                 ForEach(Array(items.indices), id: \.self) { index in
                     content(for: items[index])
                         .tag(index)
                         .frame(maxWidth: .infinity, alignment: .center)
-                        .contentShape(Rectangle()) // 터치 영역 확보
+                        .contentShape(Rectangle())
                         .onTapGesture {
                             let current = items[index]
                             if case .cardFront(_) = current {
@@ -130,12 +117,10 @@ struct MyProfileHeaderView: View {
                 }
             }
             .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
-            .frame(height: 250) // 충분한 터치 영역 확보
-            .background(Color.red.opacity(0.1)) // 임시 디버깅용
+            .frame(height: 250)
+
+            Spacer().frame(height: 4)
             
-            Spacer().frame(height: 4) // 메인 콘텐츠와 도트 사이
-            
-            // 커스텀 도트 인디케이터 (이니셜만 있을 때 숨김 처리, 간격은 유지)
             HStack(spacing: 8) {
                 ForEach(0..<max(1, items.count), id: \.self) { idx in
                     if idx < items.count {
@@ -143,7 +128,6 @@ struct MyProfileHeaderView: View {
                             .fill(idx == page ? Color(hex: "404040") : Color(hex: "D9D9D9"))
                             .frame(width: 8, height: 8)
                     } else {
-                        // 빈 도트 (이니셜만 있을 때)
                         Circle()
                             .fill(Color.clear)
                             .frame(width: 8, height: 8)
@@ -154,33 +138,27 @@ struct MyProfileHeaderView: View {
             .padding(.vertical, 8)
             .background(items.count > 1 ? Color.white.opacity(0.8) : Color.clear)
             .cornerRadius(50)
-            .opacity(items.count > 1 ? 1.0 : 0.0) // 1개일 때 숨김, 간격은 유지
+            .opacity(items.count > 1 ? 1.0 : 0.0)
             
-            Spacer().frame(height: 4) // 도트와 텍스트 사이 (총 12pt 중 8pt는 도트 패딩에서 처리)
+            Spacer().frame(height: 4)
             
-            // 텍스트 섹션
-            VStack(alignment: .center, spacing: 0) { // spacing을 0으로 변경하여 간격 제거
-                // 이름 (title2 - 24pt medium)
+            VStack(alignment: .center, spacing: 0) {
                 Text("\(client.surname)\(client.name)")
                     .font(.title2)
                     .multilineTextAlignment(.center)
                     .foregroundColor(.black)
-                    .lineLimit(1) // 라인 높이 제한하여 여백 제거
-                    .border(.blue) // 이름 개별 테두리
+                    .lineLimit(1)
                 
-                Spacer().frame(height: 2) // 명시적 2pt 간격
+                Spacer().frame(height: 2)
                 
-                // 직책 (body5 - 14pt medium)
                 Text(subtitle)
                     .font(.body5)
                     .foregroundColor(.gray)
-                    .lineLimit(1) // 라인 높이 제한하여 여백 제거
-                    .border(.green) // 직책 개별 테두리
+                    .lineLimit(1)
             }
-            .border(.purple) // 텍스트 VStack 테두리
         }
-        .frame(maxWidth: .infinity) // 헤더 전체가 화면 너비에 맞춤
-        .padding(.horizontal, 16) // 좌우 패딩 16
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 16)
         .padding(.bottom, 16)
         .onChange(of: pages.count) { _ in
             page = min(page, max(pages.count - 1, 0))
@@ -205,20 +183,15 @@ struct MyProfileHeaderView: View {
                 .scaledToFill()
                 .frame(width: 200, height: 200)
                 .clipShape(Circle())
-            
-
         case .cardFront(let image), .cardBack(let image):
-            // 명함 - 좌우 패딩 16씩 제외한 전체 화면 너비 사용
             image
                 .resizable()
-                .aspectRatio(contentMode: .fit) // fit으로 변경하여 비율 유지
-                .frame(maxWidth: .infinity) // 화면 전체 너비 사용
-                .frame(height: 232) // 높이는 고정
+                .aspectRatio(contentMode: .fit)
+                .frame(maxWidth: .infinity)
+                .frame(height: 232)
                 .background(Color("PrimaryContainer"))
                 .clipShape(RoundedRectangle(cornerRadius: 9.28, style: .continuous))
-
         case .avatar(let initials):
-            // InitialAvatar 컴포넌트 사용
             InitialAvatar(letter: initials, size: 232, fontSize: 128)
         }
     }
@@ -229,11 +202,7 @@ struct MyProfileHeaderView: View {
 private func makeInitials(name: String, surname: String) -> String {
     let givenName = name.trimmingCharacters(in: .whitespacesAndNewlines)
     let familyName = surname.trimmingCharacters(in: .whitespacesAndNewlines)
-    
-    // 빈 문자열 처리
     if givenName.isEmpty && familyName.isEmpty { return "?" }
-    
-    // 한글의 경우 성씨 우선, 없으면 이름 첫 글자
     if containsHangul(familyName) || containsHangul(givenName) {
         if !familyName.isEmpty {
             return String(familyName.prefix(1))
@@ -241,7 +210,6 @@ private func makeInitials(name: String, surname: String) -> String {
             return String(givenName.prefix(1))
         }
     } else {
-        // 영문의 경우 이름과 성씨 첫 글자 조합
         let first = givenName.isEmpty ? "" : String(givenName.prefix(1)).uppercased()
         let last = familyName.isEmpty ? "" : String(familyName.prefix(1)).uppercased()
         let result = first + last
@@ -274,11 +242,11 @@ private extension Color {
         Scanner(string: hex).scanHexInt64(&int)
         let a, r, g, b: UInt64
         switch hex.count {
-        case 3: // RGB (12-bit)
+        case 3:
             (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
-        case 6: // RGB (24-bit)
+        case 6:
             (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
-        case 8: // ARGB (32-bit)
+        case 8:
             (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
         default:
             (a, r, g, b) = (1, 1, 1, 0)
