@@ -81,7 +81,7 @@ struct MyProfileHeaderView: View {
         var arr: [Kind] = []
         
         if client.nameCardFront != nil || client.nameCardBack != nil {
-            let initials = makeInitials(name: client.name, surname: client.surname)
+            let initials = Profile.makeInitials(name: client.name, surname: client.surname)
             arr.append(.avatar(initials))
             if let f = client.nameCardFront { arr.append(.cardFront(f)) }
             if let b = client.nameCardBack { arr.append(.cardBack(b)) }
@@ -89,7 +89,7 @@ struct MyProfileHeaderView: View {
             if let img = client.profile {
                 arr.append(.profile(img))
             } else {
-                let initials = makeInitials(name: client.name, surname: client.surname)
+                let initials = Profile.makeInitials(name: client.name, surname: client.surname)
                 arr.append(.avatar(initials))
             }
         }
@@ -199,33 +199,6 @@ struct MyProfileHeaderView: View {
 
 // MARK: - Helpers
 
-private func makeInitials(name: String, surname: String) -> String {
-    let givenName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-    let familyName = surname.trimmingCharacters(in: .whitespacesAndNewlines)
-    if givenName.isEmpty && familyName.isEmpty { return "?" }
-    if containsHangul(familyName) || containsHangul(givenName) {
-        if !familyName.isEmpty {
-            return String(familyName.prefix(1))
-        } else {
-            return String(givenName.prefix(1))
-        }
-    } else {
-        let first = givenName.isEmpty ? "" : String(givenName.prefix(1)).uppercased()
-        let last = familyName.isEmpty ? "" : String(familyName.prefix(1)).uppercased()
-        let result = first + last
-        return result.isEmpty ? "?" : result
-    }
-}
-
-private func containsHangul(_ text: String) -> Bool {
-    for scalar in text.unicodeScalars {
-        let v = scalar.value
-        if (0xAC00...0xD7A3).contains(v) || (0x1100...0x11FF).contains(v) || (0x3130...0x318F).contains(v) {
-            return true
-        }
-    }
-    return false
-}
 
 private extension Array {
     subscript(safe index: Int) -> Element? {
