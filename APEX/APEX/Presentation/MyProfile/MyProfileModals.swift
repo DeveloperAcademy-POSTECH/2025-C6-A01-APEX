@@ -178,7 +178,7 @@ struct MyProfileEditSheet: View {
                                 Profile(
                                     image: profileUIImage,
                                     initials: Profile.makeInitials(name: name, surname: surname),
-                                    size: 72,
+                                    size: .medium,
                                     fontSize: 42
                                 )
                                 Text("프로필").font(.body6).foregroundColor(.gray)

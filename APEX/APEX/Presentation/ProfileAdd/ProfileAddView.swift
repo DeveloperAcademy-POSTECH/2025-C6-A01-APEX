@@ -52,7 +52,7 @@ struct ProfileAddView: View {
                                 Profile(
                                     image: profileUIImage,
                                     initials: Profile.makeInitials(name: trimmedName, surname: trimmedSurname),
-                                    size: 100,
+                                    size: .large,
                                     fontSize: 64
                                 )
                             }

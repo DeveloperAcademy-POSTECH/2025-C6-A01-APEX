@@ -84,7 +84,7 @@ struct ShareRow: View {
         return Profile(
             image: client.profile,
             initials: initials,
-            size: Metrics.avatarSize,
+            size: .small,
             fontSize: 30.72,
             backgroundColor: Color("PrimaryContainer"),
             textColor: .white,

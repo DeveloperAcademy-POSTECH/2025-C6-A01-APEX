@@ -234,7 +234,7 @@ struct ShareView: View {
                 Profile(
                     image: client.profile,
                     initials: initialLetter(for: client.name, surname: client.surname),
-                    size: 48,
+                    size: .small,
                     fontSize: 30.72
                 )
 

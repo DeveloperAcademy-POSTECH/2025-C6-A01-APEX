@@ -9,9 +9,16 @@ import SwiftUI
 
 struct Profile: View {
     enum Badge { case favorite, pin }
+    enum Size: Int {
+        case extraSmall = 36
+        case small = 48
+        case medium = 72
+        case large = 100
+        case extraLarge = 232
+    }
     let image: UIImage?
     let initials: String
-    let size: CGFloat
+    let size: Size
     var fontSize: CGFloat?
     var backgroundColor: Color = Color("PrimaryContainer")
     var textColor: Color = .white
@@ -34,7 +41,7 @@ struct Profile: View {
                 }
             }
         }
-        .frame(width: size, height: size)
+        .frame(width: side, height: side)
         .clipShape(Circle())
         .overlay(alignment: .topTrailing) {
             if let badge {
@@ -45,7 +52,8 @@ struct Profile: View {
         }
     }
 
-    private var defaultFontSize: CGFloat { size * 0.64 }
+    private var defaultFontSize: CGFloat { side * 0.64 }
+    private var side: CGFloat { CGFloat(size.rawValue) }
 }
 
 extension Profile {
@@ -76,8 +84,8 @@ extension Profile {
 }
 #Preview {
     VStack(spacing: 16) {
-        Profile(image: nil, initials: "GK", size: 48, badge: .favorite)
-        Profile(image: nil, initials: "김", size: 48)
-        Profile(image: nil, initials: "G", size: 100, fontSize: 64)
+        Profile(image: nil, initials: "GK", size: .small, badge: .favorite)
+        Profile(image: nil, initials: "김", size: .small)
+        Profile(image: nil, initials: "G", size: .large, fontSize: 64)
     }
 }
