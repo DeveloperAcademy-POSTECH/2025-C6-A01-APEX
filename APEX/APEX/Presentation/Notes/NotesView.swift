@@ -9,7 +9,7 @@ import SwiftUI
 
 struct NotesView: View {
     @State private var selectedFilter: NotesFilter = .all
-    @State private var clients: [Client] = sampleClients.filter { !$0.notes.isEmpty }
+    @State private var clients: [Client] = sampleClients
     @State private var showToast: Bool = false
     @State private var toastText: String = ""
     @State private var showDeleteDialog: Bool = false
@@ -41,6 +41,7 @@ struct NotesView: View {
                     showDeleteDialog = true
                 }
             )
+            .padding(.vertical, 24)
         }
         .background(Color(UIColor.systemBackground))
         .confirmationDialog(

@@ -44,6 +44,7 @@ struct NotesListView: View {
                 .scrollContentBackground(.hidden)
             }
         }
+        .background(Color("Background"))
     }
 }
 
@@ -56,49 +57,54 @@ private struct NotesRow: View {
     var onTap: (() -> Void)?
 
     private var fullName: String { "\(client.name) \(client.surname)" }
-    private var summary: String { NotesTextFormatter.latestSummary(from: client.notes) ?? "기록 없음" }
-    private var timeText: String { NotesTextFormatter.timeText(for: client.notes) ?? "" }
+    
+    private var summary: String { 
+        return "Video [9412894219382]" // 고정값으로 테스트
+    }
+    
+    private var timeText: String { 
+        return "4:00pm" // 고정값으로 테스트
+    }
 
     var body: some View {
         Button {
             onTap?()
         } label: {
-            HStack(spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
                 avatar
 
                 VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 8) {
-                        // 이름과 핀을 같이 표시
-                        HStack(spacing: 4) {
-                            Text(fullName)
-                                .font(.body2)
-                                .foregroundColor(Color("Dark"))
-                                .lineLimit(1)
-                            
-                            // 핀 아이콘 (이름 끝에 표시)
-                            if client.pin {
-                                Image(systemName: "pin.fill")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(Color("Primary"))
-                            }
+                    HStack(spacing: 4) {
+                        Text(fullName)
+                            .font(.body2)
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
+                        
+                        // 핀 아이콘 (이름 끝에 표시)
+                        if client.pin {
+                            Image(systemName: "pin.fill")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(Color("Primary"))
                         }
-
-                        Spacer(minLength: 8)
-
-                        if !timeText.isEmpty {
-                            Text(timeText)
-                                .font(.body5)
-                                .foregroundColor(Color("Gray"))
-                                .lineLimit(1)
-                        }
+                        
+                        Spacer()
+                        
+                        // 시간 텍스트 
+                        Text(timeText)
+                            .font(.body5)
+                            .foregroundColor(.gray)
+                            .lineLimit(1)
                     }
 
                     Text(summary)
                         .font(.body6)
-                        .foregroundColor(Color("Gray"))
+                        .foregroundColor(.gray)
                         .lineLimit(1)
-                        .truncationMode(.tail)
                 }
+                .frame(height: 38)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Spacer(minLength: 8)
             }
             .padding(.horizontal, 16)
             .frame(height: 64)
@@ -127,7 +133,7 @@ private struct NotesRow: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(fullName), \(summary)\(timeText.isEmpty ? "" : ", \(timeText)")")
+        .accessibilityLabel("\(fullName), \(summary), \(timeText)")
         .accessibilityAddTraits(.isButton)
     }
 
@@ -137,10 +143,16 @@ private struct NotesRow: View {
                 Image(uiImage: uiImage)
                     .resizable()
                     .scaledToFill()
+                    .frame(width: 48, height: 48)
             } else {
-                Image("ProfileS")
-                    .resizable()
-                    .scaledToFit()
+                let initials = makeInitials(name: client.name, surname: client.surname)
+                ZStack {
+                    Circle()
+                        .fill(Color("PrimaryContainer"))
+                    Text(initials)
+                        .font(.system(size: 30.72, weight: .semibold))
+                        .foregroundColor(.white)
+                }
             }
         }
         .frame(width: 48, height: 48)
@@ -254,21 +266,13 @@ enum NotesListModel {
 }
 
 #Preview {
-    struct Container: View {
-        @State private var selected: NotesFilter = .all
-        @State private var data: [Client] = sampleClients.filter { !$0.notes.isEmpty }
-
-        var body: some View {
-            NotesListView(
-                clients: data,
-                selectedFilter: $selected,
-                onTogglePin: { _ in },
-                onDelete: { _ in }
-            )
-            .background(Color("Background"))
-        }
-    }
-    return Container()
+    NotesListView(
+        clients: sampleClients,
+        selectedFilter: .constant(.all),
+        onTogglePin: { _ in },
+        onDelete: { _ in }
+    )
+    .background(Color("Background"))
 }
 
 // MARK: - View Modifiers (ContactsListSection와 동일)
@@ -307,4 +311,29 @@ private struct BackgroundHoverRowStyle: ButtonStyle {
             .scaleEffect(isPressed ? pressedScale : 1.0)
             .animation(.easeInOut(duration: duration), value: isPressed)
     }
+}
+
+// MARK: - Initials helpers (ContactsRow와 동일)
+
+private func makeInitials(name: String, surname: String) -> String {
+    let givenName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    let familyName = surname.trimmingCharacters(in: .whitespacesAndNewlines)
+    if givenName.isEmpty && familyName.isEmpty { return "" }
+    if containsHangul(givenName) || containsHangul(familyName) {
+        return String((familyName.isEmpty ? givenName : familyName).prefix(1))
+    } else {
+        let first = givenName.isEmpty ? "" : String(givenName.prefix(1)).uppercased()
+        let last = familyName.isEmpty ? "" : String(familyName.prefix(1)).uppercased()
+        return first + last
+    }
+}
+
+private func containsHangul(_ text: String) -> Bool {
+    for scalar in text.unicodeScalars {
+        let scalarValue = scalar.value
+        if (0xAC00...0xD7A3).contains(scalarValue) || (0x1100...0x11FF).contains(scalarValue) || (0x3130...0x318F).contains(scalarValue) {
+            return true
+        }
+    }
+    return false
 }
