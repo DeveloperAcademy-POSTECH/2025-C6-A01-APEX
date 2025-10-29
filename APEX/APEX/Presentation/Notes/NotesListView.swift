@@ -26,35 +26,22 @@ struct NotesListView: View {
             } else {
                 List {
                     ForEach(filtered) { client in
-                        Button {
-                            // TODO: 상세 화면 이동
-                            print("Tapped client: \(client.name)")
-                        } label: {
-                            NotesRow(client: client)
-                        }
-                        .buttonStyle(.plain)
-                        .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            Button(role: .destructive) {
-                                onDelete(client)
-                            } label: {
-                                Image(systemName: "trash")
+                        NotesRow(
+                            client: client,
+                            onTogglePin: { onTogglePin(client) },
+                            onDelete: { onDelete(client) },
+                            onTap: {
+                                // TODO: 상세 화면 이동
+                                print("Tapped client: \(client.name)")
                             }
-                            .tint(Color("Error"))
-                        }
-                        .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                            Button {
-                                onTogglePin(client)
-                            } label: {
-                                Image(systemName: client.pin ? "pin.slash" : "pin")
-                            }
-                            .tint(Color("Primary"))
-                        }
+                        )
+                        .applyListRowCleaning()
                     }
                 }
                 .listStyle(.plain)
-                .environment(\.defaultMinListRowHeight, 64)
+                .listRowSpacing(0)
+                .environment(\.defaultMinListRowHeight, 1)
+                .scrollContentBackground(.hidden)
             }
         }
     }
@@ -64,56 +51,84 @@ struct NotesListView: View {
 
 private struct NotesRow: View {
     let client: Client
+    var onTogglePin: (() -> Void)?
+    var onDelete: (() -> Void)?
+    var onTap: (() -> Void)?
 
     private var fullName: String { "\(client.name) \(client.surname)" }
     private var summary: String { NotesTextFormatter.latestSummary(from: client.notes) ?? "기록 없음" }
     private var timeText: String { NotesTextFormatter.timeText(for: client.notes) ?? "" }
 
     var body: some View {
-        HStack(spacing: 12) {
-            // 핀 자리(있으면 파란 핀, 없으면 투명 공간)
-            Group {
-                if client.pin {
-                    Image(systemName: "pin.fill")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(Color("Primary"))
-                        .frame(width: 20)
-                } else {
-                    Color.clear.frame(width: 20)
+        Button {
+            onTap?()
+        } label: {
+            HStack(spacing: 12) {
+                avatar
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 8) {
+                        // 이름과 핀을 같이 표시
+                        HStack(spacing: 4) {
+                            Text(fullName)
+                                .font(.body2)
+                                .foregroundColor(Color("Dark"))
+                                .lineLimit(1)
+                            
+                            // 핀 아이콘 (이름 끝에 표시)
+                            if client.pin {
+                                Image(systemName: "pin.fill")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(Color("Primary"))
+                            }
+                        }
+
+                        Spacer(minLength: 8)
+
+                        if !timeText.isEmpty {
+                            Text(timeText)
+                                .font(.body5)
+                                .foregroundColor(Color("Gray"))
+                                .lineLimit(1)
+                        }
+                    }
+
+                    Text(summary)
+                        .font(.body6)
+                        .foregroundColor(Color("Gray"))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                 }
             }
-
-            avatar
-
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 8) {
-                    Text(fullName)
-                        .font(.body2)
-                        .foregroundColor(Color("Dark"))
-                        .lineLimit(1)
-
-                    Spacer(minLength: 8)
-
-                    if !timeText.isEmpty {
-                        Text(timeText)
-                            .font(.caption)
-                            .foregroundColor(Color("Gray"))
-                            .lineLimit(1)
-                    }
+            .padding(.horizontal, 16)
+            .frame(height: 64)
+        }
+        .buttonStyle(BackgroundHoverRowStyle())
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .swipeActions(edge: .leading, allowsFullSwipe: false) {
+            if let onTogglePin {
+                Button {
+                    onTogglePin()
+                } label: {
+                    Image(systemName: client.pin ? "pin.slash" : "pin")
                 }
-
-                Text(summary)
-                    .font(.body6)
-                    .foregroundColor(Color("Gray"))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                .tint(Color("Primary"))
             }
         }
-        .frame(height: 64)
-        .contentShape(Rectangle())
-        .padding(.vertical, 0)
+        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+            if let onDelete {
+                Button(role: .destructive) {
+                    onDelete()
+                } label: {
+                    Image(systemName: "trash")
+                }
+                .tint(Color("Error"))
+            }
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(fullName), \(summary)\(timeText.isEmpty ? "" : ", \(timeText)")")
+        .accessibilityAddTraits(.isButton)
     }
 
     private var avatar: some View {
@@ -254,4 +269,42 @@ enum NotesListModel {
         }
     }
     return Container()
+}
+
+// MARK: - View Modifiers (ContactsListSection와 동일)
+
+private extension View {
+    func applyListRowCleaning() -> some View {
+        self
+            .listRowInsets(.init(top: 0, leading: 0, bottom: 0, trailing: 0))
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+    }
+}
+
+// MARK: - BackgroundHoverRowStyle (ContactsRow와 동일)
+
+private struct BackgroundHoverRowStyle: ButtonStyle {
+    // 컬러 자산(프로젝트에 존재하는 키 사용)
+    private let normal = Color("Background")
+    private let pressed = Color("BackgroundHover")
+
+    // 미세한 눌림 감(과하지 않게)
+    private let pressedBrightness: CGFloat = -0.015
+    private let pressedScale: CGFloat = 0.997
+    private let duration: Double = 0.12
+
+    func makeBody(configuration: Configuration) -> some View {
+        let isPressed = configuration.isPressed
+        let shape = RoundedRectangle(cornerRadius: 20, style: .continuous)
+
+        return configuration.label
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                shape.fill(isPressed ? pressed : normal)
+            )
+            .brightness(isPressed ? pressedBrightness : 0)
+            .scaleEffect(isPressed ? pressedScale : 1.0)
+            .animation(.easeInOut(duration: duration), value: isPressed)
+    }
 }
