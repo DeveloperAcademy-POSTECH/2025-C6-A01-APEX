@@ -28,7 +28,7 @@ struct APEXButtonTheme: Equatable {
         foregroundDisabled: Color = .white.opacity(0.6),
         backgroundEnabled: Color = Color("Primary"),
         backgroundPressed: Color = Color("PrimaryHover"),
-        backgroundDisabled: Color = Color("BackgoundDisabled"),
+        backgroundDisabled: Color = Color("BackgroundDisabled"),
         cornerRadius: CGFloat = 12,
         height: CGFloat = 52,
         horizontalPadding: CGFloat = 16
@@ -143,3 +143,4 @@ private struct APEXFilledButtonStyle: ButtonStyle {
     }
     .padding()
 }
+

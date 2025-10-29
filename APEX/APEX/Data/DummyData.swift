@@ -23,7 +23,10 @@ let sampleClients: [Client] = [
         action: "Follow up for API review",
         favorite: true,
         pin: false,
-        notes: []
+        notes: [
+            Note(date: Date().addingTimeInterval(-3600), attachment: .video(url: URL(fileURLWithPath: "/tmp/meeting.mp4"))),
+            Note(date: Date().addingTimeInterval(-7200), attachment: .text("API 설계 회의 내용"))
+        ]
     ),
     Client(
         profile: nil,
@@ -40,7 +43,10 @@ let sampleClients: [Client] = [
         action: nil,
         favorite: false,
         pin: true,
-        notes: []
+        notes: [
+            Note(date: Date().addingTimeInterval(-1800), attachment: .video(url: URL(fileURLWithPath: "/tmp/presentation.mp4"))),
+            Note(date: Date().addingTimeInterval(-5400), attachment: .image(data: Data()))
+        ]
     ),
     Client(
         profile: nil,
@@ -57,6 +63,65 @@ let sampleClients: [Client] = [
         action: "Send design references",
         favorite: true,
         pin: true,
-        notes: []
+        notes: [
+            Note(date: Date().addingTimeInterval(-900), attachment: .video(url: URL(fileURLWithPath: "/tmp/design_review.mp4")))
+        ]
+    ),
+    // 추가 샘플 데이터
+    Client(
+        profile: nil,
+        nameCardFront: nil,
+        nameCardBack: nil,
+        surname: "Choi",
+        name: "Eunji",
+        position: "Marketing Director",
+        company: "APEX",
+        email: "eunji.choi@apex.com",
+        phoneNumber: "010-5555-7777",
+        linkedinURL: "https://linkedin.com/in/eunjichoi",
+        memo: "마케팅 전략 수립",
+        action: nil,
+        favorite: false,
+        pin: false,
+        notes: [
+            Note(date: Date().addingTimeInterval(-2700), attachment: .video(url: URL(fileURLWithPath: "/tmp/campaign.mp4")))
+        ]
+    ),
+    Client(
+        profile: nil,
+        nameCardFront: nil,
+        nameCardBack: nil,
+        surname: "Jung",
+        name: "Taehyun",
+        position: "iOS Developer",
+        company: "Apple",
+        email: "taehyun.jung@apple.com",
+        phoneNumber: "010-3333-9999",
+        linkedinURL: nil,
+        memo: "SwiftUI 전문가",
+        action: "Code review scheduled",
+        favorite: true,
+        pin: false,
+        notes: [
+            Note(date: Date().addingTimeInterval(-4500), attachment: .video(url: URL(fileURLWithPath: "/tmp/code_review.mp4")))
+        ]
+    ),
+    // 노트가 없는 클라이언트 (비활성화 필터 테스트용)
+    Client(
+        profile: nil,
+        nameCardFront: nil,
+        nameCardBack: nil,
+        surname: "Smith",
+        name: "John",
+        position: "Product Manager",
+        company: "Google",
+        email: "john.smith@google.com",
+        phoneNumber: "010-1111-2222",
+        linkedinURL: nil,
+        memo: "Google 제품 관리",
+        action: nil,
+        favorite: false,
+        pin: false,
+        notes: []  // 노트 없음 - 필터에서 비활성화됨
     )
 ]
