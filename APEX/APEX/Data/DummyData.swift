@@ -24,8 +24,16 @@ let sampleClients: [Client] = [
         favorite: true,
         pin: false,
         notes: [
-            Note(date: Date().addingTimeInterval(-3600), attachment: .video(url: URL(fileURLWithPath: "/tmp/meeting.mp4"))),
-            Note(date: Date().addingTimeInterval(-7200), attachment: .text("API 설계 회의 내용"))
+            Note(
+                uploadedAt: Date().addingTimeInterval(-3600),
+                text: nil,
+                bundle: .media(images: [], videos: [VideoAttachment(url: URL(fileURLWithPath: "/tmp/meeting.mp4"), progress: nil, orderIndex: nil)])
+            ),
+            Note(
+                uploadedAt: Date().addingTimeInterval(-7200),
+                text: "API 설계 회의 내용",
+                bundle: nil
+            )
         ]
     ),
     Client(
@@ -44,8 +52,16 @@ let sampleClients: [Client] = [
         favorite: false,
         pin: true,
         notes: [
-            Note(date: Date().addingTimeInterval(-1800), attachment: .video(url: URL(fileURLWithPath: "/tmp/presentation.mp4"))),
-            Note(date: Date().addingTimeInterval(-5400), attachment: .image(data: Data()))
+            Note(
+                uploadedAt: Date().addingTimeInterval(-1800),
+                text: nil,
+                bundle: .media(images: [], videos: [VideoAttachment(url: URL(fileURLWithPath: "/tmp/presentation.mp4"), progress: nil, orderIndex: nil)])
+            ),
+            Note(
+                uploadedAt: Date().addingTimeInterval(-5400),
+                text: nil,
+                bundle: .media(images: [ImageAttachment(data: Data(), progress: nil, orderIndex: nil)], videos: [])
+            )
         ]
     ),
     Client(
@@ -64,7 +80,11 @@ let sampleClients: [Client] = [
         favorite: true,
         pin: true,
         notes: [
-            Note(date: Date().addingTimeInterval(-900), attachment: .video(url: URL(fileURLWithPath: "/tmp/design_review.mp4")))
+            Note(
+                uploadedAt: Date().addingTimeInterval(-900),
+                text: nil,
+                bundle: .media(images: [], videos: [VideoAttachment(url: URL(fileURLWithPath: "/tmp/design_review.mp4"), progress: nil, orderIndex: nil)])
+            )
         ]
     ),
     // 추가 샘플 데이터
@@ -84,7 +104,11 @@ let sampleClients: [Client] = [
         favorite: false,
         pin: false,
         notes: [
-            Note(date: Date().addingTimeInterval(-2700), attachment: .video(url: URL(fileURLWithPath: "/tmp/campaign.mp4")))
+            Note(
+                uploadedAt: Date().addingTimeInterval(-2700),
+                text: nil,
+                bundle: .media(images: [], videos: [VideoAttachment(url: URL(fileURLWithPath: "/tmp/campaign.mp4"), progress: nil, orderIndex: nil)])
+            )
         ]
     ),
     Client(
@@ -103,7 +127,11 @@ let sampleClients: [Client] = [
         favorite: true,
         pin: false,
         notes: [
-            Note(date: Date().addingTimeInterval(-4500), attachment: .video(url: URL(fileURLWithPath: "/tmp/code_review.mp4")))
+            Note(
+                uploadedAt: Date().addingTimeInterval(-4500),
+                text: nil,
+                bundle: .media(images: [], videos: [VideoAttachment(url: URL(fileURLWithPath: "/tmp/code_review.mp4"), progress: nil, orderIndex: nil)])
+            )
         ]
     ),
     // 노트가 없는 클라이언트 (비활성화 필터 테스트용)
