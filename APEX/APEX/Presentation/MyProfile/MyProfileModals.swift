@@ -175,15 +175,12 @@ struct MyProfileEditSheet: View {
                             presentedPhotoType = .profile
                         } label: {
                             VStack(spacing: 8) {
-                                if let img = profileUIImage {
-                                    Image(uiImage: img)
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(width: 72, height: 72)
-                                        .clipShape(Circle())
-                                } else {
-                                    InitialAvatar(letter: makeInitials(name: name, surname: surname), size: 72, fontSize: 42)
-                                }
+                                Profile(
+                                    image: profileUIImage,
+                                    initials: makeInitials(name: name, surname: surname),
+                                    size: 72,
+                                    fontSize: 42
+                                )
                                 Text("프로필").font(.body6).foregroundColor(.gray)
                             }
                         }

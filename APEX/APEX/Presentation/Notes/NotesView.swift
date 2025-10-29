@@ -109,8 +109,8 @@ struct NotesView: View {
             }
             
             // 같은 핀 상태라면 최신 노트 순으로
-            let date1 = client1.notes.max { $0.date < $1.date }?.date ?? Date.distantPast
-            let date2 = client2.notes.max { $0.date < $1.date }?.date ?? Date.distantPast
+            let date1 = client1.notes.max { $0.uploadedAt < $1.uploadedAt }?.uploadedAt ?? Date.distantPast
+            let date2 = client2.notes.max { $0.uploadedAt < $1.uploadedAt }?.uploadedAt ?? Date.distantPast
             return date1 > date2
         }
     }

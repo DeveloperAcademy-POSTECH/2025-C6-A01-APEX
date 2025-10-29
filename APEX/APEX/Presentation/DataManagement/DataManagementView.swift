@@ -157,7 +157,7 @@ struct DataManagementView: View {
 
     private func contactRow(name: String, size: String) -> some View {
         HStack {
-            InitialAvatar(letter: String(name.prefix(1)), size: 36, fontSize: 18)
+            Profile(image: nil, initials: String(name.prefix(1)), size: 36, fontSize: 18)
             Text(name)
                 .font(.body2)
             Spacer()

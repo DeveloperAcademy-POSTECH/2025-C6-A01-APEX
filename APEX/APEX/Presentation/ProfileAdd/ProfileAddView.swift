@@ -44,24 +44,17 @@ struct ProfileAddView: View {
                         presentedPhotoType = .profile
                     } label: {
                         VStack(spacing: 10) {
-                            if let image = profileUIImage {
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 100, height: 100)
+                            let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                            let trimmedSurname = surname.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if trimmedName.isEmpty && trimmedSurname.isEmpty {
+                                Image("ProfileS")
                             } else {
-                                let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-                                let trimmedSurname = surname.trimmingCharacters(in: .whitespacesAndNewlines)
-                                if trimmedName.isEmpty && trimmedSurname.isEmpty {
-                                    Image("ProfileS")
-                                } else {
-                                    let initials = makeInitials(name: trimmedName, surname: trimmedSurname)
-                                    InitialAvatar(
-                                        letter: initials,
-                                        size: 100,
-                                        fontSize: 64
-                                    )
-                                }
+                                AvatarView(
+                                    image: profileUIImage,
+                                    initials: makeInitials(name: trimmedName, surname: trimmedSurname),
+                                    size: 100,
+                                    fontSize: 64
+                                )
                             }
                             Text("프로필")
                                 .font(.body5)

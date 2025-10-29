@@ -192,7 +192,7 @@ struct MyProfileHeaderView: View {
                 .background(Color("PrimaryContainer"))
                 .clipShape(RoundedRectangle(cornerRadius: 9.28, style: .continuous))
         case .avatar(let initials):
-            InitialAvatar(letter: initials, size: 232, fontSize: 128)
+            Profile(image: nil, initials: initials, size: 232, fontSize: 128)
         }
     }
 }
