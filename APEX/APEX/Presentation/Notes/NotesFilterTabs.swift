@@ -20,13 +20,11 @@ struct NotesFilterTabs: View {
                         isSelected: selectedFilter == filterItem.filter,
                         isEnabled: filterItem.isEnabled
                     ) {
-                        // 비활성화된 필터도 클릭은 가능하지만 아무 동작 안함
                         if filterItem.isEnabled {
                             withAnimation(.easeInOut(duration: 0.2)) {
                                 selectedFilter = filterItem.filter
                             }
                         }
-                        // 비활성화된 경우 아무것도 하지 않음
                     }
                 }
             }
@@ -51,9 +49,7 @@ private struct FilterTab: View {
                     .foregroundColor(textColor)
             }
             .buttonStyle(.plain)
-            // .disabled(!isEnabled) // 제거 - 비활성화된 상태에서도 클릭 가능
             
-            // 밑줄
             Rectangle()
                 .fill(underlineColor)
                 .frame(height: 2)
@@ -62,12 +58,11 @@ private struct FilterTab: View {
     }
     
     private var textColor: Color {
-        if !isEnabled {
-            return Color("Gray")  // 비활성화 상태도 회색 (BackgroundHover 대신)
-        } else if isSelected {
-            return Color("Primary")  // 선택된 상태
+        // 선택되지 않은 탭도 파란 계열이 보이도록 BackgroundHover 사용
+        if isSelected {
+            return Color("Primary")
         } else {
-            return Color("Gray")  // 기본 상태
+            return Color("BackgroundHover")
         }
     }
     
@@ -85,8 +80,8 @@ private struct FilterTab: View {
     let filters: [NotesFilterItem] = [
         NotesFilterItem(filter: .all, isEnabled: true),
         NotesFilterItem(filter: .company("Apple"), isEnabled: true),
-        NotesFilterItem(filter: .company("APEX"), isEnabled: true),
-        NotesFilterItem(filter: .company("Google"), isEnabled: false)  // 비활성화 예시
+        NotesFilterItem(filter: .company("Apex"), isEnabled: true),
+        NotesFilterItem(filter: .company("Google"), isEnabled: false)
     ]
     
     NotesFilterTabs(
