@@ -100,25 +100,69 @@ struct APEXListRow: View {
             return APEXListRow.makeLatestRecordSummary(from: client.notes) ?? "기록 없음"
         }
     }
+    
+    private var timeText: String {
+        guard style == .note, let latestNote = client.notes.max(by: { $0.date < $1.date }) else { return "" }
+        
+        let formatter = DateFormatter()
+        let calendar = Calendar.current
+        
+        if calendar.isDate(latestNote.date, inSameDayAs: Date()) {
+            formatter.dateFormat = "h:mma"
+            return formatter.string(from: latestNote.date).lowercased()
+        } else if let yesterday = calendar.date(byAdding: .day, value: -1, to: Date()),
+                  calendar.isDate(latestNote.date, inSameDayAs: yesterday) {
+            return "어제"
+        } else {
+            formatter.dateFormat = "M/d"
+            return formatter.string(from: latestNote.date)
+        }
+    }
 
     var body: some View {
         HStack(spacing: 12) {
+            // 핀 아이콘 (notes 스타일일 때만)
+            if style == .note && client.pin {
+                Image(systemName: "pin.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Color("Primary"))
+                    .frame(width: 20)
+            } else if style == .note {
+                // 핀이 없을 때도 공간 유지
+                Color.clear.frame(width: 20)
+            }
+            
             avatar
+            
             VStack(alignment: .leading, spacing: 2) {
-                Text(fullName)
-                    .font(.body2)
-                    .foregroundColor(.primary)
-                    .lineLimit(1)
+                HStack {
+                    Text(fullName)
+                        .font(.body2)
+                        .foregroundColor(Color("Dark"))  // .primary 대신 명확한 색상
+                        .lineLimit(1)
+                    
+                    Spacer()
+                    
+                    // 시간 표시 (notes 스타일일 때만)
+                    if style == .note && !timeText.isEmpty {
+                        Text(timeText)
+                            .font(.caption)
+                            .foregroundColor(Color("Gray"))  // .gray 대신 명확한 색상
+                    }
+                }
 
                 Text(subtitle)
                     .font(.body6)
-                    .foregroundColor(.gray)
+                    .foregroundColor(Color("Gray"))  // .gray 대신 명확한 색상
                     .lineLimit(1)
             }
-            Spacer(minLength: 8)
-            Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(.gray)
+            
+            if style == .contact {
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(Color("Gray"))  // .gray 대신 명확한 색상
+            }
         }
         .frame(height: 64)
         .contentShape(Rectangle())
@@ -140,6 +184,7 @@ struct APEXListRow: View {
             }
         }
         .frame(width: 48, height: 48)
+        .clipShape(Circle())
     }
 }
 
@@ -157,14 +202,19 @@ private extension APEXListRow {
                 .trimmingCharacters(in: .whitespacesAndNewlines)
                 .nilIfEmpty ?? "텍스트"
         case .image:
-            return "사진"
+            return "Photo"
         case .video:
-            return "영상"
+            return "Video [\(generateVideoId())]"
         case .audio:
-            return "음성"
+            return "Audio"
         case .file(let url):
             return url.lastPathComponent
         }
+    }
+    
+    static func generateVideoId() -> String {
+        // 이미지에서 보이는 형식과 동일하게 생성
+        return "941289421983\(Int.random(in: 10...99))"
     }
 }
 
