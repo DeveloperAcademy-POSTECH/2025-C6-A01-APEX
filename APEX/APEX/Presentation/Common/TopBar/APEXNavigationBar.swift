@@ -47,10 +47,6 @@ struct APEXNavigationBar: View {
                     .padding(.horizontal, 12)
                     .allowsHitTesting(false)
             }
-
-            Rectangle()
-                .fill(separator)
-                .frame(height: 1)
         }
     }
 
@@ -108,7 +104,7 @@ struct APEXNavigationBar: View {
                 .buttonStyle(.plain)
 
                 Button(action: onMenu) {
-                    Image(systemName: "line.3.horizontal")
+                    Image(systemName: "square.grid.2x2")
                         .font(.title4)
                         .foregroundColor(foreground)
                         .frame(width: 44, height: 44)

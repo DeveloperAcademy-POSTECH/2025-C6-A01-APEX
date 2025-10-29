@@ -8,28 +8,38 @@
 import Foundation
 import UniformTypeIdentifiers
 
-enum Attachment {
-    case text(String)
-    case image(data: Data)
-    case video(url: URL)
-    case file(url: URL)
-    case audio(url: URL)
-    
-    enum Kind { case text, image, video, file, audio }
-    
-    var kind: Kind {
-        switch self {
-        case .text: return .text
-        case .image: return .image
-        case .video: return .video
-        case .file: return .file
-        case .audio: return .audio
-        }
-    }
+struct ImageAttachment {
+    let data: Data
+    var progress: Double? // 0.0...1.0 while uploading; nil when uploaded
+    var orderIndex: Int? // Selection order to allow mixed rendering
+}
+
+struct VideoAttachment {
+    let url: URL
+    var progress: Double? // 0.0...1.0 while uploading; nil when uploaded
+    var orderIndex: Int? // Selection order to allow mixed rendering
+}
+
+struct FileAttachment {
+    let url: URL
+    let contentType: UTType?
+    var progress: Double? // 0.0...1.0 while uploading; nil when uploaded
+}
+
+struct AudioAttachment {
+    let url: URL
+    let duration: TimeInterval?
+}
+
+enum AttachmentBundle {
+    case media(images: [ImageAttachment], videos: [VideoAttachment])
+    case files([FileAttachment])
+    case audio([AudioAttachment])
 }
 
 struct Note: Identifiable {
     let id = UUID()
-    var date: Date
-    var attachment: Attachment
+    var uploadedAt: Date
+    var text: String?
+    var bundle: AttachmentBundle?
 }

@@ -9,6 +9,7 @@ import SwiftUI
 import PhotosUI
 import AVFoundation
 import UIKit
+import Photos
 
 struct PhotoAddView: View {
     enum PhotoType: Identifiable {
@@ -35,9 +36,16 @@ struct PhotoAddView: View {
     @State private var pickedBackImage: UIImage?
     @State private var isEditing: Bool = false
     @State private var librarySelection: PhotosPickerItem?
+    @State private var showLibraryPicker: Bool = false
     @State private var showCamera: Bool = false
     @State private var isLoading: Bool = false
     private let previewMaxDimension: CGFloat = 2048
+
+    // Toast
+    @State private var showToast: Bool = false
+    @State private var toastText: String = ""
+    @State private var toastButtonTitle: String = "확인"
+    @State private var toastAction: () -> Void = {}
 
     init(
         type: PhotoType,
@@ -149,7 +157,7 @@ struct PhotoAddView: View {
                 })
                 
                 
-                PhotosPicker(selection: $librarySelection, matching: .images) {
+                Button(action: { handleLibraryTap() }) {
                     VStack(spacing: 4) {
                         Image(systemName: "photo")
                             .padding(.horizontal, 17)
@@ -187,6 +195,7 @@ struct PhotoAddView: View {
                 )
             }
         }
+        .photosPicker(isPresented: $showLibraryPicker, selection: $librarySelection, matching: .images)
         .onChange(of: librarySelection) { newItem in
             guard let newItem else { return }
             isLoading = true
@@ -254,6 +263,15 @@ struct PhotoAddView: View {
                         .cornerRadius(8)
                 }
             }
+        }
+        .apexToast(
+            isPresented: $showToast,
+            image: Image(systemName: "info.circle.fill"),
+            text: toastText,
+            buttonTitle: toastButtonTitle,
+            duration: 3.0
+        ) {
+            toastAction()
         }
     }
 }
@@ -439,6 +457,48 @@ private struct RectangularCropperView: View {
     }
 }
 
+// MARK: - Permissions & Toast helpers
+
+private extension PhotoAddView {
+    func handleLibraryTap() {
+        let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+        switch status {
+        case .authorized, .limited:
+            showLibraryPicker = true
+        case .notDetermined:
+            presentToast(
+                text: isProfile ? "프로필 사진을 선택하려면 사진 접근 권한이 필요합니다." : "명함 사진을 선택하려면 사진 접근 권한이 필요합니다.",
+                buttonTitle: "허용하기"
+            ) {
+                showLibraryPicker = true
+            }
+        case .denied, .restricted:
+            presentToast(
+                text: "사진 접근이 차단되어 있어요. 설정 > APEX에서 권한을 허용해 주세요.",
+                buttonTitle: "설정 열기"
+            ) {
+                openAppSettings()
+            }
+        @unknown default:
+            showLibraryPicker = true
+        }
+    }
+
+    func presentToast(text: String, buttonTitle: String, action: @escaping () -> Void) {
+        toastText = text
+        toastButtonTitle = buttonTitle
+        toastAction = action
+        withAnimation { showToast = true }
+    }
+
+    func openAppSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        if UIApplication.shared.canOpenURL(url) {
+            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+        }
+    }
+}
+
 // Shared transformed rendering
 private struct TransformedImage: View {
     let sourceImage: UIImage
@@ -471,10 +531,11 @@ private func downscaledFromData(_ data: Data, maxDimension: CGFloat) -> UIImage?
 }
 
 private func downscaledFromUIImage(_ image: UIImage, maxDimension: CGFloat) -> UIImage {
-    let w = image.size.width, h = image.size.height
-    let scale = min(1, maxDimension / max(w, h))
+    let imageWidth = image.size.width
+    let imageHeight = image.size.height
+    let scale = min(1, maxDimension / max(imageWidth, imageHeight))
     if scale >= 0.999 { return image }
-    let newSize = CGSize(width: w * scale, height: h * scale)
+    let newSize = CGSize(width: imageWidth * scale, height: imageHeight * scale)
     let fmt = UIGraphicsImageRendererFormat(); fmt.scale = image.scale; fmt.opaque = false
     return UIGraphicsImageRenderer(size: newSize, format: fmt).image { _ in
         image.draw(in: CGRect(origin: .zero, size: newSize))

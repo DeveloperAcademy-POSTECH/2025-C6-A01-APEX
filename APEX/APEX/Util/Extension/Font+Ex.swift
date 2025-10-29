@@ -47,4 +47,5 @@ extension Font {
     static var body6: Font { .pretandard(.regular, size: 14) }
     static var caption1: Font { .pretandard(.semibold, size: 13) }
     static var caption2: Font { .pretandard(.medium, size: 13) }
+    static var caption3: Font { .pretandard(.medium, size: 10) }
 }
