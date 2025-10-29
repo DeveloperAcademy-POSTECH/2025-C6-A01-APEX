@@ -147,23 +147,32 @@ struct APEXListRow: View {
 
 private extension APEXListRow {
     static func makeLatestRecordSummary(from notes: [Note]) -> String? {
-        guard let latest = notes.max(by: { $0.date < $1.date }) else { return nil }
-        switch latest.attachment {
-        case .text(let text):
+        guard let latest = notes.max(by: { $0.uploadedAt < $1.uploadedAt }) else { return nil }
+
+        if let text = latest.text?
+            .split(whereSeparator: \.isNewline)
+            .first
+            .map(String.init)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .nilIfEmpty {
             return text
-                .split(whereSeparator: \.isNewline)
-                .first
-                .map(String.init)?
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-                .nilIfEmpty ?? "텍스트"
-        case .image:
-            return "사진"
-        case .video:
-            return "영상"
-        case .audio:
-            return "음성"
-        case .file(let url):
-            return url.lastPathComponent
+        }
+
+        switch latest.bundle {
+        case .media(let images, let videos):
+            let hasImages = !images.isEmpty
+            let hasVideos = !videos.isEmpty
+            if hasImages && hasVideos { return "사진/영상" }
+            if hasImages { return "사진" }
+            if hasVideos { return "영상" }
+            return "미디어"
+        case .files(let files):
+            if files.count == 1, let first = files.first { return first.url.lastPathComponent }
+            return "\(files.count)개 파일"
+        case .audio(let audios):
+            return audios.count <= 1 ? "음성 메모" : "\(audios.count)개 음성 메모"
+        case .none:
+            return nil
         }
     }
 }
@@ -199,8 +208,16 @@ private extension String {
                 favorite: false,
                 pin: true,
                 notes: [
-                    Note(date: now.addingTimeInterval(-3600), attachment: .text("미팅 노트 첫 줄\n다음 줄")),
-                    Note(date: now.addingTimeInterval(-1800), attachment: .image(data: Data()))
+                    Note(
+                        uploadedAt: now.addingTimeInterval(-3600),
+                        text: "미팅 노트 첫 줄\n다음 줄",
+                        bundle: .media(images: [], videos: [])
+                    ),
+                    Note(
+                        uploadedAt: now.addingTimeInterval(-1800),
+                        text: nil,
+                        bundle: .media(images: [ImageAttachment(data: Data())], videos: [])
+                    )
                 ]
             )
             let clientTwo = Client(
@@ -220,10 +237,11 @@ private extension String {
                 pin: false,
                 notes: [
                     Note(
-                        date: now.addingTimeInterval(-7200),
-                        attachment: .file(
-                            url: URL(fileURLWithPath: "/tmp/견적서.pdf")
-                        )
+                        uploadedAt: now.addingTimeInterval(-7200),
+                        text: nil,
+                        bundle: .files([
+                            FileAttachment(url: URL(fileURLWithPath: "/tmp/견적서.pdf"), contentType: nil)
+                        ])
                     )
                 ]
             )
