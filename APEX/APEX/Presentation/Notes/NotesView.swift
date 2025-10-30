@@ -51,11 +51,11 @@ struct NotesView: View {
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: UUID.self) { id in
                 if let client = clients.first(where: { $0.id == id }) {
-                    ChattingView(chatTitle: "\(client.name) \(client.surname)")
+                    ChattingView(clientId: id, chatTitle: "\(client.name) \(client.surname)", initialNotes: client.notes)
                         .toolbar(.hidden, for: .navigationBar)
                         .toolbar(.hidden, for: .tabBar)
                 } else {
-                    ChattingView(chatTitle: "채팅")
+                    ChattingView(clientId: id, chatTitle: "채팅", initialNotes: [])
                         .toolbar(.hidden, for: .navigationBar)
                         .toolbar(.hidden, for: .tabBar)
                 }

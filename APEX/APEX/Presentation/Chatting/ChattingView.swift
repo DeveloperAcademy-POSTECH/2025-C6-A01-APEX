@@ -14,8 +14,14 @@ import UIKit
 
 struct ChattingView: View {
     @Environment(\.dismiss) private var dismiss
+    let clientId: UUID
     let chatTitle: String
-    init(chatTitle: String = "채팅") { self.chatTitle = chatTitle }
+    let initialNotes: [Note]
+    init(clientId: UUID, chatTitle: String = "채팅", initialNotes: [Note] = []) {
+        self.clientId = clientId
+        self.chatTitle = chatTitle
+        self.initialNotes = initialNotes
+    }
     @State private var notes: [Note] = []
     // Custom bottom sheet state
     fileprivate enum BottomSheetMode { case hidden, collapsed, expanded }
@@ -99,6 +105,7 @@ struct ChattingView: View {
                                     if let idx = notes.firstIndex(where: { $0.id == noteId }) {
                                         notes.remove(at: idx)
                                     }
+                                    ChatStore.shared.setNotes(notes, for: clientId)
                                 },
                                 onStartSelectCopy: { text in
                                     selectCopy = SelectCopyPayload(text: text)
@@ -137,6 +144,10 @@ struct ChattingView: View {
             .onTapGesture { dismissKeyboard() }
             .onAppear {
                 DispatchQueue.main.async {
+                    if notes.isEmpty {
+                        let persisted = ChatStore.shared.notes(for: clientId)
+                        notes = persisted.isEmpty ? initialNotes : persisted
+                    }
                     proxy.scrollTo(bottomSentinelId, anchor: .bottom)
                 }
             }
@@ -439,10 +450,42 @@ struct ChattingView: View {
                     }
                     .zIndex(1)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
+
+                    // Upload button when fully expanded
+                    if sheetMode == .expanded {
+                        let bottomInset: CGFloat = {
+                            if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                               let win = scene.windows.first(where: { $0.isKeyWindow }) {
+                                return win.safeAreaInsets.bottom
+                            }
+                            return 0
+                        }()
+                        Button {
+                            NotificationCenter.default.post(name: .apexSendSelectedAttachments, object: nil)
+                            withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
+                                sheetMode = .hidden
+                            }
+                        } label: {
+                            Image(systemName: "arrow.up")
+                                .font(.system(size: 20, weight: .medium))
+                                .foregroundColor(.white)
+                                .frame(width: 48, height: 48)
+                                .background(Color("Primary"))
+                                .clipShape(Circle())
+                                .glassEffect()
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.trailing, 16)
+                        .padding(.bottom, 16 + bottomInset)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                        .transition(.scale.combined(with: .opacity))
+                        .zIndex(2)
+                    }
                 }
             }
         }
         .onPreferenceChange(BottomInsetHeightKey.self) { height in bottomInsetHeight = height }
+        .onDisappear { ChatStore.shared.setNotes(notes, for: clientId) }
         .apexToast(
             isPresented: $showCopyToast,
             image: Image(systemName: "doc.on.doc.fill"),
@@ -458,6 +501,7 @@ struct ChattingView: View {
                     if let idx = notes.firstIndex(where: { $0.id == payload.noteId }) {
                         notes[idx].text = newText
                     }
+                    ChatStore.shared.setNotes(notes, for: clientId)
                     editing = nil
                 },
                 onCopyAll: {
@@ -472,6 +516,7 @@ struct ChattingView: View {
                     if let idx = notes.firstIndex(where: { $0.id == payload.noteId }) {
                         notes.remove(at: idx)
                     }
+                    ChatStore.shared.setNotes(notes, for: clientId)
                     editing = nil
                 },
                 deleteSubject: "메모를"
@@ -501,6 +546,7 @@ private extension ChattingView {
         guard case var .audio(audios) = notes[idx].bundle else { return }
         audios.removeAll { $0.url == url }
         notes[idx].bundle = audios.isEmpty ? nil : .audio(audios)
+        ChatStore.shared.setNotes(notes, for: clientId)
     }
     func buildGlobalViewerPayload(startingFrom anchor: ChatMessageView.ChatAnchor) -> (items: [MediaSource], anchors: [ChatMessageView.ChatAnchor], index: Int) {
         var allItems: [MediaSource] = []
@@ -548,6 +594,7 @@ private extension ChattingView {
             noteWithProgress.bundle = .media(images: imagesWithProgress, videos: videosWithProgress)
         }
         notes.append(noteWithProgress)
+        ChatStore.shared.setNotes(notes, for: clientId)
         if let idx = notes.indices.last { startUploadsForNote(at: idx) }
     }
 
@@ -844,6 +891,7 @@ private extension ChattingView {
         }
 
         notes[noteIndex].bundle = .media(images: images, videos: videos)
+        ChatStore.shared.setNotes(notes, for: clientId)
     }
 }
 
@@ -1696,7 +1744,7 @@ private struct BottomSheetHost<Content: View>: View {
 }
 
 #Preview {
-    ChattingView()
+    ChattingView(clientId: UUID(), chatTitle: "Preview", initialNotes: [])
 }
 
 #Preview("TextEditSheet") {
