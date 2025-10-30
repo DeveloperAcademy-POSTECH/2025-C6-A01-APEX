@@ -102,13 +102,11 @@ struct APEXListRow: View {
     }
     
     private var timeText: String {
-        guard style == .note,
-              let latestNote = client.notes.max(by: { $0.uploadedAt < $1.uploadedAt })
-        else { return "" }
-
+        guard style == .note, let latestNote = client.notes.max(by: { $0.uploadedAt < $1.uploadedAt }) else { return "" }
+        
         let formatter = DateFormatter()
         let calendar = Calendar.current
-
+        
         if calendar.isDate(latestNote.uploadedAt, inSameDayAs: Date()) {
             formatter.dateFormat = "h:mma"
             return formatter.string(from: latestNote.uploadedAt).lowercased()
@@ -238,7 +236,7 @@ private extension String {
 #Preview("APEXList (position/recentRecord)") {
     VStack(spacing: 24) {
         APEXList(
-            clients: sampleClients,
+            clients: [], // sampleClients 대신 빈 배열 사용
             rowStyle: .contact
         )
 
@@ -268,7 +266,7 @@ private extension String {
                     Note(
                         uploadedAt: now.addingTimeInterval(-1800),
                         text: nil,
-                        bundle: .media(images: [ImageAttachment(data: Data())], videos: [])
+                        bundle: .media(images: [ImageAttachment(data: Data(), progress: nil, orderIndex: nil)], videos: [])
                     )
                 ]
             )
@@ -292,7 +290,7 @@ private extension String {
                         uploadedAt: now.addingTimeInterval(-7200),
                         text: nil,
                         bundle: .files([
-                            FileAttachment(url: URL(fileURLWithPath: "/tmp/견적서.pdf"), contentType: nil)
+                            FileAttachment(url: URL(fileURLWithPath: "/tmp/견적서.pdf"), contentType: nil, progress: nil)
                         ])
                     )
                 ]

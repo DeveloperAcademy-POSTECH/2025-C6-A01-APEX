@@ -19,6 +19,28 @@ enum NotesFilter: Hashable {
             return name
         }
     }
+    
+    // MARK: - Helper Methods
+    /// 현재 필터가 특정 회사와 매치되는지 확인
+    func matches(company: String) -> Bool {
+        switch self {
+        case .all:
+            return true
+        case .company(let filterCompany):
+            return filterCompany.trimmingCharacters(in: .whitespacesAndNewlines) == 
+                   company.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+    }
+    
+    /// 필터 적용 여부 확인
+    var isFiltering: Bool {
+        switch self {
+        case .all:
+            return false
+        case .company:
+            return true
+        }
+    }
 }
 
 struct NotesFilterItem: Identifiable, Hashable {
@@ -28,5 +50,11 @@ struct NotesFilterItem: Identifiable, Hashable {
     
     var displayName: String {
         filter.displayName
+    }
+    
+    // MARK: - Initializers
+    init(filter: NotesFilter, isEnabled: Bool = true) {
+        self.filter = filter
+        self.isEnabled = isEnabled
     }
 }

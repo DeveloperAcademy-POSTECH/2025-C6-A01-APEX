@@ -33,7 +33,8 @@ struct MyProfileView: View {
             favorite: client.favorite,
             pin: client.pin,
             notes: client.notes.map { _ in
-                Note(uploadedAt: Date(), text: "")
+                // Note 이니셜라이저에 맞게 수정
+                Note(uploadedAt: Date(), text: "", bundle: nil)
             }
         )
     }
