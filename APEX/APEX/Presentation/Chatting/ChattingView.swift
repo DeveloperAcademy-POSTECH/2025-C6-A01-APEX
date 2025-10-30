@@ -369,10 +369,12 @@ struct ChattingView: View {
                     handleIncoming(note: note)
                 }, onSheetVisibilityChanged: { visible in
                     // Map InputBar left button toggle to our custom sheet modes
-                    if visible {
-                        sheetMode = .collapsed
-                    } else {
-                        sheetMode = (sheetMode == .expanded) ? .collapsed : .hidden
+                    withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
+                        if visible {
+                            sheetMode = .collapsed
+                        } else {
+                            sheetMode = (sheetMode == .expanded) ? .collapsed : .hidden
+                        }
                     }
                 }, stagedAttachments: $stagedAttachments, onBarOffsetChanged: { offset in
                     bottomBarOffsetY = offset
@@ -394,7 +396,11 @@ struct ChattingView: View {
                         Color.black.opacity(0.18)
                             .ignoresSafeArea()
                             .contentShape(Rectangle())
-                            .onTapGesture { sheetMode = .collapsed }
+                            .onTapGesture {
+                                withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
+                                    sheetMode = .collapsed
+                                }
+                            }
                             .transition(.opacity)
                     }
 
@@ -1597,7 +1603,7 @@ private struct BottomSheetHost<Content: View>: View {
     }
 
     var body: some View {
-        let threshold: CGFloat = 120
+        let threshold: CGFloat = 80
         let drag = DragGesture()
             .updating($dragY) { value, state, _ in
                 state = value.translation.height
@@ -1606,12 +1612,12 @@ private struct BottomSheetHost<Content: View>: View {
                 switch mode {
                 case .collapsed:
                     // Upward drag expands; downward drag to hide is disabled (only left button hides)
-                    if value.translation.height < -threshold {
+                    if value.translation.height < -threshold || value.predictedEndTranslation.height < -threshold {
                         mode = .expanded
                     }
                 case .expanded:
                     // Downward drag collapses
-                    if value.translation.height > threshold {
+                    if value.translation.height > threshold || value.predictedEndTranslation.height > threshold {
                         mode = .collapsed
                     }
                 case .hidden:
@@ -1625,11 +1631,11 @@ private struct BottomSheetHost<Content: View>: View {
             case .collapsed:
                 // allow only upward drag (negative), increase height up to expanded
                 let allowed = min(0, dragY)
-                return -allowed
+                return -allowed * 0.6 // soften tracking
             case .expanded:
                 // allow only downward drag (positive), decrease height down to collapsed
                 let allowed = max(0, dragY)
-                return -allowed
+                return -allowed * 0.7 // soften tracking
             case .hidden:
                 return 0
             }
@@ -1661,7 +1667,8 @@ private struct BottomSheetHost<Content: View>: View {
         .background(Color("Background"))
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .shadow(color: .black.opacity(0.08), radius: 12, y: -2)
-        .animation(.interactiveSpring(response: 0.32, dampingFraction: 0.86), value: mode)
+        .animation(.interactiveSpring(response: 0.5, dampingFraction: 0.92), value: mode)
+        .animation(.interactiveSpring(response: 0.3, dampingFraction: 0.9), value: dragY)
         .gesture(drag)
         .onChange(of: mode) { _, newMode in
             let calculatedHeight: CGFloat
@@ -1671,6 +1678,10 @@ private struct BottomSheetHost<Content: View>: View {
             case .expanded: calculatedHeight = expandedHeight
             }
             onHeightChanged(calculatedHeight, newMode)
+        }
+        .onChange(of: dragY) { _, _ in
+            // Continuously reflect current displayed height to parent while dragging
+            onHeightChanged(displayedHeight, mode)
         }
         .onAppear {
             let calculatedHeight: CGFloat

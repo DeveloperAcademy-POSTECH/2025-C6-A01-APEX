@@ -8,11 +8,6 @@
 import SwiftUI
 
 struct ContactsView: View {
-    @State private var myProfile: Client? = {
-        // 실제 사용자 프로필로 교체하세요.
-        sampleClients.first
-    }()
-
     @State private var favorites: [Client] = sampleClients.filter { $0.favorite }
     @State private var allUngrouped: [Client] = sampleClients
 
@@ -36,19 +31,18 @@ struct ContactsView: View {
         NavigationStack {
             List {
                 // MARK: - My Profile (TopBar와 0 간격, Favorites와는 8 간격)
-                if let profile = myProfile {
-                    ContactsRow(
-                        client: profile,
-                        onToggleFavorite: nil,
-                        onDelete: nil,
-                        onTap: { navigateToMyProfile(profile) },
-                        rowHeight: Metrics.myProfileRowHeight,
-                        subtitleOverride: "My Profile"
-                    )
-                    .applyListRowCleaning()
+                // My Profile Row (DummyClient -> Client 변환해 표시)
+                ContactsRow(
+                    client: convertToClient(myProfileDummy),
+                    onToggleFavorite: nil,
+                    onDelete: nil,
+                    onTap: { navigateToMyProfile() },
+                    rowHeight: Metrics.myProfileRowHeight,
+                    subtitleOverride: "My Profile"
+                )
+                .applyListRowCleaning()
 
-                    gapRow() // Favorites와 8 간격
-                }
+                gapRow() // Favorites와 8 간격
 
                 // MARK: - Favorites
                 if !favorites.isEmpty {
@@ -148,27 +142,26 @@ struct ContactsView: View {
         }
     }
 
-    private func navigateToMyProfile(_ client: Client) {
-        myProfileDummy = convertToDummy(client)
+    private func navigateToMyProfile() {
         showMyProfileView = true
     }
 
-    private func convertToDummy(_ client: Client) -> DummyClient {
-        DummyClient(
-            profile: client.profile,
-            nameCardFront: client.nameCardFront,
-            nameCardBack: client.nameCardBack,
-            surname: client.surname,
-            name: client.name,
-            position: client.position,
-            company: client.company,
-            email: client.email,
-            phoneNumber: client.phoneNumber,
-            linkedinURL: client.linkedinURL,
-            memo: client.memo,
-            action: client.action,
-            favorite: client.favorite,
-            pin: client.pin,
+    private func convertToClient(_ dummy: DummyClient) -> Client {
+        Client(
+            profile: dummy.profile,
+            nameCardFront: dummy.nameCardFront,
+            nameCardBack: dummy.nameCardBack,
+            surname: dummy.surname,
+            name: dummy.name,
+            position: dummy.position,
+            company: dummy.company,
+            email: dummy.email,
+            phoneNumber: dummy.phoneNumber,
+            linkedinURL: dummy.linkedinURL,
+            memo: dummy.memo,
+            action: dummy.action,
+            favorite: dummy.favorite,
+            pin: dummy.pin,
             notes: []
         )
     }
