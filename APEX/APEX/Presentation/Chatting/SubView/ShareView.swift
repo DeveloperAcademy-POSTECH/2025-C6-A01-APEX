@@ -14,6 +14,8 @@ struct ShareView: View {
         var id: String { rawValue }
     }
 
+    private let shouldSeedIfEmpty: Bool
+
     @State private var selectedTab: Tab = .connects
     @State private var selectedIds: Set<UUID> = []
     @State private var inputText: String = ""
@@ -22,7 +24,8 @@ struct ShareView: View {
 
     private let clients: [Client] = sampleClients
 
-    init(initialAttachments: [ShareAttachmentItem] = []) {
+    init(initialAttachments: [ShareAttachmentItem] = [], shouldSeedIfEmpty: Bool = true) {
+        self.shouldSeedIfEmpty = shouldSeedIfEmpty
         _attachments = State(initialValue: initialAttachments)
     }
 
@@ -90,6 +93,7 @@ struct ShareView: View {
                     onClose: { dismiss() },
                     onSearch: { performSearch() }
                 )
+                .padding(.top, 12)
 
                 Group {
                     if !selectedIds.isEmpty {
@@ -126,7 +130,7 @@ struct ShareView: View {
         }
         .scrollEdgeEffectStyle(.hard, for: .all)
         .onAppear {
-            if attachments.isEmpty {
+            if shouldSeedIfEmpty && attachments.isEmpty {
                 seedTempAttachments()
             }
         }

@@ -39,7 +39,6 @@ struct APEXNavigationBar: View {
                 }
                 .frame(height: height)
                 .padding(.horizontal, 12)
-                .background(background)
 
                 // Center title overlay (kept independent from side widths)
                 center

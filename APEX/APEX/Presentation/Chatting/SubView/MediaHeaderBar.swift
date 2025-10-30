@@ -12,6 +12,7 @@ struct MediaHeaderBar: View {
     let uploadedAt: Date?
     var onBack: () -> Void
     var onGrid: () -> Void
+    var onTitleTap: () -> Void
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -34,17 +35,21 @@ struct MediaHeaderBar: View {
 
                 Spacer()
                 
-                Button {
-                    
-                } label: {
+                Button(action: { onTitleTap() }) {
                     VStack(alignment: .center, spacing: 2) {
                         Text(title)
                             .font(.title5)
                             .foregroundStyle(.white)
                         if let uploadedAt {
-                            Text(uploadedAt.formattedHeaderDate)
-                                .font(.caption3)
-                                .foregroundStyle(.white)
+                            HStack(alignment: .center, spacing: 4) {
+                                Text(uploadedAt.formattedHeaderDate)
+                                    .font(.caption3)
+                                    .foregroundStyle(.white)
+                                
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundStyle(.white)
+                            }
                         }
                     }
                 }
@@ -69,7 +74,7 @@ struct MediaHeaderBar: View {
     ZStack {
         Color.black.ignoresSafeArea()
         VStack {
-            MediaHeaderBar(title: "Gyeong", uploadedAt: Date(), onBack: {}, onGrid: {})
+            MediaHeaderBar(title: "Gyeong", uploadedAt: Date(), onBack: {}, onGrid: {}, onTitleTap:  {})
             Spacer()
         }
     }

@@ -5,33 +5,58 @@ import SwiftUI
 struct APEXToast: View {
     var image: Image?
     var text: String
-    var buttonTitle: String = "확인"
-    var onButtonTap: () -> Void
+    var buttonTitle: String?   // when nil, no right button
+    var onButtonTap: (() -> Void)?
 
     // Minimal style tokens aligned with project
     var background: Color = .black.opacity(0.9)
     var iconTint: Color = Color("Background")
 
     var body: some View {
-        HStack {
-            if let image {
-                image
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(iconTint)
-                    .imageScale(.medium)
-                    .padding(.trailing, 8)
+        let hasButton = (buttonTitle != nil && onButtonTap != nil)
+
+        return ZStack {
+            // Base layout keeps sizing consistent
+            HStack {
+                // Show leading icon only when button exists; otherwise, we'll render it in the centered overlay
+                if let image, hasButton {
+                    image
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(iconTint)
+                        .imageScale(.medium)
+                        .padding(.trailing, 8)
+                }
+
+                Text(text)
+                    .font(.body4)
+                    .foregroundColor(Color("Background"))
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .opacity(hasButton ? 1 : 0) // hide when centering via overlay
+
+                if hasButton, let title = buttonTitle {
+                    Button(title) { onButtonTap?() }
+                        .font(.body5)
+                        .foregroundColor(Color("Background"))
+                        .buttonStyle(.plain)
+                }
             }
-
-            Text(text)
-                .font(.body4)
-                .foregroundColor(Color("Background"))
-                .lineLimit(2)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            Button(buttonTitle, action: onButtonTap)
-                .font(.body5)
-                .foregroundColor(Color("Background"))
-                .buttonStyle(.plain)
+            // Centered label (with icon) when no button
+            if !hasButton {
+                HStack(spacing: 8) {
+                    if let image {
+                        image
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(iconTint)
+                            .imageScale(.medium)
+                    }
+                    Text(text)
+                        .font(.body4)
+                        .foregroundColor(Color("Background"))
+                        .lineLimit(2)
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+            }
         }
         .padding(.leading, 20)
         .padding(.trailing, 16)
@@ -49,8 +74,8 @@ private struct APEXToastOverlay: ViewModifier {
     @Binding var isPresented: Bool
     let image: Image?
     let text: String
-    let buttonTitle: String
-    let onButtonTap: () -> Void
+    let buttonTitle: String?
+    let onButtonTap: (() -> Void)?
     let duration: TimeInterval
 
     @State private var hideWorkItem: DispatchWorkItem?
@@ -67,7 +92,7 @@ private struct APEXToastOverlay: ViewModifier {
                         buttonTitle: buttonTitle,
                         onButtonTap: {
                             hideWorkItem?.cancel()
-                            onButtonTap()
+                            onButtonTap?()
                             withAnimation(.easeInOut(duration: 0.35)) {
                                 isPresented = false
                             }
@@ -77,6 +102,8 @@ private struct APEXToastOverlay: ViewModifier {
                     .padding(.bottom, 24)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
+                .zIndex(1000)
+                .allowsHitTesting(false)
             }
         }
         .animation(.easeInOut(duration: 0.35), value: isPresented)
@@ -108,9 +135,9 @@ extension View {
         isPresented: Binding<Bool>,
         image: Image? = Image(systemName: "info.circle.fill"),
         text: String,
-        buttonTitle: String = "확인",
+        buttonTitle: String? = nil,
         duration: TimeInterval = 2.0,
-        onButtonTap: @escaping () -> Void
+        onButtonTap: (() -> Void)? = nil
     ) -> some View {
         modifier(
             APEXToastOverlay(
@@ -140,11 +167,8 @@ extension View {
                 isPresented: $show,
                 image: Image(systemName: "star.slash"),
                 text: "즐겨찾기를 해제했습니다.",
-                buttonTitle: "되돌리기",
                 duration: 2.0
-            ) {
-                print("되돌리기")
-            }
+            )
         }
     }
     return PreviewContainer()

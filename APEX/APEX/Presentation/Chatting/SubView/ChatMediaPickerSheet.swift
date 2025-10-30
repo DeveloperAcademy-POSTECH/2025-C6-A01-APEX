@@ -14,6 +14,8 @@ struct ChatMediaPickerSheet: View {
     var onTapCamera: () -> Void
     var onOpenSystemAlbum: () -> Void
     var onDetentChanged: (PresentationDetent) -> Void = { _ in }
+    var onHeightChanged: (CGFloat) -> Void = { _ in }
+    var onConfirmUpload: () -> Void = {}
     @Binding var selectedAttachmentItems: [ShareAttachmentItem]
 
     @State private var detentSelection: PresentationDetent = .fraction(0.4)
@@ -33,6 +35,8 @@ struct ChatMediaPickerSheet: View {
         onTapCamera: @escaping () -> Void,
         onOpenSystemAlbum: @escaping () -> Void,
         onDetentChanged: @escaping (PresentationDetent) -> Void = { _ in },
+        onHeightChanged: @escaping (CGFloat) -> Void = { _ in },
+        onConfirmUpload: @escaping () -> Void = {},
         selectedAttachmentItems: Binding<[ShareAttachmentItem]> = .constant([])
     ) {
         self._isPresented = isPresented
@@ -40,6 +44,8 @@ struct ChatMediaPickerSheet: View {
         self.onTapCamera = onTapCamera
         self.onOpenSystemAlbum = onOpenSystemAlbum
         self.onDetentChanged = onDetentChanged
+        self.onHeightChanged = onHeightChanged
+        self.onConfirmUpload = onConfirmUpload
         self._selectedAttachmentItems = selectedAttachmentItems
     }
 
@@ -105,15 +111,43 @@ struct ChatMediaPickerSheet: View {
                 .padding(.vertical, 8.5)
             }
         }
+        .overlay(alignment: .bottomTrailing) {
+            if detentSelection == .large {
+                Button {
+                    onConfirmUpload()
+                    isPresented = false
+                } label: {
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundColor(.white)
+                        .frame(width: 48, height: 48)
+                        .background(Color("Primary"))
+                        .clipShape(Circle())
+                        .glassEffect()
+                }
+                .buttonStyle(.plain)
+                .disabled(selectedIds.isEmpty)
+                .padding(16)
+            }
+        }
         .onAppear { requestAndFetchRecents() }
         .onAppear { onDetentChanged(detentSelection) }
         .presentationDetents([.fraction(0.4), .large], selection: $detentSelection)
-        .presentationDragIndicator(.visible)
+        .presentationDragIndicator(detentSelection == .large ? .hidden : .visible)
         .presentationCornerRadius(16)
-        .presentationBackgroundInteraction(detentSelection == .large ? .disabled : .enabled)
-        .interactiveDismissDisabled(detentSelection == .fraction(0.4))
+        .presentationBackgroundInteraction(.enabled)
+        .interactiveDismissDisabled(detentSelection == .large)
         .onChange(of: detentSelection) { _, newValue in
             onDetentChanged(newValue)
+        }
+        .background(
+            GeometryReader { proxy in
+                Color.clear
+                    .preference(key: SheetHeightKey.self, value: proxy.size.height)
+            }
+        )
+        .onPreferenceChange(SheetHeightKey.self) { height in
+            onHeightChanged(height)
         }
     }
 
@@ -129,9 +163,9 @@ struct ChatMediaPickerSheet: View {
 
     private func formatClock(_ seconds: TimeInterval) -> String {
         let total = Int(seconds.rounded())
-        let m = total / 60
-        let s = total % 60
-        return String(format: "%02d:%02d", m, s)
+        let minutes = total / 60
+        let secondsRemainder = total % 60
+        return String(format: "%02d:%02d", minutes, secondsRemainder)
     }
 
     private func synchronizeSelectedItems() {
@@ -144,12 +178,41 @@ struct ChatMediaPickerSheet: View {
                 newItems.append(ShareAttachmentItem(id: UUID(), kind: .image(image)))
             case .video:
                 let thumb = thumbnails[asset.localIdentifier] ?? makeThumbSync(for: asset)
-                newItems.append(ShareAttachmentItem(id: UUID(), kind: .video(nil, thumbnail: thumb)))
+                let id = UUID()
+                newItems.append(ShareAttachmentItem(id: id, kind: .video(nil, thumbnail: thumb)))
+                // Try to resolve a temporary URL for the selected video asset
+                fetchVideoURL(for: asset) { url in
+                    DispatchQueue.main.async {
+                        if let idx = selectedAttachmentItems.firstIndex(where: { $0.id == id }) {
+                            selectedAttachmentItems[idx].kind = .video(url, thumbnail: thumb)
+                        }
+                    }
+                }
             default:
                 break
             }
         }
         selectedAttachmentItems = newItems
+    }
+
+    private func fetchVideoURL(for asset: PHAsset, completion: @escaping (URL?) -> Void) {
+        let resources = PHAssetResource.assetResources(for: asset).filter { res in
+            return res.type == .video || res.type == .pairedVideo
+        }
+        guard let resource = resources.first else {
+            completion(nil)
+            return
+        }
+        let tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("mov")
+        PHAssetResourceManager.default().writeData(for: resource, toFile: tmp, options: nil) { error in
+            if error != nil {
+                completion(nil)
+            } else {
+                completion(tmp)
+            }
+        }
     }
 
     private func makeThumbSync(for asset: PHAsset, size: CGSize = CGSize(width: 200, height: 200)) -> UIImage? {
@@ -174,38 +237,44 @@ struct ChatMediaPickerSheet: View {
     private var headerCollapsed: some View { Color.clear.frame(height: 8) }
 
     private var headerLarge: some View {
-        HStack(alignment: .center) {
-            Button {
-                isPresented = false
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.black)
-                    .frame(width: 44, height: 44)
-                    .glassEffect()
-            }
-            .buttonStyle(.plain)
+        ZStack(alignment: .center) {
+            HStack(alignment: .center) {
+                Button {
+                    isPresented = false
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.black)
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+                .glassEffect()
 
-            Spacer(minLength: 0)
+                Spacer(minLength: 0)
+
+                Button {
+                    onOpenSystemAlbum()
+                    isPresented = false
+                } label: {
+                    Text("전체 앨범")
+                        .font(.body5)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 9)
+                }
+                .buttonStyle(.plain)
+                .glassEffect()
+            }
 
             VStack(spacing: 2) {
                 Text("앨범").font(.title5).foregroundStyle(.black)
-                Text("최대 24개 선택").font(.caption3).foregroundStyle(.secondary)
+                if !selectedIds.isEmpty {
+                    Text("\(selectedIds.count)/24개 선택됨").font(.caption3).foregroundStyle(Color("Primary"))
+                } else {
+                    Text("최대 24개 선택").font(.caption3).foregroundStyle(.secondary)
+                }
             }
-
-            Spacer(minLength: 0)
-
-            Button {
-                onOpenSystemAlbum()
-                isPresented = false
-            } label: {
-                Image(systemName: "photo")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.black)
-                    .frame(width: 44, height: 44)
-                    .glassEffect()
-            }
-            .buttonStyle(.plain)
+            .padding(.top, 16)
+            .padding(.bottom, 8)
         }
         .padding(.horizontal, 8)
         .padding(.top, 6)
@@ -302,6 +371,14 @@ struct ChatMediaPickerSheet: View {
     }
 }
 
+// PreferenceKey for reporting the presented sheet height to parent
+private struct SheetHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 #Preview {
     ChatMediaPickerSheet(
         isPresented: .constant(true),
@@ -311,4 +388,3 @@ struct ChatMediaPickerSheet: View {
         selectedAttachmentItems: .constant([])
     )
 }
-

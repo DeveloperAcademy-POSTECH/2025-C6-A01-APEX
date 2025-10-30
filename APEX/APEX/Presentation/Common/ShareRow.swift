@@ -23,7 +23,7 @@ struct ShareRow: View {
         static let nameSubtitleSpacing: CGFloat = 2
         static let trailingSpacerMin: CGFloat = 8
         static let checkboxSize: CGFloat = 22
-        static let iconFontSize: CGFloat = 13
+        static let iconFontSize: CGFloat = 10
     }
 
     var body: some View {
@@ -31,10 +31,17 @@ struct ShareRow: View {
             avatarWithBadge
 
             VStack(alignment: .leading, spacing: Metrics.nameSubtitleSpacing) {
-                Text("\(client.name) \(client.surname)")
-                    .font(.body2)
-                    .foregroundColor(.primary)
-                    .lineLimit(1)
+                HStack(spacing: 1) {
+                    Text("\(client.name) \(client.surname)")
+                        .font(.body2)
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+                    if let icon = nameBadgeIconName {
+                        Image(systemName: icon)
+                            .font(.system(size: Metrics.iconFontSize, weight: .medium))
+                            .foregroundColor(Color("Primary"))
+                    }
+                }
 
                 Text(subtitle)
                     .font(.body6)
@@ -67,20 +74,21 @@ struct ShareRow: View {
         latestMemoText(from: client.notes) ?? ""
     }
 
+    private var nameBadgeIconName: String? {
+        switch mode {
+        case .contacts:
+            return client.favorite ? "star.fill" : nil
+        case .recents:
+            return client.pin ? "pin.fill" : nil
+        }
+    }
+
     private var avatarWithBadge: some View {
         avatar
     }
 
     private var avatar: some View {
         let initials = Profile.makeInitials(name: client.name, surname: client.surname)
-        let badge: Profile.Badge? = {
-            switch mode {
-            case .contacts:
-                return client.favorite ? .favorite : nil
-            case .recents:
-                return client.pin ? .pin : nil
-            }
-        }()
         return Profile(
             image: client.profile,
             initials: initials,
@@ -88,8 +96,7 @@ struct ShareRow: View {
             fontSize: 30.72,
             backgroundColor: Color("PrimaryContainer"),
             textColor: .white,
-            fontWeight: .semibold,
-            badge: badge
+            fontWeight: .semibold
         )
     }
 }
@@ -113,8 +120,8 @@ private func latestMemoText(from notes: [Note]) -> String? {
 #Preview {
     VStack(spacing: 12) {
         ShareRow(client: sampleClients.first!, mode: .contacts)
-            .background(.blue)
+            .background(.cyan)
         ShareRow(client: sampleClients.first!, mode: .recents)
-            .background(.blue)
+            .background(.cyan)
     }
 }

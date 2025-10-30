@@ -27,7 +27,16 @@ let sampleClients: [Client] = [
             Note(
                 uploadedAt: Date().addingTimeInterval(-3600),
                 text: nil,
-                bundle: .media(images: [], videos: [VideoAttachment(url: URL(fileURLWithPath: "/tmp/meeting.mp4"), progress: nil, orderIndex: nil)])
+                bundle: .media(
+                    images: [],
+                    videos: [
+                        VideoAttachment(
+                            url: URL(fileURLWithPath: "/tmp/meeting.mp4"),
+                            progress: nil,
+                            orderIndex: nil
+                        )
+                    ]
+                )
             ),
             Note(
                 uploadedAt: Date().addingTimeInterval(-7200),
@@ -55,13 +64,24 @@ let sampleClients: [Client] = [
             Note(
                 uploadedAt: Date().addingTimeInterval(-1800),
                 text: nil,
-
-                bundle: .media(images: [], videos: [VideoAttachment(url: URL(fileURLWithPath: "/tmp/presentation.mp4"), progress: nil, orderIndex: nil)])
+                bundle: .media(
+                    images: [],
+                    videos: [
+                        VideoAttachment(
+                            url: URL(fileURLWithPath: "/tmp/presentation.mp4"),
+                            progress: nil,
+                            orderIndex: nil
+                        )
+                    ]
+                )
             ),
             Note(
                 uploadedAt: Date().addingTimeInterval(-5400),
                 text: nil,
-                bundle: .media(images: [ImageAttachment(data: Data(), progress: nil, orderIndex: nil)], videos: [])
+                bundle: .media(
+                    images: [ImageAttachment(data: Data(), progress: nil, orderIndex: nil)],
+                    videos: []
+                )
             )
         ]
     ),
@@ -84,7 +104,16 @@ let sampleClients: [Client] = [
             Note(
                 uploadedAt: Date().addingTimeInterval(-900),
                 text: nil,
-                bundle: .media(images: [], videos: [VideoAttachment(url: URL(fileURLWithPath: "/tmp/design_review.mp4"), progress: nil, orderIndex: nil)])
+                bundle: .media(
+                    images: [],
+                    videos: [
+                        VideoAttachment(
+                            url: URL(fileURLWithPath: "/tmp/design_review.mp4"),
+                            progress: nil,
+                            orderIndex: nil
+                        )
+                    ]
+                )
             )
         ]
     ),
@@ -108,7 +137,16 @@ let sampleClients: [Client] = [
             Note(
                 uploadedAt: Date().addingTimeInterval(-2700),
                 text: nil,
-                bundle: .media(images: [], videos: [VideoAttachment(url: URL(fileURLWithPath: "/tmp/campaign.mp4"), progress: nil, orderIndex: nil)])
+                bundle: .media(
+                    images: [],
+                    videos: [
+                        VideoAttachment(
+                            url: URL(fileURLWithPath: "/tmp/campaign.mp4"),
+                            progress: nil,
+                            orderIndex: nil
+                        )
+                    ]
+                )
             )
         ]
     ),
@@ -131,7 +169,16 @@ let sampleClients: [Client] = [
             Note(
                 uploadedAt: Date().addingTimeInterval(-4500),
                 text: nil,
-                bundle: .media(images: [], videos: [VideoAttachment(url: URL(fileURLWithPath: "/tmp/code_review.mp4"), progress: nil, orderIndex: nil)])
+                bundle: .media(
+                    images: [],
+                    videos: [
+                        VideoAttachment(
+                            url: URL(fileURLWithPath: "/tmp/code_review.mp4"),
+                            progress: nil,
+                            orderIndex: nil
+                        )
+                    ]
+                )
             )
         ]
     ),
