@@ -96,11 +96,13 @@ struct ContactsView: View {
         }
         .background(Color("Background"))
         .safeAreaInset(edge: .top) {
-            ContactsTopBarReplica(
-                title: "Contacts",
-                onPlus: onPlusTap
-            )
-            .background(Color("Background"))
+            if !showMyProfileView {
+                ContactsTopBarReplica(
+                    title: "Contacts",
+                    onPlus: onPlusTap
+                )
+                .background(Color("Background"))
+            }
         }
         .sheet(isPresented: $isProfileAddPresented) {
             ProfileAddView(onComplete: { newClient in

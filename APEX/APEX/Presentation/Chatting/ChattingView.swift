@@ -389,41 +389,51 @@ struct ChattingView: View {
         // Custom overlay sheet (replaces system .sheet for media picker)
         .overlay(alignment: .bottom) {
             if sheetMode != .hidden {
-                BottomSheetHost(mode: $sheetMode, onHeightChanged: { height, mode in
+                ZStack(alignment: .bottom) {
+                    if sheetMode == .expanded {
+                        Color.black.opacity(0.18)
+                            .ignoresSafeArea()
+                            .contentShape(Rectangle())
+                            .onTapGesture { sheetMode = .collapsed }
+                            .transition(.opacity)
+                    }
+
+                    BottomSheetHost(mode: $sheetMode, onHeightChanged: { height, mode in
                     // When partially up, lift the input bar together; when fully expanded, keep input bar at bottom
                     if mode == .collapsed {
                         bottomBarOffsetY = -(height + 8)
                     } else {
                         bottomBarOffsetY = 0
                     }
-                }) {
-                    ChatMediaPickerSheet(
-                        isPresented: .constant(true),
-                        onTapFile: {
-                            NotificationCenter.default.post(name: .apexOpenDocumentPicker, object: nil)
-                            sheetMode = .hidden
-                        },
-                        onTapCamera: {
-                            CameraManager.shared.prewarmIfPossible()
-                            NotificationCenter.default.post(name: .apexOpenCamera, object: nil)
-                            sheetMode = .hidden
-                        },
-                        onOpenSystemAlbum: {
-                            NotificationCenter.default.post(name: .apexOpenPhotoPicker, object: nil)
-                            sheetMode = .hidden
-                        },
-                        onDetentChanged: { _ in },
-                        onHeightChanged: { _ in },
-                        onConfirmUpload: {
-                            NotificationCenter.default.post(name: .apexSendSelectedAttachments, object: nil)
-                            sheetMode = .hidden
-                        },
-                        selectedAttachmentItems: $stagedAttachments
-                    )
-                    .padding(.bottom, 0)
+                    }) {
+                        ChatMediaPickerSheet(
+                            isPresented: .constant(true),
+                            onTapFile: {
+                                NotificationCenter.default.post(name: .apexOpenDocumentPicker, object: nil)
+                                sheetMode = .hidden
+                            },
+                            onTapCamera: {
+                                CameraManager.shared.prewarmIfPossible()
+                                NotificationCenter.default.post(name: .apexOpenCamera, object: nil)
+                                sheetMode = .hidden
+                            },
+                            onOpenSystemAlbum: {
+                                NotificationCenter.default.post(name: .apexOpenPhotoPicker, object: nil)
+                                sheetMode = .hidden
+                            },
+                            onDetentChanged: { _ in },
+                            onHeightChanged: { _ in },
+                            onConfirmUpload: {
+                                NotificationCenter.default.post(name: .apexSendSelectedAttachments, object: nil)
+                                sheetMode = .hidden
+                            },
+                            selectedAttachmentItems: $stagedAttachments
+                        )
+                        .padding(.bottom, 0)
+                    }
+                    .zIndex(1)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
-                .zIndex(1)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .onPreferenceChange(BottomInsetHeightKey.self) { height in bottomInsetHeight = height }
@@ -1577,7 +1587,7 @@ private struct BottomSheetHost<Content: View>: View {
     private var screenH: CGFloat { UIScreen.main.bounds.height - bottomInset }
 
     private var collapsedHeight: CGFloat { screenH * 0.4 }
-    private var expandedHeight: CGFloat { screenH * 0.95 }
+    private var expandedHeight: CGFloat { screenH * 0.85 }
     private var targetHeight: CGFloat {
         switch mode {
         case .hidden: return 0
@@ -1609,6 +1619,34 @@ private struct BottomSheetHost<Content: View>: View {
                 }
             }
 
+        // Interactive height while dragging
+        let interactiveOffset: CGFloat = {
+            switch mode {
+            case .collapsed:
+                // allow only upward drag (negative), increase height up to expanded
+                let allowed = min(0, dragY)
+                return -allowed
+            case .expanded:
+                // allow only downward drag (positive), decrease height down to collapsed
+                let allowed = max(0, dragY)
+                return -allowed
+            case .hidden:
+                return 0
+            }
+        }()
+        let baseHeight = targetHeight
+        let unclampedHeight = baseHeight + interactiveOffset
+        let displayedHeight: CGFloat = {
+            switch mode {
+            case .collapsed:
+                return min(max(unclampedHeight, collapsedHeight), expandedHeight)
+            case .expanded:
+                return min(max(unclampedHeight, collapsedHeight), expandedHeight)
+            case .hidden:
+                return 0
+            }
+        }()
+
         VStack(spacing: 0) {
             Capsule()
                 .fill(Color.gray.opacity(0.3))
@@ -1619,7 +1657,7 @@ private struct BottomSheetHost<Content: View>: View {
             content()
         }
         .frame(maxWidth: .infinity)
-        .frame(height: max(0, targetHeight))
+        .frame(height: max(0, displayedHeight))
         .background(Color("Background"))
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .shadow(color: .black.opacity(0.08), radius: 12, y: -2)

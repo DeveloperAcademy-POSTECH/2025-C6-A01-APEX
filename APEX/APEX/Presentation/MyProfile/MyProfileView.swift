@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct MyProfileView: View {
+    @Environment(\.dismiss) private var dismiss
     @Binding var client: DummyClient
     @State private var isPresentingEdit = false
     @State private var showingContactAction: ContactType?   // 복구: 섹션 콜백 시 사용
@@ -45,7 +46,7 @@ struct MyProfileView: View {
                 // 네비게이션 바
                 MyProfileNavigationBar(
                     title: "\(client.surname)\(client.name)",
-                    onBack: { /* TODO: dismiss/pop */ },
+                    onBack: { dismiss() },
                     onEdit: { isPresentingEdit = true }
                 )
                 .background(Color("Background"))
@@ -122,6 +123,8 @@ struct MyProfileView: View {
                 }
             )
         }
+        .toolbar(.hidden, for: .navigationBar)
+        .toolbar(.hidden, for: .tabBar)
         // 기존 액션시트 유지(컴파일/동작 보장). Menu 전환 후 제거 예정.
         .confirmationDialog(
             contactDialogTitle,
