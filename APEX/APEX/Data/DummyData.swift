@@ -55,6 +55,7 @@ let sampleClients: [Client] = [
             Note(
                 uploadedAt: Date().addingTimeInterval(-1800),
                 text: nil,
+
                 bundle: .media(images: [], videos: [VideoAttachment(url: URL(fileURLWithPath: "/tmp/presentation.mp4"), progress: nil, orderIndex: nil)])
             ),
             Note(

@@ -69,74 +69,32 @@ struct ShareRow: View {
 
     private var avatarWithBadge: some View {
         avatar
-            .overlay(alignment: .topTrailing) {
-                switch mode {
-                case .contacts:
-                    if client.favorite {
-                        Image(systemName: "star.fill")
-                            .font(.system(size: Metrics.iconFontSize, weight: .medium))
-                            .foregroundColor(Color("Primary"))
-                    }
-                case .recents:
-                    if client.pin {
-                        Image(systemName: "pin.fill")
-                            .font(.system(size: Metrics.iconFontSize, weight: .medium))
-                            .foregroundColor(Color("Primary"))
-                    }
-                }
-            }
     }
 
     private var avatar: some View {
-        Group {
-            if let uiImage = client.profile {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: Metrics.avatarSize, height: Metrics.avatarSize)
-            } else {
-                let initials = makeInitials(name: client.name, surname: client.surname)
-                ZStack {
-                    Circle()
-                        .fill(Color("PrimaryContainer"))
-                    Text(initials)
-                        .font(.system(size: 30.72, weight: .semibold))
-                        .foregroundColor(.white)
-                }
-                .frame(width: Metrics.avatarSize, height: Metrics.avatarSize)
+        let initials = Profile.makeInitials(name: client.name, surname: client.surname)
+        let badge: Profile.Badge? = {
+            switch mode {
+            case .contacts:
+                return client.favorite ? .favorite : nil
+            case .recents:
+                return client.pin ? .pin : nil
             }
-        }
-        .frame(width: Metrics.avatarSize, height: Metrics.avatarSize)
-        .clipShape(Circle())
+        }()
+        return Profile(
+            image: client.profile,
+            initials: initials,
+            size: .small,
+            fontSize: 30.72,
+            backgroundColor: Color("PrimaryContainer"),
+            textColor: .white,
+            fontWeight: .semibold,
+            badge: badge
+        )
     }
 }
 
-// MARK: - Initials helpers
-private func makeInitials(name: String, surname: String) -> String {
-    let givenName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-    let familyName = surname.trimmingCharacters(in: .whitespacesAndNewlines)
-    if givenName.isEmpty && familyName.isEmpty { return "" }
-    if containsHangul(givenName) || containsHangul(familyName) {
-        return String((familyName.isEmpty ? givenName : familyName).prefix(1))
-    } else {
-        let first = givenName.isEmpty ? "" : String(givenName.prefix(1)).uppercased()
-        let last = familyName.isEmpty ? "" : String(familyName.prefix(1)).uppercased()
-        return first + last
-    }
-}
-
-private func containsHangul(_ text: String) -> Bool {
-    for scalar in text.unicodeScalars {
-        let scalarValue = scalar.value
-        let isHangulSyllables = (0xAC00...0xD7A3).contains(scalarValue)
-        let isHangulJamo = (0x1100...0x11FF).contains(scalarValue)
-        let isHangulCompatibility = (0x3130...0x318F).contains(scalarValue)
-        if isHangulSyllables || isHangulJamo || isHangulCompatibility {
-            return true
-        }
-    }
-    return false
-}
+// makeInitials moved to common component: Profile.makeInitials
 
 #warning("최신 메모 텍스트를 부제목으로 표시 (텍스트 없는 경우 빈 문자열)")
 private func latestMemoText(from notes: [Note]) -> String? {
