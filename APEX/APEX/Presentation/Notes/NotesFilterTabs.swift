@@ -12,28 +12,37 @@ struct NotesFilterTabs: View {
     let availableFilters: [NotesFilterItem]
     
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 24) {
-                ForEach(availableFilters) { filterItem in
-                    FilterTab(
-                        title: filterItem.displayName,
-                        isSelected: selectedFilter == filterItem.filter,
-                        isEnabled: filterItem.isEnabled
-                    ) {
-                        // 비활성화된 필터도 클릭은 가능하지만 아무 동작 안함
-                        if filterItem.isEnabled {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                selectedFilter = filterItem.filter
+        VStack(spacing: 0) {
+            // 필터 탭들
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 0) {
+                    ForEach(availableFilters) { filterItem in
+                        FilterTab(
+                            title: filterItem.displayName,
+                            isSelected: selectedFilter == filterItem.filter,
+                            isEnabled: filterItem.isEnabled
+                        ) {
+                            if filterItem.isEnabled {
+                                withAnimation(.easeInOut(duration: 0.25)) {
+                                    selectedFilter = filterItem.filter
+                                }
                             }
                         }
-                        // 비활성화된 경우 아무것도 하지 않음
                     }
                 }
+                .padding(.horizontal, 16)  // 전체 탭들에 좌우 패딩 16씩 추가
             }
-            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .background(
+                // 구분선을 배경으로 넣어서 뒤쪽에 배치
+                VStack {
+                    Spacer()
+                    Rectangle()
+                        .fill(Color("BackgroundHover"))
+                        .frame(height: 2)
+                }
+            )
         }
-        .padding(.top, 16)
-        .padding(.bottom, 8)
     }
 }
 
@@ -44,36 +53,39 @@ private struct FilterTab: View {
     let action: () -> Void
     
     var body: some View {
-        VStack(spacing: 8) {
-            Button(action: action) {
+        Button(action: action) {
+            VStack(spacing: 0) {
+                // 텍스트 영역 (상하 패딩 8, 좌우 패딩 20)
                 Text(title)
-                    .font(.body2)
+                    .font(isSelected ? .body1 : .body2)  // 선택 상태에 따른 폰트
                     .foregroundColor(textColor)
+                    .opacity(isEnabled ? 1.0 : 0.5)
+                    .padding(.horizontal, 20)  // 좌우 패딩 20
+                    .padding(.vertical, 8)     // 상하 패딩 8
+                
+                // 선택된 탭의 언더라인 (높이 4, Primary) - 회색선을 덮어버림
+                Rectangle()
+                    .fill(underlineColor)
+                    .frame(height: 4)
+                    .animation(.easeInOut(duration: 0.25), value: isSelected)
             }
-            .buttonStyle(.plain)
-            // .disabled(!isEnabled) // 제거 - 비활성화된 상태에서도 클릭 가능
-            
-            // 밑줄
-            Rectangle()
-                .fill(underlineColor)
-                .frame(height: 2)
         }
-        .frame(height: 32)
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .frame(height: 40)  // 높이 40 유지
     }
     
     private var textColor: Color {
-        if !isEnabled {
-            return Color("Gray")  // 비활성화 상태도 회색 (BackgroundHover 대신)
-        } else if isSelected {
-            return Color("Primary")  // 선택된 상태
+        if isSelected {
+            return Color("Primary")
         } else {
-            return Color("Gray")  // 기본 상태
+            return Color("BackgroundHover")
         }
     }
     
     private var underlineColor: Color {
         if isSelected && isEnabled {
-            return Color("Primary")
+            return Color("Primary")  // 언더라인은 Primary 색상으로 회색선을 가림
         } else {
             return Color.clear
         }
@@ -85,8 +97,7 @@ private struct FilterTab: View {
     let filters: [NotesFilterItem] = [
         NotesFilterItem(filter: .all, isEnabled: true),
         NotesFilterItem(filter: .company("Apple"), isEnabled: true),
-        NotesFilterItem(filter: .company("APEX"), isEnabled: true),
-        NotesFilterItem(filter: .company("Google"), isEnabled: false)  // 비활성화 예시
+        NotesFilterItem(filter: .company("Apex"), isEnabled: true)
     ]
     
     NotesFilterTabs(
