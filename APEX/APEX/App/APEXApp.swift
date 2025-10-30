@@ -32,7 +32,7 @@ struct APEXApp: App {
 //                        CameraManager.shared.prewarmIfPossible()
 //                    }
 //                }
-            NotesView()
+            RootView()
         }
     }
 }

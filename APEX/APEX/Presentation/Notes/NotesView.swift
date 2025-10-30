@@ -13,39 +13,54 @@ struct NotesView: View {
     @State private var showToast: Bool = false
     @State private var toastText: String = ""
     @State private var clientToDelete: Client?
+    @State private var path: [UUID] = []
     
     // 커스텀 삭제 모달 상태
     @State private var showDeleteDialog: Bool = false
     @State private var isDeleteConfirmed: Bool = false
     
     var body: some View {
-        ZStack {
-            mainContent
-            
-            if showDeleteDialog {
-                OverlayLayer(
-                    isVisible: $showDeleteDialog,
-                    isChecked: $isDeleteConfirmed,
-                    clientToDelete: $clientToDelete,
-                    onConfirmDelete: { client in
-                        deleteClient(client)
-                    }
-                )
-                .transition(.asymmetric(
-                    insertion: .scale(scale: 0.98).combined(with: .opacity),
-                    removal: .opacity
-                ))
-                .zIndex(10)
-                .compositingGroup() // 레이어 합성 안정화
+        NavigationStack(path: $path) {
+            ZStack {
+                mainContent
+                
+                if showDeleteDialog {
+                    OverlayLayer(
+                        isVisible: $showDeleteDialog,
+                        isChecked: $isDeleteConfirmed,
+                        clientToDelete: $clientToDelete,
+                        onConfirmDelete: { client in
+                            deleteClient(client)
+                        }
+                    )
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.98).combined(with: .opacity),
+                        removal: .opacity
+                    ))
+                    .zIndex(10)
+                    .compositingGroup() // 레이어 합성 안정화
+                }
+            }
+            .apexToast(
+                isPresented: $showToast,
+                image: Image(systemName: "pin"),
+                text: toastText,
+                buttonTitle: "되돌리기",
+                duration: 1.6
+            ) { }
+            .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(for: UUID.self) { id in
+                if let client = clients.first(where: { $0.id == id }) {
+                    ChattingView(clientId: id, chatTitle: "\(client.name) \(client.surname)", initialNotes: client.notes)
+                        .toolbar(.hidden, for: .navigationBar)
+                        .toolbar(.hidden, for: .tabBar)
+                } else {
+                    ChattingView(clientId: id, chatTitle: "채팅", initialNotes: [])
+                        .toolbar(.hidden, for: .navigationBar)
+                        .toolbar(.hidden, for: .tabBar)
+                }
             }
         }
-        .apexToast(
-            isPresented: $showToast,
-            image: Image(systemName: "pin"),
-            text: toastText,
-            buttonTitle: "되돌리기",
-            duration: 1.6
-        ) { }
     }
     
     // MARK: - Main Content
@@ -69,6 +84,10 @@ struct NotesView: View {
                     withAnimation(.spring(response: 0.25, dampingFraction: 0.92)) {
                         showDeleteDialog = true
                     }
+                },
+                // 2) row 탭 시 id만 push
+                onTapRow: { client in
+                    path.append(client.id)
                 }
             )
             .padding(.vertical, 24)

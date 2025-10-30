@@ -12,6 +12,7 @@ struct NotesListView: View {
     @Binding var selectedFilter: NotesFilter
     var onTogglePin: (Client) -> Void
     var onDelete: (Client) -> Void
+    var onTapRow: (Client) -> Void
 
     var body: some View {
         Group {
@@ -30,10 +31,7 @@ struct NotesListView: View {
                             client: client,
                             onTogglePin: { onTogglePin(client) },
                             onDelete: { onDelete(client) },
-                            onTap: {
-                                // TODO: 상세 화면 이동
-                                print("Tapped client: \(client.name)")
-                            }
+                            onTap: { onTapRow(client) }
                         )
                         .applyListRowCleaning()
                     }
@@ -58,12 +56,16 @@ private struct NotesRow: View {
 
     private var fullName: String { "\(client.name) \(client.surname)" }
     
-    private var summary: String { 
-        return "Video [9412894219382]" // 고정값으로 테스트
+    private var summary: String {
+        let live = ChatStore.shared.notes(for: client.id)
+        let source = live.isEmpty ? client.notes : live
+        return NotesTextFormatter.latestSummary(from: source) ?? ""
     }
     
-    private var timeText: String { 
-        return "4:00pm" // 고정값으로 테스트
+    private var timeText: String {
+        let live = ChatStore.shared.notes(for: client.id)
+        let source = live.isEmpty ? client.notes : live
+        return NotesTextFormatter.timeText(for: source) ?? ""
     }
 
     var body: some View {
@@ -221,17 +223,28 @@ enum NotesTextFormatter {
 
         switch latest.bundle {
         case .media(let images, let videos):
-            let hasImages = !images.isEmpty
-            let hasVideos = !videos.isEmpty
-            if hasImages && hasVideos { return "사진/영상" }
-            if hasImages { return "사진" }
-            if hasVideos { return "영상 [\(videoIdPlaceholder())]" }
+            // 우선 영상 파일명이 있으면 표시, 여러 개면 "첫 파일명 외 n개"
+            if let firstVideo = videos.first {
+                let name = firstVideo.url.lastPathComponent
+                let extra = videos.count + images.count - 1
+                return extra > 0 ? "\(name) 외 \(extra)개" : name
+            }
+            // 이미지에는 파일명이 없어 대표 라벨 사용
+            if !images.isEmpty {
+                let extra = images.count - 1
+                return extra > 0 ? "사진 외 \(extra)개" : "사진"
+            }
             return "미디어"
         case .files(let files):
-            if files.count == 1, let first = files.first { return first.url.lastPathComponent }
-            return "\(files.count)개 파일"
+            guard let first = files.first else { return nil }
+            let name = first.url.lastPathComponent
+            let extra = files.count - 1
+            return extra > 0 ? "\(name) 외 \(extra)개" : name
         case .audio(let audios):
-            return audios.count <= 1 ? "음성 메모" : "\(audios.count)개 음성 메모"
+            guard let first = audios.first else { return nil }
+            let name = first.url.lastPathComponent
+            let extra = audios.count - 1
+            return extra > 0 ? "\(name) 외 \(extra)개" : name
         case .none:
             return nil
         }
@@ -256,11 +269,14 @@ enum NotesListModel {
     }
 
     static func sort(_ clients: [Client]) -> [Client] {
-        clients.sorted { a, b in
-            if a.pin != b.pin { return a.pin } // 핀 우선
-            let d1 = a.notes.max { $0.uploadedAt < $1.uploadedAt }?.uploadedAt ?? .distantPast
-            let d2 = b.notes.max { $0.uploadedAt < $1.uploadedAt }?.uploadedAt ?? .distantPast
-            return d1 > d2
+        func latestDate(for client: Client) -> Date {
+            let live = ChatStore.shared.notes(for: client.id)
+            let source = live.isEmpty ? client.notes : live
+            return source.max(by: { $0.uploadedAt < $1.uploadedAt })?.uploadedAt ?? .distantPast
+        }
+        return clients.sorted { a, b in
+            if a.pin != b.pin { return a.pin }
+            return latestDate(for: a) > latestDate(for: b)
         }
     }
 }
@@ -270,7 +286,8 @@ enum NotesListModel {
         clients: sampleClients,
         selectedFilter: .constant(.all),
         onTogglePin: { _ in },
-        onDelete: { _ in }
+        onDelete: { _ in },
+        onTapRow: { _ in }
     )
     .background(Color("Background"))
 }

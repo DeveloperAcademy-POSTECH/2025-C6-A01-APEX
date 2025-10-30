@@ -8,11 +8,6 @@
 import SwiftUI
 
 struct ContactsView: View {
-    @State private var myProfile: Client? = {
-        // 실제 사용자 프로필로 교체하세요.
-        sampleClients.first
-    }()
-
     @State private var favorites: [Client] = sampleClients.filter { $0.favorite }
     @State private var allUngrouped: [Client] = sampleClients
 
@@ -23,6 +18,10 @@ struct ContactsView: View {
     @State private var toastText: String = "즐겨찾기를 추가했습니다"
     @State private var isProfileAddPresented: Bool = false
 
+    // 내 프로필 상세로 네비게이션 제어
+    @State private var showMyProfileView: Bool = false
+    @State private var myProfileDummy: DummyClient = sampleMyProfileClient
+
     private enum Metrics {
         static let gap: CGFloat = 8
         static let myProfileRowHeight: CGFloat = 72
@@ -32,19 +31,18 @@ struct ContactsView: View {
         NavigationStack {
             List {
                 // MARK: - My Profile (TopBar와 0 간격, Favorites와는 8 간격)
-                if let profile = myProfile {
-                    ContactsRow(
-                        client: profile,
-                        onToggleFavorite: nil,
-                        onDelete: nil,
-                        onTap: nil,
-                        rowHeight: Metrics.myProfileRowHeight,
-                        subtitleOverride: "My Profile"
-                    )
-                    .applyListRowCleaning()
+                // My Profile Row (DummyClient -> Client 변환해 표시)
+                ContactsRow(
+                    client: convertToClient(myProfileDummy),
+                    onToggleFavorite: nil,
+                    onDelete: nil,
+                    onTap: { navigateToMyProfile() },
+                    rowHeight: Metrics.myProfileRowHeight,
+                    subtitleOverride: "My Profile"
+                )
+                .applyListRowCleaning()
 
-                    gapRow() // Favorites와 8 간격
-                }
+                gapRow() // Favorites와 8 간격
 
                 // MARK: - Favorites
                 if !favorites.isEmpty {
@@ -80,14 +78,25 @@ struct ContactsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(Color("Background"), for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
+            .background(
+                NavigationLink(
+                    "",
+                    isActive: $showMyProfileView
+                ) {
+                    MyProfileView(client: $myProfileDummy)
+                }
+                .hidden()
+            )
         }
         .background(Color("Background"))
         .safeAreaInset(edge: .top) {
-            ContactsTopBarReplica(
-                title: "Contacts",
-                onPlus: onPlusTap
-            )
-            .background(Color("Background"))
+            if !showMyProfileView {
+                ContactsTopBarReplica(
+                    title: "Contacts",
+                    onPlus: onPlusTap
+                )
+                .background(Color("Background"))
+            }
         }
         .sheet(isPresented: $isProfileAddPresented) {
             ProfileAddView(onComplete: { newClient in
@@ -131,6 +140,30 @@ struct ContactsView: View {
         if let fidx = favorites.firstIndex(where: { $0.id == client.id }) {
             favorites.remove(at: fidx)
         }
+    }
+
+    private func navigateToMyProfile() {
+        showMyProfileView = true
+    }
+
+    private func convertToClient(_ dummy: DummyClient) -> Client {
+        Client(
+            profile: dummy.profile,
+            nameCardFront: dummy.nameCardFront,
+            nameCardBack: dummy.nameCardBack,
+            surname: dummy.surname,
+            name: dummy.name,
+            position: dummy.position,
+            company: dummy.company,
+            email: dummy.email,
+            phoneNumber: dummy.phoneNumber,
+            linkedinURL: dummy.linkedinURL,
+            memo: dummy.memo,
+            action: dummy.action,
+            favorite: dummy.favorite,
+            pin: dummy.pin,
+            notes: []
+        )
     }
 
     // MARK: - Small Helpers

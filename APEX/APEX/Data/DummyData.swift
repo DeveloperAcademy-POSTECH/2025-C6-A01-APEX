@@ -23,27 +23,7 @@ let sampleClients: [Client] = [
         action: "Follow up for API review",
         favorite: true,
         pin: false,
-        notes: [
-            Note(
-                uploadedAt: Date().addingTimeInterval(-3600),
-                text: nil,
-                bundle: .media(
-                    images: [],
-                    videos: [
-                        VideoAttachment(
-                            url: URL(fileURLWithPath: "/tmp/meeting.mp4"),
-                            progress: nil,
-                            orderIndex: nil
-                        )
-                    ]
-                )
-            ),
-            Note(
-                uploadedAt: Date().addingTimeInterval(-7200),
-                text: "API 설계 회의 내용",
-                bundle: nil
-            )
-        ]
+        notes: []
     ),
     Client(
         profile: nil,
@@ -60,30 +40,7 @@ let sampleClients: [Client] = [
         action: nil,
         favorite: false,
         pin: true,
-        notes: [
-            Note(
-                uploadedAt: Date().addingTimeInterval(-1800),
-                text: nil,
-                bundle: .media(
-                    images: [],
-                    videos: [
-                        VideoAttachment(
-                            url: URL(fileURLWithPath: "/tmp/presentation.mp4"),
-                            progress: nil,
-                            orderIndex: nil
-                        )
-                    ]
-                )
-            ),
-            Note(
-                uploadedAt: Date().addingTimeInterval(-5400),
-                text: nil,
-                bundle: .media(
-                    images: [ImageAttachment(data: Data(), progress: nil, orderIndex: nil)],
-                    videos: []
-                )
-            )
-        ]
+        notes: []
     ),
     Client(
         profile: nil,
@@ -100,22 +57,7 @@ let sampleClients: [Client] = [
         action: "Send design references",
         favorite: true,
         pin: true,
-        notes: [
-            Note(
-                uploadedAt: Date().addingTimeInterval(-900),
-                text: nil,
-                bundle: .media(
-                    images: [],
-                    videos: [
-                        VideoAttachment(
-                            url: URL(fileURLWithPath: "/tmp/design_review.mp4"),
-                            progress: nil,
-                            orderIndex: nil
-                        )
-                    ]
-                )
-            )
-        ]
+        notes: []
     ),
     // 추가 샘플 데이터
     Client(
@@ -133,22 +75,7 @@ let sampleClients: [Client] = [
         action: nil,
         favorite: false,
         pin: false,
-        notes: [
-            Note(
-                uploadedAt: Date().addingTimeInterval(-2700),
-                text: nil,
-                bundle: .media(
-                    images: [],
-                    videos: [
-                        VideoAttachment(
-                            url: URL(fileURLWithPath: "/tmp/campaign.mp4"),
-                            progress: nil,
-                            orderIndex: nil
-                        )
-                    ]
-                )
-            )
-        ]
+        notes: []
     ),
     Client(
         profile: nil,
@@ -165,22 +92,7 @@ let sampleClients: [Client] = [
         action: "Code review scheduled",
         favorite: true,
         pin: false,
-        notes: [
-            Note(
-                uploadedAt: Date().addingTimeInterval(-4500),
-                text: nil,
-                bundle: .media(
-                    images: [],
-                    videos: [
-                        VideoAttachment(
-                            url: URL(fileURLWithPath: "/tmp/code_review.mp4"),
-                            progress: nil,
-                            orderIndex: nil
-                        )
-                    ]
-                )
-            )
-        ]
+        notes: []
     ),
     // 노트가 없는 클라이언트 (비활성화 필터 테스트용)
     Client(
