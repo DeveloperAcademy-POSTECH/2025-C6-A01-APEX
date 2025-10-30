@@ -13,8 +13,13 @@ import UniformTypeIdentifiers
 import UIKit
 
 struct ChattingView: View {
+    @Environment(\.dismiss) private var dismiss
+    let chatTitle: String
+    init(chatTitle: String = "채팅") { self.chatTitle = chatTitle }
     @State private var notes: [Note] = []
-    @State private var isMediaSheetVisible: Bool = false
+    // Custom bottom sheet state
+    fileprivate enum BottomSheetMode { case hidden, collapsed, expanded }
+    @State private var sheetMode: BottomSheetMode = .hidden
     @State private var stagedAttachments: [ShareAttachmentItem] = []
     @State private var bottomBarOffsetY: CGFloat = 0
     @State private var timestampRevealProgress: CGFloat = 0   // 0.0 ~ 1.0
@@ -73,6 +78,7 @@ struct ChattingView: View {
 
                             ChatMessageView(
                                 note: note,
+                                chatTitle: chatTitle,
                                 buildViewerPayload: { anchor in
                                     buildGlobalViewerPayload(startingFrom: anchor)
                                 },
@@ -257,6 +263,7 @@ struct ChattingView: View {
         }
         .padding(.horizontal, 12)
         .scrollEdgeEffectStyle(.soft, for: .all)
+        .toolbar(.hidden, for: .navigationBar)
         .overlay(alignment: .trailing) {
             Color.clear
                 .frame(width: 44)
@@ -340,17 +347,17 @@ struct ChattingView: View {
         .onPreferenceChange(ChipHeightKey.self) { h in
             if h > 0 { chipHeight = h }
         }
-        .safeAreaBar(edge: .top) {
+        .safeAreaInset(edge: .top) {
             APEXNavigationBar(
                 .memo(
-                    title: "Gyeong",
-                    onBack: { },
+                    title: chatTitle,
+                    onBack: { dismiss() },
                     onSearch: { },
                     onMenu: { }
                 )
             )
         }
-        .safeAreaBar(edge: .bottom) {
+        .safeAreaInset(edge: .bottom) {
             VStack(spacing: 8) {
                 if !stagedAttachments.isEmpty {
                     AttachBar(items: stagedAttachments) { removed in
@@ -361,7 +368,12 @@ struct ChattingView: View {
                 InputBar({ note in
                     handleIncoming(note: note)
                 }, onSheetVisibilityChanged: { visible in
-                    isMediaSheetVisible = visible
+                    // Map InputBar left button toggle to our custom sheet modes
+                    if visible {
+                        sheetMode = .collapsed
+                    } else {
+                        sheetMode = (sheetMode == .expanded) ? .collapsed : .hidden
+                    }
                 }, stagedAttachments: $stagedAttachments, onBarOffsetChanged: { offset in
                     bottomBarOffsetY = offset
                 })
@@ -373,6 +385,46 @@ struct ChattingView: View {
                     Color.clear.preference(key: BottomInsetHeightKey.self, value: geo.size.height)
                 }
             )
+        }
+        // Custom overlay sheet (replaces system .sheet for media picker)
+        .overlay(alignment: .bottom) {
+            if sheetMode != .hidden {
+                BottomSheetHost(mode: $sheetMode, onHeightChanged: { height, mode in
+                    // When partially up, lift the input bar together; when fully expanded, keep input bar at bottom
+                    if mode == .collapsed {
+                        bottomBarOffsetY = -(height + 8)
+                    } else {
+                        bottomBarOffsetY = 0
+                    }
+                }) {
+                    ChatMediaPickerSheet(
+                        isPresented: .constant(true),
+                        onTapFile: {
+                            NotificationCenter.default.post(name: .apexOpenDocumentPicker, object: nil)
+                            sheetMode = .hidden
+                        },
+                        onTapCamera: {
+                            CameraManager.shared.prewarmIfPossible()
+                            NotificationCenter.default.post(name: .apexOpenCamera, object: nil)
+                            sheetMode = .hidden
+                        },
+                        onOpenSystemAlbum: {
+                            NotificationCenter.default.post(name: .apexOpenPhotoPicker, object: nil)
+                            sheetMode = .hidden
+                        },
+                        onDetentChanged: { _ in },
+                        onHeightChanged: { _ in },
+                        onConfirmUpload: {
+                            NotificationCenter.default.post(name: .apexSendSelectedAttachments, object: nil)
+                            sheetMode = .hidden
+                        },
+                        selectedAttachmentItems: $stagedAttachments
+                    )
+                    .padding(.bottom, 0)
+                }
+                .zIndex(1)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
         .onPreferenceChange(BottomInsetHeightKey.self) { height in bottomInsetHeight = height }
         .apexToast(
@@ -421,50 +473,6 @@ struct ChattingView: View {
         }
         .sheet(isPresented: $showShareFromEdit) {
             ShareView(shouldSeedIfEmpty: false)
-        }
-        .sheet(isPresented: $isMediaSheetVisible) {
-            ChatMediaPickerSheet(
-                isPresented: Binding(
-                    get: { isMediaSheetVisible },
-                    set: { isMediaSheetVisible = $0 }
-                ),
-                onTapFile: {
-                    NotificationCenter.default.post(name: .apexOpenDocumentPicker, object: nil)
-                    isMediaSheetVisible = false
-                },
-                onTapCamera: {
-                    CameraManager.shared.prewarmIfPossible()
-                    NotificationCenter.default.post(name: .apexOpenCamera, object: nil)
-                    isMediaSheetVisible = false
-                },
-                onOpenSystemAlbum: {
-                    NotificationCenter.default.post(name: .apexOpenPhotoPicker, object: nil)
-                    isMediaSheetVisible = false
-                },
-                onDetentChanged: { detent in
-                    // Mirror previous layout offset logic
-                    let gap: CGFloat = 8
-                    let bottomInset: CGFloat = {
-                        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                           let win = scene.windows.first(where: { $0.isKeyWindow }) {
-                            return win.safeAreaInsets.bottom
-                        }
-                        return 0
-                    }()
-                    let screenHeight = UIScreen.main.bounds.height - bottomInset
-                    if detent == .large {
-                        bottomBarOffsetY = -(screenHeight * 0.15)
-                    } else {
-                        let visible = screenHeight * 0.4
-                        bottomBarOffsetY = -(visible + gap)
-                    }
-                },
-                onConfirmUpload: {
-                    NotificationCenter.default.post(name: .apexSendSelectedAttachments, object: nil)
-                    isMediaSheetVisible = false
-                },
-                selectedAttachmentItems: $stagedAttachments
-            )
         }
     }
 }
@@ -595,6 +603,7 @@ private extension ChattingView {
 
 private struct ChatMessageView: View {
     let note: Note
+    let chatTitle: String
     struct ChatAnchor { let noteId: UUID; let isImage: Bool; let localIndex: Int }
     let buildViewerPayload: (ChatAnchor) -> (items: [MediaSource], anchors: [ChatAnchor], index: Int)
     let onDelete: (ChatAnchor) -> Void
@@ -712,7 +721,7 @@ private struct ChatMessageView: View {
             MediaView(
                 items: payload.items,
                 selectedIndex: payload.index,
-                title: clientName(from: note),
+                title: chatTitle,
                 uploadedAt: note.uploadedAt,
                 onDelete: { removedIndex, _ in
                     guard payload.anchors.indices.contains(removedIndex) else { return }
@@ -1547,6 +1556,95 @@ private struct BottomInsetHeightKey: PreferenceKey {
 
 // (reverted) ScrollBounceDisabler removed in favor of .scrollBounceBehavior(.basedOnSize)
 #endif
+
+// MARK: - Custom Bottom Sheet Host
+
+private struct BottomSheetHost<Content: View>: View {
+    @Binding var mode: ChattingView.BottomSheetMode
+    var onHeightChanged: (CGFloat, ChattingView.BottomSheetMode) -> Void = { _, _ in }
+    var cornerRadius: CGFloat = 16
+    var content: () -> Content
+
+    @GestureState private var dragY: CGFloat = 0
+
+    private var bottomInset: CGFloat {
+        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let win = scene.windows.first(where: { $0.isKeyWindow }) {
+            return win.safeAreaInsets.bottom
+        }
+        return 0
+    }
+    private var screenH: CGFloat { UIScreen.main.bounds.height - bottomInset }
+
+    private var collapsedHeight: CGFloat { screenH * 0.4 }
+    private var expandedHeight: CGFloat { screenH * 0.95 }
+    private var targetHeight: CGFloat {
+        switch mode {
+        case .hidden: return 0
+        case .collapsed: return collapsedHeight
+        case .expanded: return expandedHeight
+        }
+    }
+
+    var body: some View {
+        let threshold: CGFloat = 120
+        let drag = DragGesture()
+            .updating($dragY) { value, state, _ in
+                state = value.translation.height
+            }
+            .onEnded { value in
+                switch mode {
+                case .collapsed:
+                    // Upward drag expands; downward drag to hide is disabled (only left button hides)
+                    if value.translation.height < -threshold {
+                        mode = .expanded
+                    }
+                case .expanded:
+                    // Downward drag collapses
+                    if value.translation.height > threshold {
+                        mode = .collapsed
+                    }
+                case .hidden:
+                    break
+                }
+            }
+
+        VStack(spacing: 0) {
+            Capsule()
+                .fill(Color.gray.opacity(0.3))
+                .frame(width: 36, height: 5)
+                .padding(.top, 8)
+                .padding(.bottom, 8)
+
+            content()
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: max(0, targetHeight))
+        .background(Color("Background"))
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .shadow(color: .black.opacity(0.08), radius: 12, y: -2)
+        .animation(.interactiveSpring(response: 0.32, dampingFraction: 0.86), value: mode)
+        .gesture(drag)
+        .onChange(of: mode) { _, newMode in
+            let calculatedHeight: CGFloat
+            switch newMode {
+            case .hidden: calculatedHeight = 0
+            case .collapsed: calculatedHeight = collapsedHeight
+            case .expanded: calculatedHeight = expandedHeight
+            }
+            onHeightChanged(calculatedHeight, newMode)
+        }
+        .onAppear {
+            let calculatedHeight: CGFloat
+            switch mode {
+            case .hidden: calculatedHeight = 0
+            case .collapsed: calculatedHeight = collapsedHeight
+            case .expanded: calculatedHeight = expandedHeight
+            }
+            onHeightChanged(calculatedHeight, mode)
+        }
+    }
+}
 
 #Preview {
     ChattingView()

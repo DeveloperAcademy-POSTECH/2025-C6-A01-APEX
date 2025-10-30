@@ -7,7 +7,7 @@
 import Foundation
 import SwiftUI
 
-struct Client: Identifiable {
+struct Client: Identifiable, Hashable {
     let id = UUID()
     let profile: UIImage? // 샘플데이터용 타입
     let nameCardFront: Image? // 샘플데이터용 타입
@@ -24,4 +24,14 @@ struct Client: Identifiable {
     let favorite: Bool
     let pin: Bool
     let notes: [Note]
+}
+
+extension Client {
+    static func == (lhs: Client, rhs: Client) -> Bool {
+        lhs.id == rhs.id
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
 }

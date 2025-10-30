@@ -23,6 +23,10 @@ struct ContactsView: View {
     @State private var toastText: String = "즐겨찾기를 추가했습니다"
     @State private var isProfileAddPresented: Bool = false
 
+    // 내 프로필 상세로 네비게이션 제어
+    @State private var showMyProfileView: Bool = false
+    @State private var myProfileDummy: DummyClient = sampleMyProfileClient
+
     private enum Metrics {
         static let gap: CGFloat = 8
         static let myProfileRowHeight: CGFloat = 72
@@ -37,7 +41,7 @@ struct ContactsView: View {
                         client: profile,
                         onToggleFavorite: nil,
                         onDelete: nil,
-                        onTap: nil,
+                        onTap: { navigateToMyProfile(profile) },
                         rowHeight: Metrics.myProfileRowHeight,
                         subtitleOverride: "My Profile"
                     )
@@ -80,6 +84,15 @@ struct ContactsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(Color("Background"), for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
+            .background(
+                NavigationLink(
+                    "",
+                    isActive: $showMyProfileView
+                ) {
+                    MyProfileView(client: $myProfileDummy)
+                }
+                .hidden()
+            )
         }
         .background(Color("Background"))
         .safeAreaInset(edge: .top) {
@@ -131,6 +144,31 @@ struct ContactsView: View {
         if let fidx = favorites.firstIndex(where: { $0.id == client.id }) {
             favorites.remove(at: fidx)
         }
+    }
+
+    private func navigateToMyProfile(_ client: Client) {
+        myProfileDummy = convertToDummy(client)
+        showMyProfileView = true
+    }
+
+    private func convertToDummy(_ client: Client) -> DummyClient {
+        DummyClient(
+            profile: client.profile,
+            nameCardFront: client.nameCardFront,
+            nameCardBack: client.nameCardBack,
+            surname: client.surname,
+            name: client.name,
+            position: client.position,
+            company: client.company,
+            email: client.email,
+            phoneNumber: client.phoneNumber,
+            linkedinURL: client.linkedinURL,
+            memo: client.memo,
+            action: client.action,
+            favorite: client.favorite,
+            pin: client.pin,
+            notes: []
+        )
     }
 
     // MARK: - Small Helpers

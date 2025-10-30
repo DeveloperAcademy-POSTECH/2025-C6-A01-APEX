@@ -12,6 +12,7 @@ struct NotesListView: View {
     @Binding var selectedFilter: NotesFilter
     var onTogglePin: (Client) -> Void
     var onDelete: (Client) -> Void
+    var onTapRow: (Client) -> Void
 
     var body: some View {
         Group {
@@ -30,10 +31,7 @@ struct NotesListView: View {
                             client: client,
                             onTogglePin: { onTogglePin(client) },
                             onDelete: { onDelete(client) },
-                            onTap: {
-                                // TODO: 상세 화면 이동
-                                print("Tapped client: \(client.name)")
-                            }
+                            onTap: { onTapRow(client) }
                         )
                         .applyListRowCleaning()
                     }
@@ -270,7 +268,8 @@ enum NotesListModel {
         clients: sampleClients,
         selectedFilter: .constant(.all),
         onTogglePin: { _ in },
-        onDelete: { _ in }
+        onDelete: { _ in },
+        onTapRow: { _ in }
     )
     .background(Color("Background"))
 }
