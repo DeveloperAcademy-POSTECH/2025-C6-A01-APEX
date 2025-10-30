@@ -175,15 +175,12 @@ struct MyProfileEditSheet: View {
                             presentedPhotoType = .profile
                         } label: {
                             VStack(spacing: 8) {
-                                if let img = profileUIImage {
-                                    Image(uiImage: img)
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(width: 72, height: 72)
-                                        .clipShape(Circle())
-                                } else {
-                                    InitialAvatar(letter: makeInitials(name: name, surname: surname), size: 72, fontSize: 42)
-                                }
+                                Profile(
+                                    image: profileUIImage,
+                                    initials: Profile.makeInitials(name: name, surname: surname),
+                                    size: .medium,
+                                    fontSize: 42
+                                )
                                 Text("프로필").font(.body6).foregroundColor(.gray)
                             }
                         }
@@ -251,28 +248,7 @@ private extension Image {
     func asUIImage() -> UIImage? { nil }
 }
 
-private func makeInitials(name: String, surname: String) -> String {
-    let givenName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-    let familyName = surname.trimmingCharacters(in: .whitespacesAndNewlines)
-    if givenName.isEmpty && familyName.isEmpty { return "" }
-    if containsHangul(givenName) || containsHangul(familyName) {
-        return String((familyName.isEmpty ? givenName : familyName).prefix(1))
-    } else {
-        let first = givenName.isEmpty ? "" : String(givenName.prefix(1)).uppercased()
-        let last = familyName.isEmpty ? "" : String(familyName.prefix(1)).uppercased()
-        return first + last
-    }
-}
-
-private func containsHangul(_ text: String) -> Bool {
-    for scalar in text.unicodeScalars {
-        let v = scalar.value
-        if (0xAC00...0xD7A3).contains(v) || (0x1100...0x11FF).contains(v) || (0x3130...0x318F).contains(v) {
-            return true
-        }
-    }
-    return false
-}
+// makeInitials moved to common component: Profile.makeInitials
 
 // MARK: - Previews
 

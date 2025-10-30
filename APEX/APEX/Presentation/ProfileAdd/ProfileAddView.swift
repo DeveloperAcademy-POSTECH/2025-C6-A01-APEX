@@ -44,24 +44,17 @@ struct ProfileAddView: View {
                         presentedPhotoType = .profile
                     } label: {
                         VStack(spacing: 10) {
-                            if let image = profileUIImage {
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 100, height: 100)
+                            let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                            let trimmedSurname = surname.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if trimmedName.isEmpty && trimmedSurname.isEmpty {
+                                Image("ProfileS")
                             } else {
-                                let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-                                let trimmedSurname = surname.trimmingCharacters(in: .whitespacesAndNewlines)
-                                if trimmedName.isEmpty && trimmedSurname.isEmpty {
-                                    Image("ProfileS")
-                                } else {
-                                    let initials = makeInitials(name: trimmedName, surname: trimmedSurname)
-                                    InitialAvatar(
-                                        letter: initials,
-                                        size: 100,
-                                        fontSize: 64
-                                    )
-                                }
+                                Profile(
+                                    image: profileUIImage,
+                                    initials: Profile.makeInitials(name: trimmedName, surname: trimmedSurname),
+                                    size: .large,
+                                    fontSize: 64
+                                )
                             }
                             Text("프로필")
                                 .font(.body5)
@@ -337,26 +330,4 @@ struct ProfileAddView: View {
     ProfileAddView()
 }
 
-// MARK: - Initials helpers
-private func makeInitials(name: String, surname: String) -> String {
-    let givenName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-    let familyName = surname.trimmingCharacters(in: .whitespacesAndNewlines)
-    if givenName.isEmpty && familyName.isEmpty { return "" }
-    if containsHangul(givenName) || containsHangul(familyName) {
-        return String((familyName.isEmpty ? givenName : familyName).prefix(1))
-    } else {
-        let first = givenName.isEmpty ? "" : String(givenName.prefix(1)).uppercased()
-        let last = familyName.isEmpty ? "" : String(familyName.prefix(1)).uppercased()
-        return first + last
-    }
-}
-
-private func containsHangul(_ text: String) -> Bool {
-    for scalar in text.unicodeScalars {
-        let scalarValue = scalar.value
-        if (0xAC00...0xD7A3).contains(scalarValue) || (0x1100...0x11FF).contains(scalarValue) || (0x3130...0x318F).contains(scalarValue) {
-            return true
-        }
-    }
-    return false
-}
+// makeInitials moved to common component: Profile.makeInitials

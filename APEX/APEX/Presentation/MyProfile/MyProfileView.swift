@@ -33,7 +33,7 @@ struct MyProfileView: View {
             favorite: client.favorite,
             pin: client.pin,
             notes: client.notes.map { _ in
-                Note(date: Date(), attachment: .text(""))
+                Note(uploadedAt: Date(), text: "")
             }
         )
     }

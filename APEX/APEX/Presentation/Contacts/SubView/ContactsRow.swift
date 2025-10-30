@@ -104,7 +104,7 @@ struct ContactsRow: View {
                     .scaledToFill()
                     .frame(width: 48, height: 48)
             } else {
-                let initials = makeInitials(name: client.name, surname: client.surname)
+                let initials = Profile.makeInitials(name: client.name, surname: client.surname)
                 ZStack {
                     Circle()
                         .fill(Color("PrimaryContainer"))
@@ -121,29 +121,7 @@ struct ContactsRow: View {
 
 // MARK: - ButtonStyle: Background ↔ BackgroundHover 전환(자연스러운 눌림 감)
 
-// MARK: - Initials helpers
-private func makeInitials(name: String, surname: String) -> String {
-    let givenName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-    let familyName = surname.trimmingCharacters(in: .whitespacesAndNewlines)
-    if givenName.isEmpty && familyName.isEmpty { return "" }
-    if containsHangul(givenName) || containsHangul(familyName) {
-        return String((familyName.isEmpty ? givenName : familyName).prefix(1))
-    } else {
-        let first = givenName.isEmpty ? "" : String(givenName.prefix(1)).uppercased()
-        let last = familyName.isEmpty ? "" : String(familyName.prefix(1)).uppercased()
-        return first + last
-    }
-}
-
-private func containsHangul(_ text: String) -> Bool {
-    for scalar in text.unicodeScalars {
-        let scalarValue = scalar.value
-        if (0xAC00...0xD7A3).contains(scalarValue) || (0x1100...0x11FF).contains(scalarValue) || (0x3130...0x318F).contains(scalarValue) {
-            return true
-        }
-    }
-    return false
-}
+// makeInitials moved to common component: Profile.makeInitials
 
 private struct BackgroundHoverRowStyle: ButtonStyle {
     // 컬러 자산(프로젝트에 존재하는 키 사용)

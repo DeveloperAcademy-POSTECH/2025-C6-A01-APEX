@@ -231,21 +231,12 @@ struct ShareView: View {
     private func chip(for client: Client) -> some View {
         VStack(spacing: 8) {
             ZStack(alignment: .topTrailing) {
-                Group {
-                    if let uiImage = client.profile {
-                        Image(uiImage: uiImage)
-                            .resizable()
-                            .scaledToFill()
-                    } else {
-                        InitialAvatar(
-                            letter: initialLetter(for: client.name, surname: client.surname),
-                            size: 48,
-                            fontSize: 30.72
-                        )
-                    }
-                }
-                .frame(width: 48, height: 48)
-                .clipShape(Circle())
+                Profile(
+                    image: client.profile,
+                    initials: initialLetter(for: client.name, surname: client.surname),
+                    size: .small,
+                    fontSize: 30.72
+                )
 
                 Button { toggleSelect(client.id) } label: {
                     Image(systemName: "xmark.circle.fill")
