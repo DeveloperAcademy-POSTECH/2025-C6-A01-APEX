@@ -8,7 +8,6 @@
 import SwiftUI
 
 struct Profile: View {
-    enum Badge { case favorite, pin }
     enum Size: Int {
         case extraSmall = 36
         case small = 48
@@ -23,7 +22,6 @@ struct Profile: View {
     var backgroundColor: Color = Color("PrimaryContainer")
     var textColor: Color = .white
     var fontWeight: Font.Weight = .semibold
-    var badge: Badge?
 
     var body: some View {
         Group {
@@ -43,13 +41,6 @@ struct Profile: View {
         }
         .frame(width: side, height: side)
         .clipShape(Circle())
-        .overlay(alignment: .topTrailing) {
-            if let badge {
-                Image(systemName: badge == .favorite ? "star.fill" : "pin.fill")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(Color("Primary"))
-            }
-        }
     }
 
     private var defaultFontSize: CGFloat { side * 0.64 }
@@ -84,7 +75,7 @@ extension Profile {
 }
 #Preview {
     VStack(spacing: 16) {
-        Profile(image: nil, initials: "GK", size: .small, badge: .favorite)
+        Profile(image: nil, initials: "GK", size: .small)
         Profile(image: nil, initials: "김", size: .small)
         Profile(image: nil, initials: "G", size: .large, fontSize: 64)
     }

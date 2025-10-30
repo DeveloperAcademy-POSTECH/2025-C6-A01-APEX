@@ -14,6 +14,8 @@ struct MediaPlaybackBar: View {
     var onScrub: (Double) -> Void
     var onScrubBegan: () -> Void = {}
     var onScrubEnded: () -> Void = {}
+    var timeColor: Color = .white
+    var trackColor: Color = Color.white.opacity(0.25)
 
     private func formatClock(_ seconds: Double) -> String {
         let rounded = Int(seconds.rounded())
@@ -26,21 +28,22 @@ struct MediaPlaybackBar: View {
         HStack(alignment: .center, spacing: 12) {
             Text(formatClock(current))
                 .font(.caption2)
-                .foregroundStyle(.white)
+                .foregroundStyle(timeColor)
 
             ProgressSeekBar(
                 current: $current,
                 total: $total,
                 onScrub: onScrub,
                 onScrubBegan: onScrubBegan,
-                onScrubEnded: onScrubEnded
+                onScrubEnded: onScrubEnded,
+                trackColor: trackColor
             )
             .frame(height: 4)
             .padding(.bottom, 6)
 
             Text(formatClock(total))
                 .font(.caption2)
-                .foregroundStyle(.white)
+                .foregroundStyle(timeColor)
 
             Button(action: { volume = (volume == 0) ? 1.0 : 0.0 }, label: {
                 Image(systemName: volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
@@ -52,12 +55,14 @@ struct MediaPlaybackBar: View {
         .frame(height: 44)
     }
 }
+
 private struct ProgressSeekBar: View {
     @Binding var current: Double
     @Binding var total: Double
     var onScrub: (Double) -> Void
     var onScrubBegan: () -> Void = {}
     var onScrubEnded: () -> Void = {}
+    var trackColor: Color = Color.white.opacity(0.25)
 
     @GestureState private var isDragging: Bool = false
 
@@ -70,7 +75,7 @@ private struct ProgressSeekBar: View {
             let pct = progress()
             ZStack(alignment: .leading) {
                 Capsule()
-                    .fill(Color.white.opacity(0.25))
+                    .fill(trackColor)
                     .frame(height: height)
                 Capsule()
                     .fill(Color("Primary"))

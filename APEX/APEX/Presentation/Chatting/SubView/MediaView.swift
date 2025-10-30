@@ -31,6 +31,7 @@ struct MediaView: View {
     let uploadedAt: Date?
     var onSave: ((Int, MediaSource) -> Void)?
     var onDelete: ((Int, MediaSource) -> Void)?
+    var onTitleTap: ((Int) -> Void)?
     @State private var selectedIndex: Int
     @State private var pages: [MediaSource]
     @Environment(\.dismiss) private var dismiss
@@ -57,13 +58,15 @@ struct MediaView: View {
         title: String,
         uploadedAt: Date?,
         onSave: ((Int, MediaSource) -> Void)? = nil,
-        onDelete: ((Int, MediaSource) -> Void)? = nil
+        onDelete: ((Int, MediaSource) -> Void)? = nil,
+        onTitleTap: ((Int) -> Void)? = nil
     ) {
         self.items = items
         self.title = title
         self.uploadedAt = uploadedAt
         self.onSave = onSave
         self.onDelete = onDelete
+        self.onTitleTap = onTitleTap
         _selectedIndex = State(initialValue: selectedIndex)
         _pages = State(initialValue: items)
     }
@@ -94,7 +97,11 @@ struct MediaView: View {
                         title: title,
                         uploadedAt: uploadedAt,
                         onBack: { dismiss() },
-                        onGrid: { }
+                        onGrid: { },
+                        onTitleTap: {
+                            if let onTitleTap { onTitleTap(selectedIndex) }
+                            dismiss()
+                        }
                     )
                     Spacer()
                 }

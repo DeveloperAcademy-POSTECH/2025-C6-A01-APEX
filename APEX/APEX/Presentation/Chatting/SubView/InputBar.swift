@@ -11,7 +11,6 @@ import PhotosUI
 import UniformTypeIdentifiers
 import AVFoundation
 import Photos
-// swiftlint:disable type_body_length
 
 // MARK: - Transferables
 
@@ -55,333 +54,49 @@ private struct PickedVideo: Transferable {
     }
 }
 
-struct InputBar: View {
-    @State private var memo: String = ""
-    @State private var showActions: Bool = false
-    @FocusState private var isEditorFocused: Bool
-    // TextEditor (fixed height)
-
-    // constants kept for placeholder alignment only
-    private let editorLeftPadding: CGFloat = 16
-    private let editorVerticalPadding: CGFloat = 14
-    private let editorRightPaddingForButton: CGFloat = 56
-    private let font: UIFont = UIFont(name: "PretendardVariable-Medium", size: 16) ?? UIFont.systemFont(ofSize: 16)
-    private var maxTextWidth: CGFloat = UIScreen.main.bounds.width - 16 - 56 - 32
-    @State private var textHeight: CGFloat = 48
-
-    // Album
-    @State private var showPhotoPicker: Bool = false
-    @State private var pickedItems: [PhotosPickerItem] = []
-    @AppStorage("apex.albumPermissionShown") private var albumPermissionShown: Bool = false
-
-    // Camera
-    @State private var showCamera: Bool = false
-
-    // Files
-    @State private var showDocumentPicker: Bool = false
-
-    // Media bottom sheet
-    @State private var showMediaSheet: Bool = false
-    @State private var plusRotation: Double = 0
-    @State private var sheetDetentIsLarge: Bool = false
-    @State private var barOffsetY: CGFloat = 0
-
-    // Audio recording
-    @State private var isRecording: Bool = false
-    @State private var audioRecorder: AVAudioRecorder?
-    @State private var levelTimer: Timer?
-    @State private var waveformLevels: [CGFloat] = []
-    private let maxWaveformBars: Int = 40
-    @State private var recordingURL: URL?
-    @State private var recordingDuration: TimeInterval = 0
-    @State private var wavePhase: CGFloat = 0
-
-    // Attachments staged from media sheet
-    @Binding var stagedAttachments: [ShareAttachmentItem]
-
-    // Send hook
-    var onSend: (Note) -> Void = { _ in }
-    var onSheetVisibilityChanged: (Bool) -> Void = { _ in }
-    var onBarOffsetChanged: (CGFloat) -> Void = { _ in }
-
-    // Custom initializer to allow trailing closure usage: InputBar { note in ... } onSheetVisibilityChanged: { visible in ... }
-    init(
-        _ onSend: @escaping (Note) -> Void = { _ in },
-        onSheetVisibilityChanged: @escaping (Bool) -> Void = { _ in },
-        stagedAttachments: Binding<[ShareAttachmentItem]> = .constant([]),
-        onBarOffsetChanged: @escaping (CGFloat) -> Void = { _ in }
-    ) {
-        self.onSend = onSend
-        self.onSheetVisibilityChanged = onSheetVisibilityChanged
-        _stagedAttachments = stagedAttachments
-        self.onBarOffsetChanged = onBarOffsetChanged
-    }
-    // Toast state
-    @State private var showToast: Bool = false
-    @State private var toastText: String = ""
-    @State private var toastButtonTitle: String = "확인"
-    @State private var toastAction: () -> Void = {}
-
-    var body: some View {
-        VStack {
-            HStack(alignment: .bottom, spacing: 4) {
-                // Plus / Keyboard button (sheet or dismiss keyboard)
-                Button {
-                    if isEditorFocused {
-                        isEditorFocused = false
-                    } else {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            plusRotation += 45
-                        }
-                        if showMediaSheet {
-                            withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
-                                barOffsetY = targetBarOffset(isLarge: sheetDetentIsLarge, isVisible: false)
-                                onBarOffsetChanged(barOffsetY)
-                            }
-                            showMediaSheet = false
-                            onSheetVisibilityChanged(false)
-                        } else {
-                            withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
-                                barOffsetY = targetBarOffset(isLarge: false, isVisible: true)
-                                onBarOffsetChanged(barOffsetY)
-                            }
-                            showMediaSheet = true
-                            onSheetVisibilityChanged(true)
-                        }
-                    }
-                } label: {
-                    Group {
-                        if isEditorFocused {
-                            Image(systemName: "keyboard.chevron.compact.down")
-                        } else {
-                            Image(systemName: "plus")
-                                .rotationEffect(.degrees(plusRotation))
-                        }
-                    }
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(Color("Primary"))
-                    .frame(width: 48, height: 48)
-                    .glassEffect()
-                    .accessibilityLabel(Text(isEditorFocused ? "키보드 내리기" : "추가"))
-                }
-
-                ZStack(alignment: .bottomTrailing) {
-                    if isRecording {
-                        RecordingWaveform(levels: waveformLevels, phase: wavePhase, duration: recordingDuration)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: textHeight)
-                            .padding(.vertical, editorVerticalPadding / 2)
-                            .padding(.leading, editorLeftPadding / 2)
-                            .padding(.trailing, 56)
-                            .glassEffect(
-                                in: UnevenRoundedRectangle(
-                                    topLeadingRadius: 4,
-                                    bottomLeadingRadius: 4,
-                                    bottomTrailingRadius: 32,
-                                    topTrailingRadius: 32
-                                )
-                            )
-                    } else {
-                        TextEditor(text: $memo)
-                            .font(.body2)
-                            .scrollContentBackground(.hidden)
-                            .scrollDisabled(true)
-                            .focused($isEditorFocused)
-                            .padding(.top, editorVerticalPadding / 2)
-                            .padding(.leading, editorLeftPadding / 2)
-                            .padding(.trailing, 56)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: textHeight)
-                            .onAppear {
-                                calculateHeight()
-                            }
-                            .onChange(of: memo) { _, _ in
-                                calculateHeight()
-                            }
-                            .glassEffect(
-                                in: UnevenRoundedRectangle(
-                                    topLeadingRadius: 4,
-                                    bottomLeadingRadius: 4,
-                                    bottomTrailingRadius: 32,
-                                    topTrailingRadius: 32
-                                )
-                            )
-                    }
-
-                    if memo.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isRecording {
-                        Text("메모 입력")
-                            .font(.body2)
-                            .foregroundColor(Color.gray.opacity(0.6))
-                            .padding(.vertical, editorVerticalPadding)
-                            .padding(.leading, editorLeftPadding)
-                            .frame(maxWidth: .infinity, alignment: .topLeading)
-                            .allowsHitTesting(false)
-                    }
-
-                    Group {
-                        if memo.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            Button {
-                                if isRecording { stopRecordingAndSend() } else { startRecording() }
-                            } label: {
-                                Image(systemName: isRecording ? "stop.fill" : "waveform")
-                                    .font(.system(size: 20, weight: .medium))
-                                    .foregroundColor(.white)
-                                    .frame(width: 48, height: 48)
-                                    .background(Color("Primary"))
-                                    .clipShape(Circle())
-                                    .glassEffect()
-                            }
-                            .accessibilityLabel(Text(isRecording ? "녹음 중지" : "음성 입력"))
-                            .transition(.scale.combined(with: .opacity))
-                        } else {
-                            Button { sendText() } label: {
-                                Image(systemName: "arrow.up")
-                                    .font(.system(size: 20, weight: .medium))
-                                    .foregroundColor(.white)
-                                    .frame(width: 48, height: 48)
-                                    .background(Color("Primary"))
-                                    .clipShape(Circle())
-                                    .glassEffect()
-                            }
-                            .accessibilityLabel(Text("보내기"))
-                            .transition(.scale.combined(with: .opacity))
-                        }
-                    }
-                }
-            }
-
-            // (Inline action row removed in favor of media sheet)
-        }
-        .padding(.horizontal, 8)
-        .padding(.top, 8)
-        .padding(.bottom, showMediaSheet ? 0 : 8)
-        .onChange(of: showMediaSheet) { _, visible in
-            onSheetVisibilityChanged(visible)
-        }
-        // Album picker
-        .photosPicker(
-            isPresented: $showPhotoPicker,
-            selection: $pickedItems,
-            maxSelectionCount: 24,
-            matching: .any(of: [.images, .videos])
-        )
-        .onChange(of: pickedItems) { _, newItems in
-            Task { await handlePicked(items: newItems) }
-        }
-        // Camera sheet
-        .sheet(isPresented: $showCamera) {
-            ChatCameraPicker { image, videoURL in
-                var images: [ImageAttachment] = []
-                var videos: [VideoAttachment] = []
-                var orderCounter = 0
-                if let img = image, let data = img.jpegData(compressionQuality: 0.9) {
-                    images.append(ImageAttachment(data: data, progress: 0, orderIndex: orderCounter))
-                    orderCounter += 1
-                }
-                if let url = videoURL {
-                    videos.append(VideoAttachment(url: url, progress: 0, orderIndex: orderCounter))
-                    orderCounter += 1
-                }
-                guard !images.isEmpty || !videos.isEmpty else { return }
-                // Already assigned progress and orderIndex above; keep as-is
-                let note = Note(uploadedAt: Date(), text: nil, bundle: .media(images: images, videos: videos))
-                onSend(note)
-                showActions = false
-                isEditorFocused = false
-            }
-            .ignoresSafeArea()
-        }
-        // Contextual toast
-        .apexToast(
-            isPresented: $showToast,
-            image: Image(systemName: "info.circle.fill"),
-            text: toastText,
-            buttonTitle: toastButtonTitle,
-            duration: 3.0
-        ) {
-            toastAction()
-        }
-        .onDisappear { cleanupRecording() }
-        // Files picker
-        .sheet(isPresented: $showDocumentPicker) {
-            DocumentPickerView { urls in
-                // Map picked URLs to FileAttachment and send
-                let files: [FileAttachment] = urls.map {
-                    let type = try? $0.resourceValues(forKeys: [.contentTypeKey]).contentType
-                    return FileAttachment(url: $0, contentType: type, progress: 0)
-                }
-                guard !files.isEmpty else { return }
-                let note = Note(uploadedAt: Date(), text: nil, bundle: .files(files))
-                onSend(note)
-                showActions = false
-                isEditorFocused = false
-            }
-        }
-        // Media bottom sheet for quick actions + recents
-        .sheet(isPresented: $showMediaSheet) {
-            ChatMediaPickerSheet(
-                isPresented: $showMediaSheet,
-                onTapFile: { handleFilesTap() },
-                onTapCamera: { handleCameraTap() },
-                onOpenSystemAlbum: { handleAlbumTap() },
-                onDetentChanged: { detent in
-                    let isLarge = (detent == .large)
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
-                        sheetDetentIsLarge = isLarge
-                        barOffsetY = targetBarOffset(isLarge: isLarge, isVisible: true)
-                        onBarOffsetChanged(barOffsetY)
-                    }
-                },
-                selectedAttachmentItems: $stagedAttachments
-            )
-            .background(Color("Background"))
-        }
-    }
-
-    private func targetBarOffset(isLarge: Bool, isVisible: Bool) -> CGFloat {
-        guard isVisible else { return 0 }
-        let screenHeight = UIScreen.main.bounds.height
-        if isLarge {
-            return -8
-        } else {
-            // Attach to 2/5 sheet top with zero gap; ChattingView bottom padding is already 0 in this state
-            return -(screenHeight * 0.4) - 1
-        }
-    }
-
-    private func calculateHeight() {
-        let lineCount = autoLineCount(text: memo, font: font, maxTextWidth: maxTextWidth - 40)
+// MARK: - InputBar logic (moved out for lint compliance)
+private extension InputBar {
+    func calculateHeight() {
+        // Subtract internal left padding and the reserved trailing space for the right button
+        let contentInsets: CGFloat = (editorLeftPadding / 2) + editorRightPaddingForButton
+        // Also subtract a small bias so wrapping happens slightly earlier to match visual behavior
+        let effectiveWidth = max(0, (editorAvailableWidth ?? maxTextWidth) - contentInsets - editorInternalPaddingBias)
+        let lineCount = autoLineCount(text: memo, font: font, maxTextWidth: effectiveWidth)
+        currentLineCount = Int(lineCount)
         let lineHeight = font.lineHeight
         let verticalPadding: CGFloat = editorVerticalPadding * 2 // matches .padding top/bottom
         let minHeight: CGFloat = 48
 
-        let contentHeight = lineHeight * lineCount + verticalPadding
+        // Cap visible height at 5 lines; show expand button when exceeded
+        let visibleLines = min(lineCount, 5)
+        let contentHeight = lineHeight * visibleLines + verticalPadding
         textHeight = max(minHeight, contentHeight)
     }
 
     private func autoLineCount(text: String, font: UIFont, maxTextWidth: CGFloat) -> CGFloat {
         guard !text.isEmpty else { return 1 }
-        var lineCount: CGFloat = 0
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineBreakMode = .byWordWrapping
+        paragraph.hyphenationFactor = 0 // 필요시 0~1로 조정
 
-        text.components(separatedBy: .newlines).forEach { line in
-            if line.isEmpty {
-                lineCount += 1
-                return
-            }
-            let width = (line as NSString).boundingRect(
-                with: CGSize(width: .greatestFiniteMagnitude, height: font.lineHeight),
-                options: [.usesLineFragmentOrigin, .usesFontLeading],
-                attributes: [.font: font],
-                context: nil
-            ).width
-            lineCount += max(1, ceil(width / maxTextWidth))
-        }
-
-        return lineCount
+        let attr = NSAttributedString(
+            string: text,
+            attributes: [.font: font, .paragraphStyle: paragraph]
+        )
+        let rect = attr.boundingRect(
+            with: CGSize(width: maxTextWidth, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            context: nil
+        )
+        return max(1, ceil(rect.height / font.lineHeight))
     }
 
-    private func sendText() {
+    func sendText() {
         let text = memo.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !stagedAttachments.isEmpty {
+            sendSelectedAttachmentsAndText()
+            return
+        }
         guard !text.isEmpty else { return }
         let note = Note(uploadedAt: Date(), text: text, bundle: nil)
         onSend(note)
@@ -390,8 +105,50 @@ struct InputBar: View {
         isEditorFocused = false
     }
 
+    func sendSelectedAttachmentsAndText() {
+        // Build attachments from staged items
+        var images: [ImageAttachment] = []
+        var videos: [VideoAttachment] = []
+        var orderCounter = 0
+        for item in stagedAttachments {
+            switch item.kind {
+            case .image(let uiImage):
+                if let data = uiImage.jpegData(compressionQuality: 0.9) ?? uiImage.pngData() {
+                    images.append(ImageAttachment(data: data, progress: 0, orderIndex: orderCounter))
+                    orderCounter += 1
+                }
+            case .video(let urlOpt, _):
+                if let url = urlOpt {
+                    videos.append(VideoAttachment(url: url, progress: 0, orderIndex: orderCounter))
+                    orderCounter += 1
+                }
+            }
+        }
+
+        let text = memo.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if images.isEmpty && videos.isEmpty && text.isEmpty {
+            return
+        }
+
+        let bundle: AttachmentBundle? =
+            (images.isEmpty && videos.isEmpty)
+            ? nil
+            : .media(images: images, videos: videos)
+        let note = Note(uploadedAt: Date(), text: text.isEmpty ? nil : text, bundle: bundle)
+        onSend(note)
+
+        // Reset UI state
+        memo = ""
+        stagedAttachments.removeAll()
+        isMediaSheetPresented = false
+        shouldRestoreMediaSheetAfterKeyboard = false
+        showActions = false
+        isEditorFocused = false
+    }
+
     @MainActor
-    private func handlePicked(items: [PhotosPickerItem]) async {
+    func handlePicked(items: [PhotosPickerItem]) async {
         guard !items.isEmpty else { return }
         var images: [ImageAttachment] = []
         var videos: [VideoAttachment] = []
@@ -481,32 +238,11 @@ struct InputBar: View {
 
     // MARK: - Permission handling with contextual messages (Chat)
 
-    private func handleAlbumTap() {
-        if albumPermissionShown {
-            showPhotoPicker = true
-            return
-        }
-        let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
-        switch status {
-        case .denied, .restricted:
-            presentToast(
-                text: "사진 접근이 차단되어 있어요. 설정 > APEX에서 권한을 허용해 주세요.",
-                buttonTitle: "설정 열기"
-            ) {
-                openAppSettings()
-            }
-        default:
-            presentToast(
-                text: "채팅에서 사진/영상을 보내려면 사진 선택이 필요합니다.",
-                buttonTitle: "허용하기"
-            ) {
-                albumPermissionShown = true
-                showPhotoPicker = true
-            }
-        }
+    func handleAlbumTap() {
+        isMediaSheetPresented = true
     }
 
-    private func handleCameraTap() {
+    func handleCameraTap() {
         let status = AVCaptureDevice.authorizationStatus(for: .video)
         switch status {
         case .authorized:
@@ -537,22 +273,483 @@ struct InputBar: View {
         }
     }
 
-    private func handleFilesTap() {
+    func handleFilesTap() {
         showDocumentPicker = true
     }
 
-    private func presentToast(text: String, buttonTitle: String, action: @escaping () -> Void) {
+    func presentToast(text: String, buttonTitle: String, action: @escaping () -> Void) {
         toastText = text
         toastButtonTitle = buttonTitle
         toastAction = action
         withAnimation { showToast = true }
     }
 
-    private func openAppSettings() {
+    func openAppSettings() {
         guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
         if UIApplication.shared.canOpenURL(url) {
             UIApplication.shared.open(url, options: [:], completionHandler: nil)
         }
+    }
+}
+
+struct InputBar: View {
+    @State private var memo: String = ""
+    @State private var showActions: Bool = false
+    @FocusState private var isEditorFocused: Bool
+    // TextEditor (fixed height)
+
+    // constants kept for placeholder alignment only
+    private let editorLeftPadding: CGFloat = 16
+    private let editorVerticalPadding: CGFloat = 16
+    private let editorRightPaddingForButton: CGFloat = 56
+    // Bias to account for internal TextEditor text container padding and rounding
+    private let editorInternalPaddingBias: CGFloat = 10.5
+    private let font: UIFont = UIFont(name: "PretendardVariable-Regular", size: 14) ?? UIFont.systemFont(ofSize: 14)
+    private var maxTextWidth: CGFloat { UIScreen.main.bounds.width - 16 - editorRightPaddingForButton - 32 }
+    @State private var textHeight: CGFloat = 48
+    @State private var currentLineCount: Int = 1
+    @State private var editorAvailableWidth: CGFloat?
+
+    // Album
+    @State private var showPhotoPicker: Bool = false
+    @State private var pickedItems: [PhotosPickerItem] = []
+    @AppStorage("apex.albumPermissionShown") private var albumPermissionShown: Bool = false
+
+    // Camera
+    @State private var showCamera: Bool = false
+
+    // Files
+    @State private var showDocumentPicker: Bool = false
+
+    // Audio recording
+    @State private var isRecording: Bool = false
+    @State private var audioRecorder: AVAudioRecorder?
+    @State private var levelTimer: Timer?
+    @State private var waveformLevels: [CGFloat] = []
+    private let maxWaveformBars: Int = 40
+    @State private var recordingURL: URL?
+    @State private var recordingDuration: TimeInterval = 0
+    @State private var wavePhase: CGFloat = 0
+
+    // Media sheet (album/camera/files)
+    @State private var isMediaSheetPresented: Bool = false
+    // Remember the last partial offset to keep position stable when toggling detents
+    @State private var lastPartialBarOffset: CGFloat = 0
+    // Restore media sheet after keyboard hides if it was temporarily dismissed
+    @State private var shouldRestoreMediaSheetAfterKeyboard: Bool = false
+    // (reverted) no combined sheet/keyboard lifts
+
+    // Placeholder text adapts when media sheet is presented
+    private var placeholderText: String {
+        isMediaSheetPresented ? "(선택) 메모 입력" : "메모 입력"
+    }
+
+    // Expanded editor sheet
+    @State private var isExpandedEditorPresented: Bool = false
+    @State private var shouldFocusExpandedEditor: Bool = false
+
+    // Left button accessibility label
+    private var leftButtonA11yLabel: String {
+        if isEditorFocused { return "키보드 숨기기" }
+        return isMediaSheetPresented ? "닫기" : "추가"
+    }
+
+    private var leftButtonRotation: Angle {
+        (isMediaSheetPresented && !isEditorFocused) ? .degrees(45) : .degrees(0)
+    }
+
+    private func handleLeftButtonTap() {
+        let animation = Animation.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)
+        withAnimation(animation) {
+            if isEditorFocused {
+                isEditorFocused = false
+            } else {
+                isMediaSheetPresented.toggle()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func rightActionButton() -> some View {
+        if !stagedAttachments.isEmpty {
+            Button { sendSelectedAttachmentsAndText() } label: {
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundColor(.white)
+                    .frame(width: 48, height: 48)
+                    .background(Color("Primary"))
+                    .clipShape(Circle())
+                    .glassEffect()
+            }
+            .buttonStyle(FloatingCirclePrimaryButtonStyle())
+            .accessibilityLabel(Text("업로드"))
+            .transition(.scale.combined(with: .opacity))
+        } else if memo.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            Button {
+                if isRecording { stopRecordingAndSend() } else { startRecording() }
+            } label: {
+                Image(systemName: isRecording ? "stop.fill" : "waveform")
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundColor(.white)
+                    .frame(width: 48, height: 48)
+                    .background(isRecording ? Color("Primary") : .black)
+                    .clipShape(Circle())
+                    .glassEffect()
+            }
+            .buttonStyle(FloatingCirclePrimaryButtonStyle())
+            .accessibilityLabel(Text(isRecording ? "녹음 중지" : "음성 입력"))
+            .transition(.scale.combined(with: .opacity))
+        } else {
+            Button { sendText() } label: {
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundColor(.white)
+                    .frame(width: 48, height: 48)
+                    .background(Color("Primary"))
+                    .clipShape(Circle())
+                    .glassEffect()
+            }
+            .buttonStyle(FloatingCirclePrimaryButtonStyle())
+            .accessibilityLabel(Text("보내기"))
+            .transition(.scale.combined(with: .opacity))
+        }
+    }
+
+    // Send hook
+    var onSend: (Note) -> Void = { _ in }
+    var onSheetVisibilityChanged: (Bool) -> Void = { _ in }
+    @Binding var stagedAttachments: [ShareAttachmentItem]
+    var onBarOffsetChanged: (CGFloat) -> Void = { _ in }
+
+    // Custom initializer to allow trailing closure usage and extra callbacks
+    init(
+        _ onSend: @escaping (Note) -> Void = { _ in },
+        onSheetVisibilityChanged: @escaping (Bool) -> Void = { _ in },
+        stagedAttachments: Binding<[ShareAttachmentItem]> = .constant([]),
+        onBarOffsetChanged: @escaping (CGFloat) -> Void = { _ in }
+    ) {
+        self.onSend = onSend
+        self.onSheetVisibilityChanged = onSheetVisibilityChanged
+        self._stagedAttachments = stagedAttachments
+        self.onBarOffsetChanged = onBarOffsetChanged
+    }
+    // Toast state
+    @State private var showToast: Bool = false
+    @State private var toastText: String = ""
+    @State private var toastButtonTitle: String = "확인"
+    @State private var toastAction: () -> Void = {}
+
+    var body: some View {
+        VStack {
+            HStack(alignment: .bottom, spacing: 4) {
+                if isRecording {
+                    // 왼쪽 버튼 자리부터 텍스트 에디터 영역까지 사인 파형으로 덮기
+                    ZStack(alignment: .bottomTrailing) {
+                        HStack(alignment: .center, spacing: 4) {
+                            SineWaveRow(levels: waveformLevels, phase: wavePhase)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: textHeight)
+
+                            Text(formatDurationString(recordingDuration))
+                                .font(.caption1)
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            if isMediaSheetPresented {
+                                withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
+                                    isMediaSheetPresented = false
+                                }
+                            }
+                        }
+                        .padding(.leading, 0)
+                        .padding(.trailing, editorRightPaddingForButton)
+                        .glassEffect(
+                            in: UnevenRoundedRectangle(
+                                topLeadingRadius: 4,
+                                bottomLeadingRadius: 4,
+                                bottomTrailingRadius: 32,
+                                topTrailingRadius: 32
+                            )
+                        )
+
+                        rightActionButton()
+                    }
+                } else {
+                    // Plus button (toggle attachments)
+                    Button {
+                        handleLeftButtonTap()
+                    } label: {
+                        Image(systemName: isEditorFocused ? "keyboard.chevron.compact.down" : "plus")
+                            .rotationEffect(leftButtonRotation)
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundColor(.black)
+                            .frame(width: 48, height: 48)
+                            .glassEffect()
+                            .accessibilityLabel(Text(leftButtonA11yLabel))
+                    }
+
+                    ZStack(alignment: .bottomTrailing) {
+                        TextEditor(text: $memo)
+                            .font(.body6)
+                            .scrollContentBackground(.hidden)
+                            .scrollDisabled(currentLineCount <= 5)
+                            .focused($isEditorFocused)
+                            .padding(.top, editorVerticalPadding / 2)
+                            .padding(.leading, editorLeftPadding / 2)
+                            .padding(.trailing, editorRightPaddingForButton)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: textHeight)
+                            .background(
+                                GeometryReader { proxy in
+                                    Color.clear
+                                        .onAppear { editorAvailableWidth = proxy.size.width }
+                                        .onChange(of: proxy.size.width) { _, newWidth in editorAvailableWidth = newWidth }
+                                }
+                            )
+                            .onAppear {
+                                calculateHeight()
+                            }
+                            .onChange(of: memo) { _, _ in
+                                calculateHeight()
+                            }
+                            .glassEffect(
+                                in: UnevenRoundedRectangle(
+                                    topLeadingRadius: 4,
+                                    bottomLeadingRadius: 4,
+                                    bottomTrailingRadius: 32,
+                                    topTrailingRadius: 32
+                                )
+                            )
+                            .overlay(alignment: .bottomLeading) {
+                                if memo.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                    Text(placeholderText)
+                                        .font(.body6)
+                                        .foregroundColor(Color.gray.opacity(0.6))
+                                        .padding(.vertical, editorVerticalPadding)
+                                        .padding(.leading, editorLeftPadding)
+                                        .padding(.trailing, editorRightPaddingForButton)   // 버튼 패딩과 동일
+                                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                                        .contentTransition(.identity)      // 전환 비활성화
+                                        .animation(nil, value: memo)       // 텍스트 변화 애니메이션 비활성화
+                                        .allowsHitTesting(false)
+                                }
+                            }
+                            .overlay(alignment: .topTrailing) {
+                                if currentLineCount > 4 {
+                                    Button {
+                                        shouldFocusExpandedEditor = isEditorFocused
+                                        isExpandedEditorPresented = true
+                                    } label: {
+                                        Image(systemName: "arrow.down.left.and.arrow.up.right")
+                                            .font(.system(size: 12, weight: .semibold))
+                                            .foregroundColor(Color("Primary"))
+                                            .padding(8)
+                                    }
+                                    .padding(.top, 8)
+                                    .padding(.trailing, 8)
+                                    .accessibilityLabel(Text("확장"))
+                                }
+                            }
+
+                        rightActionButton()
+                    }
+                }
+            }
+        }
+        .padding(8)
+        // Media picker sheet moved to parent (ChattingView)
+        // Listen to commands from parent to trigger internal pickers/actions
+        .onReceive(NotificationCenter.default.publisher(for: .apexOpenDocumentPicker)) { _ in
+            showDocumentPicker = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .apexOpenCamera)) { _ in
+            CameraManager.shared.prewarmIfPossible()
+            showCamera = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .apexOpenPhotoPicker)) { _ in
+            showPhotoPicker = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .apexSendSelectedAttachments)) { _ in
+            sendSelectedAttachmentsAndText()
+        }
+        // Expanded text editor sheet
+        .sheet(isPresented: $isExpandedEditorPresented) {
+            ExpandedEditorSheet(
+                text: $memo,
+                shouldFocusOnAppear: shouldFocusExpandedEditor,
+                onUpload: {
+                    sendText()
+                },
+                onClose: {
+                    isExpandedEditorPresented = false
+                }
+            )
+            .presentationDetents([.large])
+        }
+        // Album picker
+        .photosPicker(
+            isPresented: $showPhotoPicker,
+            selection: $pickedItems,
+            maxSelectionCount: 24,
+            matching: .any(of: [.images, .videos])
+        )
+        .onChange(of: isMediaSheetPresented) { _, visible in
+            onSheetVisibilityChanged(visible)
+            if !visible && !isEditorFocused { onBarOffsetChanged(0) }
+            if !visible && !isEditorFocused {
+                shouldRestoreMediaSheetAfterKeyboard = false
+            }
+        }
+        // (reverted) removed external sheet dismiss via notification
+        .onChange(of: isEditorFocused) { _, focused in
+            if focused {
+                // Notify chat view to scroll when editor gains focus
+                NotificationCenter.default.post(name: .apexInputFocused, object: nil)
+                shouldRestoreMediaSheetAfterKeyboard = isMediaSheetPresented
+                if isMediaSheetPresented {
+                    isMediaSheetPresented = false
+                }
+            } else {
+                // Notify chat view when editor loses focus
+                NotificationCenter.default.post(name: .apexInputBlurred, object: nil)
+                if shouldRestoreMediaSheetAfterKeyboard {
+                    isMediaSheetPresented = true
+                    shouldRestoreMediaSheetAfterKeyboard = false
+                }
+            }
+        }
+        // Rely on SwiftUI's keyboard-safe-area handling via safeAreaInset in parent.
+        .onChange(of: pickedItems) { _, newItems in
+            Task { await handlePicked(items: newItems) }
+        }
+        // Camera sheet
+        .fullScreenCover(isPresented: $showCamera) {
+            ChatCameraPicker { image, videoURL in
+                var images: [ImageAttachment] = []
+                var videos: [VideoAttachment] = []
+                var orderCounter = 0
+                if let img = image, let data = img.jpegData(compressionQuality: 0.9) {
+                    images.append(ImageAttachment(data: data, progress: 0, orderIndex: orderCounter))
+                    orderCounter += 1
+                }
+                if let url = videoURL {
+                    videos.append(VideoAttachment(url: url, progress: 0, orderIndex: orderCounter))
+                    orderCounter += 1
+                }
+                guard !images.isEmpty || !videos.isEmpty else { return }
+                // Already assigned progress and orderIndex above; keep as-is
+                let note = Note(uploadedAt: Date(), text: nil, bundle: .media(images: images, videos: videos))
+                onSend(note)
+                showActions = false
+                isEditorFocused = false
+            }
+            .ignoresSafeArea()
+        }
+        // Contextual toast
+        .apexToast(
+            isPresented: $showToast,
+            image: Image(systemName: "info.circle.fill"),
+            text: toastText,
+            buttonTitle: toastButtonTitle,
+            duration: 3.0
+        ) {
+            toastAction()
+        }
+        .onDisappear { cleanupRecording() }
+        // Files picker
+        .sheet(isPresented: $showDocumentPicker) {
+            DocumentPickerView { urls in
+                // Map picked URLs to FileAttachment and send
+                let files: [FileAttachment] = urls.map {
+                    let type = try? $0.resourceValues(forKeys: [.contentTypeKey]).contentType
+                    return FileAttachment(url: $0, contentType: type, progress: 0)
+                }
+                guard !files.isEmpty else { return }
+                let note = Note(uploadedAt: Date(), text: nil, bundle: .files(files))
+                onSend(note)
+                showActions = false
+                isEditorFocused = false
+            }
+        }
+    }
+
+    func formatDurationString(_ time: TimeInterval) -> String {
+        let total = Int(time.rounded())
+        let minutes = total / 60
+        let seconds = total % 60
+        return String(format: "%02d:%02d", minutes, seconds)
+    }
+}
+
+// MARK: - Expanded Editor Sheet
+private struct ExpandedEditorSheet: View {
+    @Binding var text: String
+    let shouldFocusOnAppear: Bool
+    var onUpload: () -> Void
+    var onClose: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        NavigationView {
+            ZStack(alignment: .bottomTrailing) {
+                VStack(spacing: 0) {
+                    TextEditor(text: $text)
+                        .font(.body6)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 12)
+                        .focused($isFocused)
+                    Spacer(minLength: 0)
+                }
+
+                Button {
+                    onUpload()
+                    dismiss()
+                    onClose()
+                } label: {
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(width: 56, height: 56)
+                        .shadow(color: Color.black.opacity(0.2), radius: 8, x: 0, y: 4)
+                }
+                .buttonStyle(FloatingCirclePrimaryButtonStyle())
+                .padding(.trailing, 20)
+                .padding(.bottom, 28)
+                .accessibilityLabel(Text("업로드"))
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        dismiss()
+                        onClose()
+                    } label: {
+                        Image(systemName: "arrow.down.right.and.arrow.up.left")
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundStyle(.gray)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .onAppear {
+            if shouldFocusOnAppear {
+                DispatchQueue.main.async { isFocused = true }
+            }
+        }
+    }
+}
+
+private struct FloatingCirclePrimaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                Circle().fill(configuration.isPressed ? Color("PrimaryHover") : Color("Primary"))
+            )
+            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 
@@ -640,7 +837,7 @@ struct SteppedGrowingTextView: UIViewRepresentable {
     let rightPadding: CGFloat
     let maxLines: Int
 
-    private let font = UIFont(name: "PretendardVariable-Medium", size: 16) ?? .systemFont(ofSize: 16, weight: .medium)
+    private let font: UIFont = UIFont(name: "PretendardVariable-Regular", size: 14) ?? UIFont.systemFont(ofSize: 14) ?? .systemFont(ofSize: 14, weight: .regular)
     private let baseInsets = UIEdgeInsets(top: 8, left: 16, bottom: 8, right: 0)
 
     func makeUIView(context: Context) -> UITextView {
@@ -716,14 +913,16 @@ private extension InputBar {
                     ) { openAppSettings() }
                     return
                 }
+                // 녹음 시작 시 미디어 시트가 열려 있으면 먼저 내린다
+                withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
+                    isMediaSheetPresented = false
+                }
                 do {
                     let session = AVAudioSession.sharedInstance()
                     try session.setCategory(.playAndRecord, options: [.defaultToSpeaker, .allowBluetooth])
                     try session.setActive(true)
 
-                    let url = FileManager.default.temporaryDirectory
-                        .appendingPathComponent("apex-recording-\(UUID().uuidString)")
-                        .appendingPathExtension("m4a")
+                    let url = nextSequentialRecordingURL()
 
                     let settings: [String: Any] = [
                         AVFormatIDKey: kAudioFormatMPEG4AAC,
@@ -742,9 +941,13 @@ private extension InputBar {
                     self.recordingURL = url
                     self.waveformLevels.removeAll()
                     self.levelTimer?.invalidate()
-                    self.levelTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { _ in
+
+                    let dt = 1.0 / 60.0
+                    let waveSpeed: CGFloat = 1 // 초당 0.6 사이클
+
+                    self.levelTimer = Timer.scheduledTimer(withTimeInterval: dt, repeats: true) { _ in
                         updateMeters()
-                        wavePhase += 0.25
+                        wavePhase += .pi * 2 * waveSpeed * dt
                         if wavePhase > .pi * 2 { wavePhase -= .pi * 2 }
                         if let current = audioRecorder?.currentTime { recordingDuration = current }
                     }
@@ -788,6 +991,24 @@ private extension InputBar {
         let normalized = max(0, min(1, pow(10, power / 20)))
         waveformLevels.append(CGFloat(normalized))
         if waveformLevels.count > maxWaveformBars { waveformLevels.removeFirst(waveformLevels.count - maxWaveformBars) }
+    }
+
+    func nextSequentialRecordingURL() -> URL {
+        let directory = FileManager.default.temporaryDirectory
+        let base = "새로운 녹음"
+        var index = 1
+        while true {
+            let candidate = directory
+                .appendingPathComponent("\(base) \(index)")
+                .appendingPathExtension("m4a")
+            if !FileManager.default.fileExists(atPath: candidate.path) {
+                return candidate
+            }
+            index += 1
+        }
+        return directory
+            .appendingPathComponent("\(base) \(index)")
+            .appendingPathExtension("m4a")
     }
 }
 
@@ -872,5 +1093,68 @@ private struct SineWaveShape: Shape {
         // Soft taper on both ends
         let edge = min(time, 1 - time)
         return max(0.2, edge * 3)
+    }
+}
+
+// MARK: - Sine waveform row (left button 자리부터 전체를 덮는 사인 파형)
+
+private struct SineWaveRow: View {
+    let levels: [CGFloat]
+    let phase: CGFloat
+
+    var body: some View {
+        GeometryReader { geo in
+            let height = geo.size.height
+            let baseAmplitude = max(6, height * 0.15)
+            let level = CGFloat(levels.last ?? 0.2)
+            let amplitude = baseAmplitude + height * 0.35 * level
+            SineWaveShape(amplitude: amplitude, phase: phase, frequency: 6.5)
+                .stroke(
+                    Color("Primary"),
+                    style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round)
+                )
+                .frame(width: geo.size.width, height: geo.size.height)
+        }
+    }
+}
+
+// MARK: - Linear waveform row (left button 자리부터 전체를 덮는 파형)
+
+private struct LinearWaveRow: View {
+    let levels: [CGFloat]
+
+    var body: some View {
+        GeometryReader { geo in
+            PolylineWaveformShape(levels: levels)
+                .stroke(
+                    Color("Primary").opacity(0.6),
+                    style: StrokeStyle(lineWidth: 2, lineJoin: .round)
+                )
+                .frame(width: geo.size.width, height: geo.size.height)
+        }
+    }
+}
+
+private struct PolylineWaveformShape: Shape {
+    var levels: [CGFloat]
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let count = max(levels.count, 2)
+        let stepX = rect.width / CGFloat(count - 1)
+        let midY = rect.midY
+        let amplitude = max(6, rect.height * 0.2)
+
+        for sampleIndex in 0..<count {
+            let level = sampleIndex < levels.count ? CGFloat(levels[sampleIndex]) : 0
+            let yCoordinate = midY + (0.5 - level) * amplitude
+            let xCoordinate = CGFloat(sampleIndex) * stepX
+            if sampleIndex == 0 {
+                path.move(to: CGPoint(x: xCoordinate, y: yCoordinate))
+            } else {
+                path.addLine(to: CGPoint(x: xCoordinate, y: yCoordinate))
+            }
+        }
+        return path
     }
 }
