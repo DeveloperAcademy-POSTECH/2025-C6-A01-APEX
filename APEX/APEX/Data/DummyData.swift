@@ -7,7 +7,7 @@
 
 import Foundation
 
-let sampleClients: [Client] = [
+var sampleClients: [Client] = [
     Client(
         profile: nil,
         nameCardFront: nil,
