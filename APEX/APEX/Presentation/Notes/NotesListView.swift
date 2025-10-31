@@ -106,7 +106,6 @@ private struct NotesRow: View {
                 .frame(height: 38)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                Spacer(minLength: 8)
             }
             .padding(.horizontal, 16)
             .frame(height: 64)

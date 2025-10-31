@@ -12,7 +12,7 @@ struct ContactsSectionHeader: View {
         static let hStackSpacing: CGFloat = 0
         static let titleCountSpacing: CGFloat = 4
         static let chevronSize: CGFloat = 14
-        static let tappableSize: CGFloat = 36    // 최소 터치 영역
+        static let tappableSize: CGFloat = 24   // 최소 터치 영역
     }
 
     @State private var pressed: Bool = false
