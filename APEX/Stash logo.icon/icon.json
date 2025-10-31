@@ -1,0 +1,140 @@
+{
+  "fill" : {
+    "solid" : "extended-gray:1.00000,1.00000"
+  },
+  "groups" : [
+    {
+      "blur-material" : 1,
+      "hidden" : false,
+      "layers" : [
+        {
+          "fill" : {
+            "solid" : "extended-gray:0.00000,1.00000"
+          },
+          "hidden" : true,
+          "image-name" : "Union.svg",
+          "name" : "Union",
+          "position" : {
+            "scale" : 6,
+            "translation-in-points" : [
+              86.16317347986558,
+              181.68374902790686
+            ]
+          }
+        }
+      ],
+      "lighting" : "combined",
+      "shadow" : {
+        "kind" : "layer-color",
+        "opacity" : 0.1
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.3
+      }
+    },
+    {
+      "blur-material" : 0.5,
+      "hidden" : false,
+      "layers" : [
+        {
+          "blend-mode" : "normal",
+          "fill" : {
+            "solid" : "srgb:0.00000,0.29020,0.69804,1.00000"
+          },
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "Frame 284.svg",
+          "name" : "Frame 284",
+          "opacity" : 1,
+          "position" : {
+            "scale" : 4.6,
+            "translation-in-points" : [
+              243.7104522310368,
+              -130.1915356426265
+            ]
+          }
+        },
+        {
+          "blend-mode" : "normal",
+          "fill" : {
+            "solid" : "srgb:0.00000,0.29020,0.69804,1.00000"
+          },
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "Frame 284.svg",
+          "name" : "Frame 284",
+          "opacity" : 1,
+          "position" : {
+            "scale" : 4.6,
+            "translation-in-points" : [
+              -25.125530199695277,
+              132.41466626748934
+            ]
+          }
+        },
+        {
+          "blend-mode" : "normal",
+          "fill" : {
+            "solid" : "srgb:0.00000,0.29020,0.69804,1.00000"
+          },
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "Frame 284.svg",
+          "name" : "Frame 284",
+          "opacity" : 1,
+          "position" : {
+            "scale" : 4.6,
+            "translation-in-points" : [
+              -241.48716960995193,
+              132.41466626748934
+            ]
+          }
+        },
+        {
+          "blend-mode" : "normal",
+          "fill" : {
+            "automatic-gradient" : "srgb:0.00000,0.29020,0.69804,1.00000",
+            "orientation" : {
+              "start" : {
+                "x" : 0.5,
+                "y" : 0
+              },
+              "stop" : {
+                "x" : 0.5,
+                "y" : 0.7
+              }
+            }
+          },
+          "glass" : true,
+          "hidden" : false,
+          "image-name" : "Frame 284.svg",
+          "name" : "Frame 284",
+          "opacity" : 1,
+          "position" : {
+            "scale" : 4.6,
+            "translation-in-points" : [
+              24.93904446281772,
+              -130.19153564262643
+            ]
+          }
+        }
+      ],
+      "shadow" : {
+        "kind" : "layer-color",
+        "opacity" : 0.5
+      },
+      "specular" : true,
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.55
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}
