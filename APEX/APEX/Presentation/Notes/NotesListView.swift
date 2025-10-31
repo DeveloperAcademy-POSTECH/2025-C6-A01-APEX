@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct NotesListView: View {
-    let clients: [Client]
+    @Binding var clients: [Client]  // let에서 @Binding으로 변경
     @Binding var selectedFilter: NotesFilter
     var onTogglePin: (Client) -> Void
     var onDelete: (Client) -> Void
@@ -281,9 +281,12 @@ enum NotesListModel {
 }
 
 #Preview {
+    @Previewable @State var clients = sampleClients
+    @Previewable @State var selectedFilter: NotesFilter = .all
+    
     NotesListView(
-        clients: sampleClients,
-        selectedFilter: .constant(.all),
+        clients: $clients,
+        selectedFilter: $selectedFilter,
         onTogglePin: { _ in },
         onDelete: { _ in },
         onTapRow: { _ in }

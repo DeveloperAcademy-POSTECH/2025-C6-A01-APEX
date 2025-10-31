@@ -18,6 +18,10 @@ struct ContactsView: View {
     @State private var toastText: String = "즐겨찾기를 추가했습니다"
     @State private var isProfileAddPresented: Bool = false
 
+    // 되돌리기 기능을 위한 상태
+    @State private var lastToggledClient: Client?
+    @State private var lastFavoriteAction: FavoriteAction?
+
     // 내 프로필 상세로 네비게이션 제어
     @State private var showMyProfileView: Bool = false
     @State private var myProfileDummy: DummyClient = sampleMyProfileClient
@@ -25,6 +29,12 @@ struct ContactsView: View {
     private enum Metrics {
         static let gap: CGFloat = 8
         static let myProfileRowHeight: CGFloat = 72
+    }
+
+    // 즐겨찾기 액션 타입
+    private enum FavoriteAction {
+        case added
+        case removed
     }
 
     var body: some View {
@@ -113,7 +123,9 @@ struct ContactsView: View {
             text: toastText,
             buttonTitle: "되돌리기",
             duration: 1.6
-        ) { }
+        ) {
+            undoFavoriteAction()
+        }
     }
 
     // MARK: - Actions
@@ -123,11 +135,18 @@ struct ContactsView: View {
     }
 
     private func toggleFavorite(_ client: Client) {
+        // 되돌리기를 위해 현재 상태 저장
+        lastToggledClient = client
+        
         if let idx = favorites.firstIndex(where: { $0.id == client.id }) {
+            // 즐겨찾기 제거
             favorites.remove(at: idx)
+            lastFavoriteAction = .removed
             toastText = "즐겨찾기를 해제했습니다"
         } else {
+            // 즐겨찾기 추가
             favorites.append(client)
+            lastFavoriteAction = .added
             toastText = "즐겨찾기를 추가했습니다"
         }
         presentToast()
@@ -186,6 +205,40 @@ struct ContactsView: View {
         } else {
             showToast = true
         }
+    }
+    
+    // 즐겨찾기 되돌리기 기능
+    private func undoFavoriteAction() {
+        print("🔄 되돌리기 버튼 클릭됨")
+        
+        guard let client = lastToggledClient,
+              let action = lastFavoriteAction else { 
+            print("❌ 되돌릴 수 있는 액션이 없음")
+            return 
+        }
+        
+        print("🔄 되돌리기 실행: \(client.name) \(client.surname), 액션: \(action)")
+        
+        switch action {
+        case .added:
+            // 추가된 것을 되돌리기 (제거)
+            if let idx = favorites.firstIndex(where: { $0.id == client.id }) {
+                favorites.remove(at: idx)
+                print("✅ 즐겨찾기에서 제거됨")
+            }
+        case .removed:
+            // 제거된 것을 되돌리기 (추가)
+            if !favorites.contains(where: { $0.id == client.id }) {
+                favorites.append(client)
+                print("✅ 즐겨찾기에 추가됨")
+            }
+        }
+        
+        // 되돌리기 완료 후 상태 초기화
+        lastToggledClient = nil
+        lastFavoriteAction = nil
+        showToast = false
+        print("🔄 되돌리기 완료, 토스트 숨김")
     }
 }
 

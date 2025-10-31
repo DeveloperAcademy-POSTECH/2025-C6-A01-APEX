@@ -103,7 +103,7 @@ private struct APEXToastOverlay: ViewModifier {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
                 .zIndex(1000)
-                .allowsHitTesting(false)
+                .allowsHitTesting(true)  // 버튼을 클릭할 수 있도록 true로 변경
             }
         }
         .animation(.easeInOut(duration: 0.35), value: isPresented)
