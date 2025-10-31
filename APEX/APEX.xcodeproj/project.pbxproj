@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0DE5B9AD2EB490430061AB06 /* Stash logo.icon in Resources */ = {isa = PBXBuildFile; fileRef = 0DE5B9AC2EB490430061AB06 /* Stash logo.icon */; };
 		1D0F00012E80000000000001 /* PhoneNumberKit in Frameworks */ = {isa = PBXBuildFile; productRef = 1D0F00022E80000000000002 /* PhoneNumberKit */; };
 /* End PBXBuildFile section */
 
@@ -31,6 +32,7 @@
 		0DCB62292E7EC7C20065DA6C /* APEX.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = APEX.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0DCB62362E7EC7C40065DA6C /* APEXTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = APEXTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0DCB62402E7EC7C40065DA6C /* APEXUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = APEXUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		0DE5B9AC2EB490430061AB06 /* Stash logo.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = "Stash logo.icon"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -96,6 +98,7 @@
 				0DCB622B2E7EC7C20065DA6C /* APEX */,
 				0DCB62392E7EC7C40065DA6C /* APEXTests */,
 				0DCB62432E7EC7C40065DA6C /* APEXUITests */,
+				0DE5B9AC2EB490430061AB06 /* Stash logo.icon */,
 				0DCB622A2E7EC7C20065DA6C /* Products */,
 			);
 			sourceTree = "<group>";
@@ -234,6 +237,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0DE5B9AD2EB490430061AB06 /* Stash logo.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -417,8 +421,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APS_ENVIRONMENT = development;
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "Stash logo";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = APEX/App/APEX.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
@@ -431,7 +436,13 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = APEX/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Stash;
+				INFOPLIST_KEY_NSCameraUsageDescription = "프로필/명함 사진 촬영을 위해 카메라가 필요합니다.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "동영상 촬영 시 오디오 녹음을 위해 마이크 권한이 필요합니다.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "크롭된 이미지를 사진첩에 저장하려면 권한이 필요합니다.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "사진과 영상을 선택하려면 사진 접근이 필요합니다.";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = UIInterfaceOrientationPortrait;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -459,8 +470,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APS_ENVIRONMENT = production;
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "Stash logo";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = APEX/App/APEX.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
@@ -473,7 +485,13 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = APEX/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Stash;
+				INFOPLIST_KEY_NSCameraUsageDescription = "프로필/명함 사진 촬영을 위해 카메라가 필요합니다.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "동영상 촬영 시 오디오 녹음을 위해 마이크 권한이 필요합니다.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "크롭된 이미지를 사진첩에 저장하려면 권한이 필요합니다.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "사진과 영상을 선택하려면 사진 접근이 필요합니다.";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = UIInterfaceOrientationPortrait;
 				LD_RUNPATH_SEARCH_PATHS = (

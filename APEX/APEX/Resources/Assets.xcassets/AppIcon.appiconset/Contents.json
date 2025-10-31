@@ -1,112 +1,96 @@
 {
   "images" : [
     {
-      "filename" : "아이콘40 1.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "2x",
       "size" : "20x20"
     },
     {
-      "filename" : "아이콘60 1.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "3x",
       "size" : "20x20"
     },
     {
-      "filename" : "아이콘58.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "2x",
       "size" : "29x29"
     },
     {
-      "filename" : "아이콘87.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "3x",
       "size" : "29x29"
     },
     {
-      "filename" : "아이콘76.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "2x",
       "size" : "38x38"
     },
     {
-      "filename" : "아이콘114.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "3x",
       "size" : "38x38"
     },
     {
-      "filename" : "아이콘80.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "2x",
       "size" : "40x40"
     },
     {
-      "filename" : "아이콘120.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "3x",
       "size" : "40x40"
     },
     {
-      "filename" : "아이콘120 1.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "2x",
       "size" : "60x60"
     },
     {
-      "filename" : "아이콘180.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "3x",
       "size" : "60x60"
     },
     {
-      "filename" : "아이콘128.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "2x",
       "size" : "64x64"
     },
     {
-      "filename" : "아이콘192.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "3x",
       "size" : "64x64"
     },
     {
-      "filename" : "아이콘136.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "2x",
       "size" : "68x68"
     },
     {
-      "filename" : "아이콘152.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "2x",
       "size" : "76x76"
     },
     {
-      "filename" : "아이콘167.png",
       "idiom" : "universal",
       "platform" : "ios",
       "scale" : "2x",
       "size" : "83.5x83.5"
     },
     {
-      "filename" : "아이콘1024.png",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
