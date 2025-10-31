@@ -34,7 +34,7 @@ struct ContactsRow: View {
                 avatar
 
                 VStack(alignment: .leading, spacing: Metrics.nameSubtitleSpacing) {
-                    Text("\(client.name) \(client.surname)")
+                    Text(fullName)
                         .font(.body2)
                         .foregroundColor(.primary)
                         .lineLimit(1)
@@ -80,8 +80,16 @@ struct ContactsRow: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(client.name) \(client.surname), \(subtitle)")
+        .accessibilityLabel("\(fullName), \(subtitle)")
         .accessibilityAddTraits(.isButton) // 행이 버튼 역할임을 명확히
+    }
+
+    private var fullName: String {
+        let trimmedName = client.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedSurname = client.surname.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        let components = [trimmedName, trimmedSurname].filter { !$0.isEmpty }
+        return components.joined(separator: " ")
     }
 
     private var subtitle: String {
@@ -149,12 +157,62 @@ private struct BackgroundHoverRowStyle: ButtonStyle {
 }
 
 #Preview {
-    ContactsRow(
-        client: sampleClients.first!,
-        onToggleFavorite: { },
-        onDelete: { },
-        onTap: { },
-        rowHeight: 76,
-        subtitleOverride: "My Profile"
-    )
+    struct TestView: View {
+        // 다양한 이름/성 조합 테스트 케이스들
+        let testCases: [(name: String, surname: String, description: String)] = [
+            ("John", "Doe", "정상 케이스"),
+            ("", "Smith", "이름 없음"),
+            ("Jane", "", "성 없음"),
+            ("", "", "둘 다 없음"),
+            ("   ", "Brown", "이름이 공백만"),
+            ("Mike", "   ", "성이 공백만"),
+            ("   ", "   ", "둘 다 공백만"),
+            ("Very Long Name", "Very Long Surname", "긴 이름"),
+            ("A", "B", "짧은 이름")
+        ]
+        
+        var body: some View {
+            NavigationView {
+                List {
+                    ForEach(Array(testCases.enumerated()), id: \.offset) { index, testCase in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(testCase.description)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .padding(.horizontal, 16)
+                            
+                            ContactsRow(
+                                client: Client(
+                                    profile: nil,
+                                    nameCardFront: nil,
+                                    nameCardBack: nil,
+                                    surname: testCase.surname,
+                                    name: testCase.name,
+                                    position: "Test Position",
+                                    company: "Test Company",
+                                    email: "test@example.com",
+                                    phoneNumber: "010-1234-5678",
+                                    linkedinURL: nil,
+                                    memo: nil,
+                                    action: nil,
+                                    favorite: false,
+                                    pin: false,
+                                    notes: []
+                                ),
+                                onToggleFavorite: { print("Toggle favorite: \(testCase.description)") },
+                                onDelete: { print("Delete: \(testCase.description)") },
+                                onTap: { print("Tap: \(testCase.description)") }
+                            )
+                        }
+                        .background(Color("Background"))
+                    }
+                }
+                .listStyle(.plain)
+                .navigationTitle("ContactsRow 테스트")
+                .background(Color("Background"))
+            }
+        }
+    }
+    
+    return TestView()
 }
