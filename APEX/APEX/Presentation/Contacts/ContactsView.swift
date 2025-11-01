@@ -101,6 +101,7 @@ struct ContactsView: View {
         .sheet(isPresented: $isProfileAddPresented) {
             ProfileAddView(onComplete: { newClient in
                 allUngrouped.insert(newClient, at: 0)
+                ClientsStore.shared.add(newClient, atTop: true)
                 isProfileAddPresented = false
                 toastText = "연락처가 추가되었습니다"
                 presentToast()

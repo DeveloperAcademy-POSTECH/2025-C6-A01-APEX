@@ -184,14 +184,14 @@ private struct EmptyNotesState: View {
 enum NotesTextFormatter {
     // DateFormatter 캐시
     private static let timeFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "h:mma"
-        return f
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mma"
+        return formatter
     }()
     private static let monthDayFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "M/d"
-        return f
+        let formatter = DateFormatter()
+        formatter.dateFormat = "M/d"
+        return formatter
     }()
     private static let yearMonthDayFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -231,30 +231,17 @@ enum NotesTextFormatter {
             return text
         }
 
+        // 첨부 타입별 UUID 형식 파일명 출력
+        let id = videoIdPlaceholder() // TODO: 실제 ID 노출로 대체 예정
         switch latest.bundle {
         case .media(let images, let videos):
-            // 우선 영상 파일명이 있으면 표시, 여러 개면 "첫 파일명 외 n개"
-            if let firstVideo = videos.first {
-                let name = firstVideo.url.lastPathComponent
-                let extra = videos.count + images.count - 1
-                return extra > 0 ? "\(name) 외 \(extra)개" : name
-            }
-            // 이미지에는 파일명이 없어 대표 라벨 사용
-            if !images.isEmpty {
-                let extra = images.count - 1
-                return extra > 0 ? "사진 외 \(extra)개" : "사진"
-            }
-            return "미디어"
+            if !videos.isEmpty { return "Video [\(id)]" }
+            if !images.isEmpty { return "Photo [\(id)]" }
+            return nil
         case .files(let files):
-            guard let first = files.first else { return nil }
-            let name = first.url.lastPathComponent
-            let extra = files.count - 1
-            return extra > 0 ? "\(name) 외 \(extra)개" : name
+            return files.isEmpty ? nil : "File [\(id)]"
         case .audio(let audios):
-            guard let first = audios.first else { return nil }
-            let name = first.url.lastPathComponent
-            let extra = audios.count - 1
-            return extra > 0 ? "\(name) 외 \(extra)개" : name
+            return audios.isEmpty ? nil : "Audio [\(id)]"
         case .none:
             return nil
         }
@@ -279,14 +266,30 @@ enum NotesListModel {
     }
 
     static func sort(_ clients: [Client]) -> [Client] {
-        func latestDate(for client: Client) -> Date {
+        func liveNotes(for client: Client) -> [Note] {
             let live = ChatStore.shared.notes(for: client.id)
-            let source = live.isEmpty ? client.notes : live
-            return source.max(by: { $0.uploadedAt < $1.uploadedAt })?.uploadedAt ?? .distantPast
+            return live.isEmpty ? client.notes : live
         }
-        return clients.sorted { a, b in
-            if a.pin != b.pin { return a.pin }
-            return latestDate(for: a) > latestDate(for: b)
+        func latestDate(for client: Client) -> Date {
+            let notes = liveNotes(for: client)
+            return notes.max(by: { $0.uploadedAt < $1.uploadedAt })?.uploadedAt ?? .distantPast
+        }
+        func hasAnyNotes(_ client: Client) -> Bool {
+            !liveNotes(for: client).isEmpty
+        }
+        func insertionIndex(_ client: Client) -> Int {
+            if let idx = ClientsStore.shared.clients.firstIndex(where: { $0.id == client.id }) { return idx }
+            return Int.max
+        }
+        return clients.sorted { lhs, rhs in
+            // 1) 핀 우선
+            if lhs.pin != rhs.pin { return lhs.pin }
+            // 2) 최신 노트 시간 내림차순 (없으면 .distantPast 처리 → 아래로)
+            let lhsDate = latestDate(for: lhs)
+            let rhsDate = latestDate(for: rhs)
+            if lhsDate != rhsDate { return lhsDate > rhsDate }
+            // 3) 동률 시 삽입 순서(ClientsStore 기준) 유지
+            return insertionIndex(lhs) < insertionIndex(rhs)
         }
     }
 }

@@ -9,11 +9,12 @@ import SwiftUI
 
 struct NotesView: View {
     @State private var selectedFilter: NotesFilter = .all
-    @State private var clients: [Client] = sampleClients
+    @ObservedObject private var clientsStore = ClientsStore.shared
     @State private var showToast: Bool = false
     @State private var toastText: String = ""
     @State private var clientToDelete: Client?
     @State private var path: [UUID] = []
+    @State private var chatRefreshToken: Int = 0
     
     // 커스텀 삭제 모달 상태
     @State private var showDeleteDialog: Bool = false
@@ -50,7 +51,7 @@ struct NotesView: View {
             ) { }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: UUID.self) { id in
-                if let client = clients.first(where: { $0.id == id }) {
+                if let client = clientsStore.clients.first(where: { $0.id == id }) {
                     ChattingView(clientId: id, chatTitle: "\(client.name) \(client.surname)", initialNotes: client.notes)
                         .toolbar(.hidden, for: .navigationBar)
                         .toolbar(.hidden, for: .tabBar)
@@ -59,6 +60,9 @@ struct NotesView: View {
                         .toolbar(.hidden, for: .navigationBar)
                         .toolbar(.hidden, for: .tabBar)
                 }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .apexChatNotesUpdated)) { _ in
+                chatRefreshToken &+= 1
             }
         }
     }
@@ -75,7 +79,7 @@ struct NotesView: View {
             )
             
             NotesListView(
-                clients: clients,
+                clients: clientsStore.clients,
                 selectedFilter: $selectedFilter,
                 onTogglePin: { togglePin($0) },
                 onDelete: { client in
@@ -90,6 +94,7 @@ struct NotesView: View {
                     path.append(client.id)
                 }
             )
+            .id(chatRefreshToken)
             .padding(.vertical, 24)
         }
         .background(Color("Background"))
@@ -99,7 +104,7 @@ struct NotesView: View {
     
     private var companyNamesWithNotes: [String] {
         Set(
-            clients
+            clientsStore.clients
                 .map { $0.company.trimmingCharacters(in: .whitespacesAndNewlines) }
                 .filter { !$0.isEmpty }
         )
@@ -115,8 +120,9 @@ struct NotesView: View {
     // MARK: - Actions
     
     private func togglePin(_ client: Client) {
-        guard let index = clients.firstIndex(where: { $0.id == client.id }) else { return }
-        clients[index] = Client(
+        guard let index = clientsStore.clients.firstIndex(where: { $0.id == client.id }) else { return }
+        clientsStore.clients[index] = Client(
+            id: client.id,
             profile: client.profile,
             nameCardFront: client.nameCardFront,
             nameCardBack: client.nameCardBack,
@@ -138,8 +144,8 @@ struct NotesView: View {
     }
     
     private func deleteClient(_ client: Client) {
-        if let index = clients.firstIndex(where: { $0.id == client.id }) {
-            clients.remove(at: index)
+        if let index = clientsStore.clients.firstIndex(where: { $0.id == client.id }) {
+            clientsStore.clients.remove(at: index)
         }
         if case .company(let name) = selectedFilter,
            !companyNamesWithNotes.contains(name) {
