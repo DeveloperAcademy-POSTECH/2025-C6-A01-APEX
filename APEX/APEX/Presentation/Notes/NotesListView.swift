@@ -193,18 +193,29 @@ enum NotesTextFormatter {
         f.dateFormat = "M/d"
         return f
     }()
+    private static let yearMonthDayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy/M/d"
+        return formatter
+    }()
 
     static func timeText(for notes: [Note]) -> String? {
         guard let latest = notes.max(by: { $0.uploadedAt < $1.uploadedAt }) else { return nil }
         let cal = Calendar.current
         let now = Date()
         if cal.isDate(latest.uploadedAt, inSameDayAs: now) {
-            return timeFormatter.string(from: latest.uploadedAt).lowercased()
-        } else if let y = cal.date(byAdding: .day, value: -1, to: now),
-                  cal.isDate(latest.uploadedAt, inSameDayAs: y) {
-            return "어제"
+            // 오늘: 시간만
+            return timeFormatter.string(from: latest.uploadedAt) // 3:00 PM
+        } else if let yesterday = cal.date(byAdding: .day, value: -1, to: now),
+                  cal.isDate(latest.uploadedAt, inSameDayAs: yesterday) {
+            // 어제: "어제 + 시간"
+            return "어제 " + timeFormatter.string(from: latest.uploadedAt) // 어제 3:00 PM
+        } else if cal.component(.year, from: latest.uploadedAt) == cal.component(.year, from: now) {
+            // 그제~올해 이전: 월/일 + 시간
+            return monthDayFormatter.string(from: latest.uploadedAt) + " " + timeFormatter.string(from: latest.uploadedAt) // 10/30 3:00 PM
         } else {
-            return monthDayFormatter.string(from: latest.uploadedAt)
+            // 전년도 이전: 년/월/일 + 시간
+            return yearMonthDayFormatter.string(from: latest.uploadedAt) + " " + timeFormatter.string(from: latest.uploadedAt) // 2024/12/25 3:00 PM
         }
     }
 
