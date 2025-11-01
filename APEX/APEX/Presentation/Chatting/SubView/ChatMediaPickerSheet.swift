@@ -16,6 +16,10 @@ struct ChatMediaPickerSheet: View {
     var onDetentChanged: (PresentationDetent) -> Void = { _ in }
     var onHeightChanged: (CGFloat) -> Void = { _ in }
     var onConfirmUpload: () -> Void = {}
+    // If provided, overrides internal detent to decide when sheet is fully expanded (for custom hosts)
+    var isFullyExpandedOverride: Bool? = nil
+    // Optional callback to request collapsing when using custom hosts
+    var onCloseTopBar: () -> Void = {}
     @Binding var selectedAttachmentItems: [ShareAttachmentItem]
 
     @State private var detentSelection: PresentationDetent = .fraction(0.4)
@@ -28,6 +32,10 @@ struct ChatMediaPickerSheet: View {
         GridItem(.flexible(), spacing: 2),
         GridItem(.flexible(), spacing: 2)
     ]
+    private let twoColumns: [GridItem] = [
+        GridItem(.flexible(), spacing: 2),
+        GridItem(.flexible(), spacing: 2)
+    ]
 
     init(
         isPresented: Binding<Bool>,
@@ -37,7 +45,9 @@ struct ChatMediaPickerSheet: View {
         onDetentChanged: @escaping (PresentationDetent) -> Void = { _ in },
         onHeightChanged: @escaping (CGFloat) -> Void = { _ in },
         onConfirmUpload: @escaping () -> Void = {},
-        selectedAttachmentItems: Binding<[ShareAttachmentItem]> = .constant([])
+        selectedAttachmentItems: Binding<[ShareAttachmentItem]> = .constant([]),
+        isFullyExpandedOverride: Bool? = nil,
+        onCloseTopBar: @escaping () -> Void = {}
     ) {
         self._isPresented = isPresented
         self.onTapFile = onTapFile
@@ -47,19 +57,24 @@ struct ChatMediaPickerSheet: View {
         self.onHeightChanged = onHeightChanged
         self.onConfirmUpload = onConfirmUpload
         self._selectedAttachmentItems = selectedAttachmentItems
+        self.isFullyExpandedOverride = isFullyExpandedOverride
+        self.onCloseTopBar = onCloseTopBar
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            if detentSelection == .large { headerLarge } else { headerCollapsed }
+            if showLargeHeader { headerLarge } else { headerCollapsed }
 
             ScrollView {
                 VStack(spacing: 8) {
-                    fileWideTile
-
-                    LazyVGrid(columns: gridColumns, spacing: 2) {
+                    // Top action row (2 columns): Camera + File
+                    LazyVGrid(columns: twoColumns, spacing: 2) {
                         cameraTile
+                        fileSquareTile
+                    }
 
+                    // Photos grid (3 columns)
+                    LazyVGrid(columns: gridColumns, spacing: 2) {
                         ForEach(assets.indices, id: \.self) { index in
                             let asset = assets[index]
                             let isSelected = selectedIds.contains(asset.localIdentifier)
@@ -112,7 +127,7 @@ struct ChatMediaPickerSheet: View {
             }
         }
         .overlay(alignment: .bottomTrailing) {
-            if detentSelection == .large {
+            if showLargeHeader {
                 Button {
                     onConfirmUpload()
                     isPresented = false
@@ -149,6 +164,11 @@ struct ChatMediaPickerSheet: View {
         .onPreferenceChange(SheetHeightKey.self) { height in
             onHeightChanged(height)
         }
+    }
+
+    private var showLargeHeader: Bool {
+        if let override = isFullyExpandedOverride { return override }
+        return detentSelection == .large
     }
 
     private func toggleSelection(for asset: PHAsset) {
@@ -237,49 +257,25 @@ struct ChatMediaPickerSheet: View {
     private var headerCollapsed: some View { Color.clear.frame(height: 8) }
 
     private var headerLarge: some View {
-        ZStack(alignment: .center) {
-            HStack(alignment: .center) {
-                Button {
-                    isPresented = false
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.black)
-                        .frame(width: 44, height: 44)
-                }
-                .buttonStyle(.plain)
-                .glassEffect()
-
-                Spacer(minLength: 0)
-
-                Button {
+        VStack(spacing: 0) {
+            APEXSheetTopBar(
+                title: "사진 추가",
+                subtitle: (selectedIds.isEmpty ? "최대 24개 선택" : "\(selectedIds.count)/24개 선택함"),
+                rightTitle: "전체",
+                isRightEnabled: true,
+                onRightTap: {
                     onOpenSystemAlbum()
                     isPresented = false
-                } label: {
-                    Text("전체 앨범")
-                        .font(.body5)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 9)
-                }
-                .buttonStyle(.plain)
-                .glassEffect()
-            }
-
-            VStack(spacing: 2) {
-                Text("앨범").font(.title5).foregroundStyle(.black)
-                if !selectedIds.isEmpty {
-                    Text("\(selectedIds.count)/24개 선택됨").font(.caption3).foregroundStyle(Color("Primary"))
-                } else {
-                    Text("최대 24개 선택").font(.caption3).foregroundStyle(.secondary)
-                }
-            }
-            .padding(.top, 16)
-            .padding(.bottom, 8)
+                },
+                onClose: {
+                    // If hosted inside a custom bottom sheet, ask parent to collapse. Otherwise, use internal detent.
+                    if isFullyExpandedOverride != nil { onCloseTopBar() } else { isPresented = false }
+                },
+                rightIconSystemName: "photo"
+            )
+            .padding(.top, 12)
+            .background(Color("Background"))
         }
-        .padding(.horizontal, 8)
-        .padding(.top, 6)
-        .padding(.bottom, 2)
-        .background(Color("Background"))
     }
 
     private var cameraTile: some View {
@@ -294,7 +290,27 @@ struct ChatMediaPickerSheet: View {
                 Text("카메라")
                     .font(.caption2)
             }
-            .frame(width: 122, height: 122)
+            .frame(width: 180, height: 56)
+            .background(Color("BackgroundSecondary"))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var fileSquareTile: some View {
+        Button {
+            onTapFile()
+            isPresented = false
+        } label: {
+            VStack(spacing: 2) {
+                Image(systemName: "folder.fill")
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundColor(Color("Primary"))
+                Text("파일")
+                    .font(.caption2)
+                    .foregroundColor(.black)
+            }
+            .frame(width: 180, height: 56)
             .background(Color("BackgroundSecondary"))
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }

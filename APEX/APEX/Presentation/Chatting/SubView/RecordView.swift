@@ -164,9 +164,10 @@ struct RecordView: View {
         }
         .background(Color("Background"))
         .sheet(isPresented: $showShareSheet) {
-            ShareView(shouldSeedIfEmpty: false)
+            ShareView()
         }
         .onAppear {
+            NotificationCenter.default.post(name: .apexStopAllAudioPlayback, object: nil)
             workingURL = audioURL
             setupPlayerIfNeeded()
             filenameText = defaultTitle()

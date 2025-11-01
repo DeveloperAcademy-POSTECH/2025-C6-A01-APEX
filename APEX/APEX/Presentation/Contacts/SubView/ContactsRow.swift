@@ -97,25 +97,16 @@ struct ContactsRow: View {
     }
 
     private var avatar: some View {
-        Group {
-            if let uiImage = client.profile {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 48, height: 48)
-            } else {
-                let initials = Profile.makeInitials(name: client.name, surname: client.surname)
-                ZStack {
-                    Circle()
-                        .fill(Color("PrimaryContainer"))
-                    Text(initials)
-                        .font(.system(size: 30.72, weight: .semibold))
-                        .foregroundColor(.white)
-                }
-            }
-        }
-        .frame(width: Metrics.avatarSize, height: Metrics.avatarSize)
-        .clipShape(Circle())
+        let initials = Profile.makeInitials(name: client.name, surname: client.surname)
+        return Profile(
+            image: client.profile,
+            initials: initials,
+            size: .small,
+            fontSize: 30.72,
+            backgroundColor: Color("PrimaryContainer"),
+            textColor: .white,
+            fontWeight: .semibold
+        )
     }
 }
 

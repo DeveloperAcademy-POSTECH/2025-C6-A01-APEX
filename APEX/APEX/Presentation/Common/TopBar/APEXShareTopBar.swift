@@ -41,7 +41,6 @@ struct APEXShareTopBar: View {
             }
             .frame(height: height)
             .padding(.horizontal, 12)
-            .background(background)
 
             // Center title + selected count
             VStack(spacing: 0) {
@@ -51,7 +50,7 @@ struct APEXShareTopBar: View {
                     .lineLimit(1)
                 
                 if selectedCount > 0 {
-                    Text("\(selectedCount)")
+                    Text("\(selectedCount)명")
                         .font(.caption2)
                         .foregroundColor(Color("Primary"))
                         .lineLimit(1)

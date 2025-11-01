@@ -14,19 +14,28 @@ struct ShareView: View {
         var id: String { rawValue }
     }
 
-    private let shouldSeedIfEmpty: Bool
-
     @State private var selectedTab: Tab = .connects
     @State private var selectedIds: Set<UUID> = []
     @State private var inputText: String = ""
     @State private var attachments: [ShareAttachmentItem]
     @Environment(\.dismiss) private var dismiss
 
-    private let clients: [Client] = sampleClients
+    @ObservedObject private var store = ClientsStore.shared
 
-    init(initialAttachments: [ShareAttachmentItem] = [], shouldSeedIfEmpty: Bool = true) {
-        self.shouldSeedIfEmpty = shouldSeedIfEmpty
+    init(initialAttachments: [ShareAttachmentItem] = []) {
         _attachments = State(initialValue: initialAttachments)
+    }
+
+    @State private var inputBarHeight: CGFloat = 0
+    @State private var attachBarHeight: CGFloat = 0
+
+    private struct InputBarHeightKey: PreferenceKey {
+        static var defaultValue: CGFloat = 0
+        static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+    }
+    private struct AttachBarHeightKey: PreferenceKey {
+        static var defaultValue: CGFloat = 0
+        static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
     }
 
     var body: some View {
@@ -84,7 +93,25 @@ struct ShareView: View {
                 }
             }
         }
+        .background(Color("Background"))
         .padding(.horizontal, 16)
+        .ignoresSafeArea(.container, edges: .top)
+        .scrollEdgeEffectStyle(.soft, for: .bottom)
+        .overlay(alignment: .bottom) {
+            if !attachments.isEmpty {
+                AttachBar(
+                    items: attachments,
+                    onRemove: { removeAttachment($0) }
+                )
+                .background(
+                    GeometryReader { proxy in
+                        Color.clear.preference(key: AttachBarHeightKey.self, value: proxy.size.height)
+                    }
+                )
+                .padding(.bottom, inputBarHeight + 8)
+                .ignoresSafeArea(.keyboard, edges: .bottom)
+            }
+        }
         .safeAreaInset(edge: .top) {
             VStack(spacing: 0) {
                 APEXShareTopBar(
@@ -94,12 +121,12 @@ struct ShareView: View {
                     onSearch: { performSearch() }
                 )
                 .padding(.top, 12)
+                .background(Color("Background"))
 
                 Group {
                     if !selectedIds.isEmpty {
                         selectedClientsBar
                             .padding(.vertical, 8)
-                            .padding(.horizontal, 16)
                             .background(Color("Background"))
                     } else {
                         Picker("", selection: $selectedTab) {
@@ -108,42 +135,28 @@ struct ShareView: View {
                         .pickerStyle(.segmented)
                     }
                 }
-                .padding(.vertical, 24)
                 .padding(.horizontal, 16)
             }
         }
-        .safeAreaInset(edge: .bottom) {
-            VStack(spacing: 8) {
-                if !attachments.isEmpty {
-                    AttachBar(
-                        items: attachments,
-                        onRemove: { removeAttachment($0) }
-                    )
-                }
-
-                ShareInputBar(
-                    text: $inputText,
-                    isEnabled: !selectedIds.isEmpty || !attachments.isEmpty,
-                    onSend: { handleSend() }
-                )
-            }
+        .safeAreaBar(edge: .bottom) {
+            ShareInputBar(
+                text: $inputText,
+                isEnabled: !selectedIds.isEmpty || !attachments.isEmpty,
+                onSend: { handleSend() }
+            )
         }
-        .scrollEdgeEffectStyle(.hard, for: .all)
-        .onAppear {
-            if shouldSeedIfEmpty && attachments.isEmpty {
-                seedTempAttachments()
-            }
-        }
+        .onPreferenceChange(InputBarHeightKey.self) { inputBarHeight = $0 }
+        .onPreferenceChange(AttachBarHeightKey.self) { attachBarHeight = $0 }
     }
 
     // MARK: - Connects (favorites + grouped by company)
 
     private var connectsFavorites: [Client] {
-        clients.filter { $0.favorite }.sorted(by: sortByName)
+        store.clients.filter { $0.favorite }.sorted(by: sortByName)
     }
 
     private var connectsGrouped: [String: [Client]] {
-        let grouped = Dictionary(grouping: clients) { client -> String in
+        let grouped = Dictionary(grouping: store.clients) { client -> String in
             let trimmed = client.company.trimmingCharacters(in: .whitespacesAndNewlines)
             return trimmed.isEmpty ? "Ungrouped" : trimmed
         }
@@ -164,8 +177,7 @@ struct ShareView: View {
     // MARK: - Recents (pinned first, then latest note desc)
 
     private var recentsSorted: [Client] {
-        clients
-            .filter { !$0.notes.isEmpty }
+        store.clients
             .sorted { lhs, rhs in
                 let lDate = latestNoteDate(of: lhs) ?? .distantPast
                 let rDate = latestNoteDate(of: rhs) ?? .distantPast
@@ -194,37 +206,66 @@ struct ShareView: View {
     }
 
     private func performSearch() {
-        // 임시: 테스트 이미지 추가 트리거
-        seedTempAttachments()
+
     }
 
     private func handleSend() {
-        // Clear input for now; integrate with actual share action if needed
+        let trimmed = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bundle = makeAttachmentBundle()
+        if selectedIds.isEmpty && (bundle == nil && trimmed.isEmpty) { return }
+
+        let note = Note(
+            uploadedAt: Date(),
+            text: trimmed.isEmpty ? nil : trimmed,
+            bundle: bundle
+        )
+
+        for id in selectedIds {
+            if let idx = store.clients.firstIndex(where: { $0.id == id }) {
+                var client = store.clients[idx]
+                client.notes.insert(note, at: 0)
+                store.update(client)
+            }
+        }
+
         inputText = ""
+        attachments.removeAll()
+        selectedIds.removeAll()
+        dismiss()
+    }
+
+    private func makeAttachmentBundle() -> AttachmentBundle? {
+        if attachments.isEmpty { return nil }
+        var images: [ImageAttachment] = []
+        var videos: [VideoAttachment] = []
+        for (order, item) in attachments.enumerated() {
+            switch item.kind {
+            case .image(let uiImage):
+                if let data = uiImage.jpegData(compressionQuality: 0.9) {
+                    images.append(ImageAttachment(data: data, progress: nil, orderIndex: order))
+                }
+            case .video(let url, _):
+                if let url {
+                    videos.append(VideoAttachment(url: url, progress: nil, orderIndex: order))
+                }
+            }
+        }
+        if images.isEmpty && videos.isEmpty { return nil }
+        return .media(images: images, videos: videos)
     }
 
     private func removeAttachment(_ item: ShareAttachmentItem) {
         attachments.removeAll { $0.id == item.id }
     }
-
-    private func seedTempAttachments() {
-        let names = ["ProfileS", "CardS"]
-        for name in names {
-            if let img = UIImage(named: name) {
-                attachments.append(ShareAttachmentItem(id: UUID(), kind: .image(img)))
-            }
-        }
-    }
-
     // MARK: - Selected Clients Bar
 
     private var selectedClientsBar: some View {
-        let selected: [Client] = clients
+        let selected: [Client] = store.clients
             .filter { selectedIds.contains($0.id) }
             .sorted(by: sortByName)
 
         return ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: 12) {
                 ForEach(selected) { client in
                     chip(for: client)
                 }
@@ -235,13 +276,16 @@ struct ShareView: View {
     private func chip(for client: Client) -> some View {
         VStack(spacing: 8) {
             ZStack(alignment: .topTrailing) {
+                let initials = Profile.makeInitials(name: client.name, surname: client.surname)
                 Profile(
                     image: client.profile,
-                    initials: initialLetter(for: client.name, surname: client.surname),
+                    initials: initials,
                     size: .small,
-                    fontSize: 30.72
+                    fontSize: 30.72,
+                    backgroundColor: Color("PrimaryContainer"),
+                    textColor: .white,
+                    fontWeight: .semibold
                 )
-
                 Button { toggleSelect(client.id) } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 14, weight: .medium))
@@ -250,10 +294,11 @@ struct ShareView: View {
                 .buttonStyle(.plain)
             }
 
-            Text("\(client.name) \(client.surname)")
+            Text("\(client.name)\n\(client.surname)")
                 .font(.caption2)
                 .foregroundColor(.primary)
                 .lineLimit(2)
+                .multilineTextAlignment(.center)
         }
         .padding(.vertical, 4)
     }
@@ -288,6 +333,12 @@ struct ShareView: View {
 }
 
 #Preview {
-    ShareView()
+    let img = UIImage(systemName: "photo")!
+    let thumb = UIImage(systemName: "film")!
+    let sample: [ShareAttachmentItem] = [
+        ShareAttachmentItem(id: UUID(), kind: .image(img)),
+        ShareAttachmentItem(id: UUID(), kind: .video(nil, thumbnail: thumb))
+    ]
+    return ShareView(initialAttachments: sample)
         .background(Color("Background"))
 }

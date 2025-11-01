@@ -10,10 +10,12 @@ import SwiftUI
 /// Sheet-style top bar with centered title and a right-aligned action button
 struct APEXSheetTopBar: View {
     private let title: String
+    private let subtitle: String?
     private let rightTitle: String
     private let onRightTap: () -> Void
     private let onClose: () -> Void
     private let isRightEnabled: Bool
+    private let rightIconSystemName: String?
 
     // Theme
     private var background: Color = Color("Background")
@@ -23,16 +25,20 @@ struct APEXSheetTopBar: View {
 
     init(
         title: String,
+        subtitle: String? = nil,
         rightTitle: String,
         isRightEnabled: Bool = true,
         onRightTap: @escaping () -> Void,
-        onClose: @escaping () -> Void
+        onClose: @escaping () -> Void,
+        rightIconSystemName: String? = nil
     ) {
         self.title = title
+        self.subtitle = subtitle
         self.rightTitle = rightTitle
         self.isRightEnabled = isRightEnabled
         self.onRightTap = onRightTap
         self.onClose = onClose
+        self.rightIconSystemName = rightIconSystemName
     }
 
     var body: some View {
@@ -48,16 +54,29 @@ struct APEXSheetTopBar: View {
                 .padding(.horizontal, 12)
                 .background(background)
 
-                // Center title overlay
-                Text(title)
-                    .font(.title3)
-                    .foregroundColor(foreground)
-                    .lineLimit(1)
-                    .frame(height: height)
-                    .padding(.horizontal, 12)
-                    .allowsHitTesting(false)
+            // Center title overlay with optional subtitle
+                VStack(spacing: 2) {
+                    Text(title)
+                        .font(.title5)
+                        .foregroundColor(foreground)
+                        .lineLimit(1)
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(.caption2)
+                            .foregroundColor(subtitleColor)
+                            .lineLimit(1)
+                    }
+                }
+                .frame(height: height)
+                .padding(.horizontal, 12)
+                .allowsHitTesting(false)
             }
         }
+    }
+
+    private var subtitleColor: Color {
+        if let subtitle, subtitle.contains("/") { return Color("Primary") }
+        return .gray
     }
 
     private var leftButton: some View {
@@ -69,6 +88,7 @@ struct APEXSheetTopBar: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .glassEffect()
         .accessibilityLabel(Text("닫기"))
     }
 
@@ -76,10 +96,22 @@ struct APEXSheetTopBar: View {
         let isEnabled = isRightEnabled
 
         return Button(action: onRightTap) {
-            Text(rightTitle)
-                .font(.title6)
-                .frame(width: 52, height: 44)
+            if let icon = rightIconSystemName {
+                HStack(spacing: 6) {
+                    Image(systemName: icon)
+                        .font(.system(size: 14, weight: .medium))
+                    Text(rightTitle)
+                        .font(.body5)
+                }
+                .frame(height: 44)
+                .padding(.horizontal, 6)
                 .glassEffect()
+            } else {
+                Text(rightTitle)
+                    .font(.title6)
+                    .frame(width: 52, height: 44)
+                    .glassEffect()
+            }
         }
         .buttonStyle(
             TopBarTextButtonStyle(

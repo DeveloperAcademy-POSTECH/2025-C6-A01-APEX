@@ -133,6 +133,9 @@ struct MediaView: View {
         }
         .sheet(isPresented: $showShareSheet) {
             ShareView(initialAttachments: shareAttachments)
+                .background(Color("Background"))
+                .presentationDetents([.large])
+                .presentationDragIndicator(.hidden)
         }
     }
 

@@ -338,6 +338,8 @@ struct InputBar: View {
     // Restore media sheet after keyboard hides if it was temporarily dismissed
     @State private var shouldRestoreMediaSheetAfterKeyboard: Bool = false
     // (reverted) no combined sheet/keyboard lifts
+    // Restore editor focus after sheet closes if we opened sheet while focused
+    @State private var shouldRestoreEditorAfterSheet: Bool = false
 
     // Placeholder text adapts when media sheet is presented
     private var placeholderText: String {
@@ -350,21 +352,29 @@ struct InputBar: View {
 
     // Left button accessibility label
     private var leftButtonA11yLabel: String {
-        if isEditorFocused { return "키보드 숨기기" }
-        return isMediaSheetPresented ? "닫기" : "추가"
+        return (isMediaSheetPresented || shouldRestoreMediaSheetAfterKeyboard) ? "닫기" : "추가"
     }
 
     private var leftButtonRotation: Angle {
-        (isMediaSheetPresented && !isEditorFocused) ? .degrees(45) : .degrees(0)
+        (isMediaSheetPresented || shouldRestoreMediaSheetAfterKeyboard) ? .degrees(45) : .degrees(0)
     }
 
     private func handleLeftButtonTap() {
         let animation = Animation.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)
         withAnimation(animation) {
-            if isEditorFocused {
-                isEditorFocused = false
+            if isMediaSheetPresented {
+                // Closing sheet: restore focus if we opened it while focused
+                isMediaSheetPresented = false
+                if shouldRestoreEditorAfterSheet {
+                    shouldRestoreEditorAfterSheet = false
+                    DispatchQueue.main.async { isEditorFocused = true }
+                }
             } else {
-                isMediaSheetPresented.toggle()
+                // Opening sheet: remember focus and hide keyboard
+                shouldRestoreEditorAfterSheet = isEditorFocused
+                shouldRestoreMediaSheetAfterKeyboard = false
+                isEditorFocused = false
+                isMediaSheetPresented = true
             }
         }
     }
@@ -479,7 +489,7 @@ struct InputBar: View {
                     Button {
                         handleLeftButtonTap()
                     } label: {
-                        Image(systemName: isEditorFocused ? "keyboard.chevron.compact.down" : "plus")
+                        Image(systemName: "plus")
                             .rotationEffect(leftButtonRotation)
                             .font(.system(size: 20, weight: .medium))
                             .foregroundColor(.black)

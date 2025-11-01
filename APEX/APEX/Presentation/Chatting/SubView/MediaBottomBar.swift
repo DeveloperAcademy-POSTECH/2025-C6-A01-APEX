@@ -47,7 +47,7 @@ struct MediaBottomBar: View {
     private func actionButton(systemName: String, accessibility: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 14, weight: .medium))
+                .font(.system(size: 17, weight: .medium))
                 .foregroundColor(.white)
                 .frame(width: 44, height: 44)
                 .glassEffect()

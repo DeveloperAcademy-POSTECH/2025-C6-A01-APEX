@@ -248,6 +248,13 @@ struct ChattingView: View {
                     .transition(.scale.combined(with: .opacity))
                 }
             }
+            .apexToast(
+                isPresented: $showCopyToast,
+                image: Image(systemName: "doc.on.doc.fill"),
+                text: "복사되었습니다.",
+                buttonTitle: nil,
+                duration: 1.6
+            )
             }
 
             // Right-side floating date indicator
@@ -273,7 +280,6 @@ struct ChattingView: View {
             }
         }
         .padding(.horizontal, 12)
-        .scrollEdgeEffectStyle(.soft, for: .all)
         .toolbar(.hidden, for: .navigationBar)
         .overlay(alignment: .trailing) {
             Color.clear
@@ -358,7 +364,7 @@ struct ChattingView: View {
         .onPreferenceChange(ChipHeightKey.self) { h in
             if h > 0 { chipHeight = h }
         }
-        .safeAreaInset(edge: .top) {
+        .safeAreaBar(edge: .top) {
             APEXNavigationBar(
                 .memo(
                     title: chatTitle,
@@ -444,55 +450,25 @@ struct ChattingView: View {
                                 NotificationCenter.default.post(name: .apexSendSelectedAttachments, object: nil)
                                 sheetMode = .hidden
                             },
-                            selectedAttachmentItems: $stagedAttachments
+                            selectedAttachmentItems: $stagedAttachments,
+                            isFullyExpandedOverride: (sheetMode == .expanded),
+                            onCloseTopBar: {
+                                withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
+                                    sheetMode = .hidden
+                                }
+                            }
                         )
                         .padding(.bottom, 0)
                     }
                     .zIndex(1)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
-
-                    // Upload button when fully expanded
-                    if sheetMode == .expanded {
-                        let bottomInset: CGFloat = {
-                            if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                               let win = scene.windows.first(where: { $0.isKeyWindow }) {
-                                return win.safeAreaInsets.bottom
-                            }
-                            return 0
-                        }()
-                        Button {
-                            NotificationCenter.default.post(name: .apexSendSelectedAttachments, object: nil)
-                            withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
-                                sheetMode = .hidden
-                            }
-                        } label: {
-                            Image(systemName: "arrow.up")
-                                .font(.system(size: 20, weight: .medium))
-                                .foregroundColor(.white)
-                                .frame(width: 48, height: 48)
-                                .background(Color("Primary"))
-                                .clipShape(Circle())
-                                .glassEffect()
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.trailing, 16)
-                        .padding(.bottom, 16 + bottomInset)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                        .transition(.scale.combined(with: .opacity))
-                        .zIndex(2)
-                    }
                 }
             }
         }
+        
+        .scrollEdgeEffectStyle(.soft, for: .all)
         .onPreferenceChange(BottomInsetHeightKey.self) { height in bottomInsetHeight = height }
         .onDisappear { ChatStore.shared.setNotes(notes, for: clientId) }
-        .apexToast(
-            isPresented: $showCopyToast,
-            image: Image(systemName: "doc.on.doc.fill"),
-            text: "복사되었습니다.",
-            buttonTitle: nil,
-            duration: 1.6
-        )
         .sheet(item: $editing) { payload in
             TextEditSheet(
                 initialText: payload.text,
@@ -533,7 +509,7 @@ struct ChattingView: View {
             )
         }
         .sheet(isPresented: $showShareFromEdit) {
-            ShareView(shouldSeedIfEmpty: false)
+            ShareView()
         }
     }
 }
@@ -802,7 +778,7 @@ private struct ChatMessageView: View {
             )
         }
         .sheet(isPresented: $showShareSheet) {
-            ShareView(shouldSeedIfEmpty: false)
+            ShareView()
         }
         .fullScreenCover(item: $recordPayload) { payload in
             RecordView(audioURL: payload.url)
@@ -1107,6 +1083,7 @@ private struct FileGridTile: View {
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
         }
+        .frame(width: 119, height: 119)
         .cornerRadius(10)
         .environment(\.layoutDirection, .leftToRight)
         .contentShape(Rectangle())
@@ -1153,6 +1130,7 @@ extension Notification.Name {
     static let apexOpenCamera = Notification.Name("apex.openCamera")
     static let apexOpenPhotoPicker = Notification.Name("apex.openPhotoPicker")
     static let apexSendSelectedAttachments = Notification.Name("apex.sendSelectedAttachments")
+    static let apexStopAllAudioPlayback = Notification.Name("apex.stopAllAudioPlayback")
 }
 
 private struct VideoThumbTile: View {
@@ -1702,11 +1680,13 @@ private struct BottomSheetHost<Content: View>: View {
         }()
 
         VStack(spacing: 0) {
-            Capsule()
-                .fill(Color.gray.opacity(0.3))
-                .frame(width: 36, height: 5)
-                .padding(.top, 8)
-                .padding(.bottom, 8)
+            if mode != .expanded {
+                Capsule()
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(width: 36, height: 5)
+                    .padding(.top, 8)
+                    .padding(.bottom, 8)
+            }
 
             content()
         }

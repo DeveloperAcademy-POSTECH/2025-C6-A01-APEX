@@ -76,6 +76,14 @@ struct AudioSquareTile: View {
             phase = -2.0 * CGFloat.pi * waveSpeed * CGFloat(audioPlayer.currentTime)
         }
         .onAppear { updateDuration() }
+        .onReceive(NotificationCenter.default.publisher(for: .apexStopAllAudioPlayback)) { _ in
+            stopWork?.cancel(); inactivityWork?.cancel()
+            player?.pause()
+            isPlaying = false
+            showWaveform = false
+            phase = 0
+            level = 0
+        }
         .onDisappear {
             inactivityWork?.cancel(); inactivityWork = nil
             stopPlayback()

@@ -25,75 +25,71 @@ struct ShareInputBar: View {
     }
 
     var body: some View {
-        ZStack(alignment: .top) {
-            Color("Background")
-
-            HStack(spacing: 8) {
-                if isEditing {
-                    Button(
-                        action: {
-                            text = ""
-                            isFocused = false
-                            isEditing = false
-                        },
-                        label: {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 16, weight: .medium))
-                                .foregroundColor(.gray)
-                                .frame(width: 44, height: 44)
-                        }
-                    )
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(Text("지우기"))
-                    .glassEffect()
-                }
-                    TextField(
-                    placeholder,
-                    text: $text,
-                        onEditingChanged: { editing in
-                            isEditing = editing
-                        },
-                    onCommit: {
-                        if computedIsEnabled { onSend() }
-                    }
-                )
-                .font(.body5)
-                .foregroundColor(.primary)
-                .padding(.horizontal, 12)
-                .frame(height: Metrics.fieldHeight)
-                .focused($isFocused)
-                .glassEffect(
-                    in: UnevenRoundedRectangle(
-                        topLeadingRadius: 0,
-                        bottomLeadingRadius: 0,
-                        bottomTrailingRadius: Metrics.fieldRadius,
-                        topTrailingRadius: Metrics.fieldRadius
-                    )
-                )
-                .submitLabel(.send)
-
+        HStack(spacing: 8) {
+            if isEditing {
                 Button(
                     action: {
-                        if computedIsEnabled { onSend() }
+                        text = ""
+                        isFocused = false
+                        isEditing = false
                     },
                     label: {
-                        Image(systemName: "arrow.up")
-                            .font(.system(size: Metrics.sendIcon, weight: .medium))
-                            .foregroundStyle(.white)
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.gray)
+                            .frame(width: 44, height: 44)
                     }
                 )
                 .buttonStyle(.plain)
-                .frame(width: Metrics.sendSize, height: Metrics.sendSize)
-                .background(computedIsEnabled ? Color("Primary") : Color("BackgroundSecondary"))
-                .clipShape(Circle())
-                .disabled(!computedIsEnabled)
-                .accessibilityLabel(Text("전송"))
+                .accessibilityLabel(Text("지우기"))
                 .glassEffect()
             }
-            .padding(.horizontal, Metrics.horizontalPadding)
-            .frame(height: Metrics.barHeight)
+                TextField(
+                placeholder,
+                text: $text,
+                    onEditingChanged: { editing in
+                        isEditing = editing
+                    },
+                onCommit: {
+                    if computedIsEnabled { onSend() }
+                }
+            )
+            .font(.body5)
+            .foregroundColor(.primary)
+            .padding(.horizontal, 12)
+            .frame(height: Metrics.fieldHeight)
+            .focused($isFocused)
+            .glassEffect(
+                in: UnevenRoundedRectangle(
+                    topLeadingRadius: 0,
+                    bottomLeadingRadius: 0,
+                    bottomTrailingRadius: Metrics.fieldRadius,
+                    topTrailingRadius: Metrics.fieldRadius
+                )
+            )
+            .submitLabel(.send)
+
+            Button(
+                action: {
+                    if computedIsEnabled { onSend() }
+                },
+                label: {
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: Metrics.sendIcon, weight: .medium))
+                        .foregroundStyle(.white)
+                }
+            )
+            .buttonStyle(.plain)
+            .frame(width: Metrics.sendSize, height: Metrics.sendSize)
+            .background(computedIsEnabled ? Color("Primary") : Color("BackgroundSecondary"))
+            .clipShape(Circle())
+            .disabled(!computedIsEnabled)
+            .accessibilityLabel(Text("전송"))
+            .glassEffect()
         }
+        .padding(.horizontal, Metrics.horizontalPadding)
         .frame(height: Metrics.barHeight)
+
     }
 
     private var computedIsEnabled: Bool {
