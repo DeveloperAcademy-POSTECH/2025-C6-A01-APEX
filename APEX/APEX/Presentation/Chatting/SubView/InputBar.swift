@@ -582,6 +582,14 @@ struct InputBar: View {
         .onReceive(NotificationCenter.default.publisher(for: .apexSendSelectedAttachments)) { _ in
             sendSelectedAttachmentsAndText()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .apexMediaSheetVisibilityChanged)) { notif in
+            if let visible = notif.userInfo?["visible"] as? Bool {
+                let animation = Animation.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)
+                withAnimation(animation) {
+                    isMediaSheetPresented = visible
+                }
+            }
+        }
         // Expanded text editor sheet
         .sheet(isPresented: $isExpandedEditorPresented) {
             ExpandedEditorSheet(

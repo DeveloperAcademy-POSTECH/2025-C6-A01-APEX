@@ -42,6 +42,13 @@ struct ChattingView: View {
     @State private var bottomInsetHeight: CGFloat = 0
     @State private var isEditorCurrentlyFocused: Bool = false
     @State private var showCopyToast: Bool = false
+    @FocusState private var isSearchFieldFocused: Bool
+    // Search state
+    @State private var isSearchActive: Bool = false
+    @State private var searchText: String = ""
+    @State private var matchedNoteIds: [UUID] = []
+    @State private var currentMatchIndex: Int = 0
+    @State private var sheetModeBeforeSearch: BottomSheetMode? = nil
     private struct EditingPayload: Identifiable { let id = UUID(); let noteId: UUID; var text: String }
     @State private var editing: EditingPayload?
     private struct SelectCopyPayload: Identifiable { let id = UUID(); let text: String }
@@ -85,6 +92,13 @@ struct ChattingView: View {
                             ChatMessageView(
                                 note: note,
                                 chatTitle: chatTitle,
+                                highlightQuery: (
+                                    isSearchActive &&
+                                    !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+                                    !matchedNoteIds.isEmpty &&
+                                    matchedNoteIds.indices.contains(currentMatchIndex) &&
+                                    matchedNoteIds[currentMatchIndex] == note.id
+                                ) ? searchText : nil,
                                 buildViewerPayload: { anchor in
                                     buildGlobalViewerPayload(startingFrom: anchor)
                                 },
@@ -248,6 +262,7 @@ struct ChattingView: View {
                     .transition(.scale.combined(with: .opacity))
                 }
             }
+            
             .apexToast(
                 isPresented: $showCopyToast,
                 image: Image(systemName: "doc.on.doc.fill"),
@@ -364,38 +379,83 @@ struct ChattingView: View {
         .onPreferenceChange(ChipHeightKey.self) { h in
             if h > 0 { chipHeight = h }
         }
+        .onChange(of: isSearchActive) { _, active in
+            if active {
+                withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
+                    if sheetMode != .hidden {
+                        sheetModeBeforeSearch = sheetMode
+                    }
+                    sheetMode = .hidden
+                    bottomBarOffsetY = 0
+                }
+                NotificationCenter.default.post(name: .apexMediaSheetVisibilityChanged, object: nil, userInfo: ["visible": false])
+            }
+            // Toggle focus on search field based on visibility
+            DispatchQueue.main.async {
+                isSearchFieldFocused = active
+            }
+            if !active {
+                if let previous = sheetModeBeforeSearch {
+                    withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
+                        sheetMode = previous
+                    }
+                    sheetModeBeforeSearch = nil
+                    NotificationCenter.default.post(name: .apexMediaSheetVisibilityChanged, object: nil, userInfo: ["visible": true])
+                }
+            }
+        }
         .safeAreaBar(edge: .top) {
             APEXNavigationBar(
                 .memo(
                     title: chatTitle,
                     onBack: { dismiss() },
-                    onSearch: { },
+                    onSearch: { withAnimation { isSearchActive = true } },
                     onMenu: { }
                 )
             )
         }
+        
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 8) {
-                if !stagedAttachments.isEmpty {
-                    AttachBar(items: stagedAttachments) { removed in
-                        stagedAttachments.removeAll { $0.id == removed.id }
-                    }
-                }
-
-                InputBar({ note in
-                    handleIncoming(note: note)
-                }, onSheetVisibilityChanged: { visible in
-                    // Map InputBar left button toggle to our custom sheet modes
-                    withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
-                        if visible {
-                            sheetMode = .collapsed
-                        } else {
-                            sheetMode = (sheetMode == .expanded) ? .collapsed : .hidden
+                if isSearchActive {
+                    ChatSearchBar(
+                        text: $searchText,
+                        isFocused: _isSearchFieldFocused,
+                        onPrev: { navigateToPrevMatch() },
+                        onNext: { navigateToNextMatch() },
+                        onClose: {
+                            isSearchFieldFocused = false
+                            withAnimation { isSearchActive = false }
+                            searchText = ""
+                            matchedNoteIds.removeAll()
+                        },
+                        onTextChange: { _ in
+                            recomputeMatches()
+                            scrollToCurrentMatch()
+                        }
+                    )
+                } else {
+                    if !stagedAttachments.isEmpty {
+                        AttachBar(items: stagedAttachments) { removed in
+                            stagedAttachments.removeAll { $0.id == removed.id }
                         }
                     }
-                }, stagedAttachments: $stagedAttachments, onBarOffsetChanged: { offset in
-                    bottomBarOffsetY = offset
-                })
+
+                    InputBar({ note in
+                        handleIncoming(note: note)
+                    }, onSheetVisibilityChanged: { visible in
+                        // Map InputBar left button toggle to our custom sheet modes
+                        withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
+                            if visible {
+                                sheetMode = .collapsed
+                            } else {
+                                sheetMode = (sheetMode == .expanded) ? .collapsed : .hidden
+                            }
+                        }
+                    }, stagedAttachments: $stagedAttachments, onBarOffsetChanged: { offset in
+                        bottomBarOffsetY = offset
+                    })
+                }
             }
             .offset(y: bottomBarOffsetY)
             .animation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2), value: bottomBarOffsetY)
@@ -638,11 +698,64 @@ private extension ChattingView {
         files[fileIndex].progress = value
         notes[idx].bundle = .files(files)
     }
+
+    // MARK: - Search helpers
+    func recomputeMatches() {
+        let trimmedQuery = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedQuery.isEmpty else {
+            matchedNoteIds.removeAll()
+            currentMatchIndex = 0
+            return
+        }
+        let lowercasedQuery = trimmedQuery.lowercased()
+        var results: [UUID] = []
+        for note in notes.reversed() {
+            var matched = false
+            if let textLowercased = note.text?.lowercased(), textLowercased.contains(lowercasedQuery) {
+                matched = true
+            }
+            if !matched, case let .files(files) = note.bundle {
+                if files.contains(where: { $0.url.lastPathComponent.lowercased().contains(lowercasedQuery) }) {
+                    matched = true
+                }
+            }
+            if !matched, case let .audio(audios) = note.bundle {
+                if audios.contains(where: { $0.url.deletingPathExtension().lastPathComponent.lowercased().contains(lowercasedQuery) }) {
+                    matched = true
+                }
+            }
+            if matched { results.append(note.id) }
+        }
+        matchedNoteIds = results
+        // Always start at the most recent match when query changes
+        currentMatchIndex = results.isEmpty ? 0 : 0
+    }
+
+    func scrollToCurrentMatch() {
+        guard !matchedNoteIds.isEmpty else { return }
+        let id = matchedNoteIds[currentMatchIndex]
+        NotificationCenter.default.post(name: .apexNavigateToNote, object: nil, userInfo: ["noteId": id])
+    }
+
+    func navigateToNextMatch() {
+        guard !matchedNoteIds.isEmpty else { return }
+        // Down arrow: move toward newer (list is newest-first), so decrement index
+        currentMatchIndex = (currentMatchIndex - 1 + matchedNoteIds.count) % matchedNoteIds.count
+        scrollToCurrentMatch()
+    }
+
+    func navigateToPrevMatch() {
+        guard !matchedNoteIds.isEmpty else { return }
+        // Up arrow: move toward older (list is newest-first), so increment index
+        currentMatchIndex = (currentMatchIndex + 1) % matchedNoteIds.count
+        scrollToCurrentMatch()
+    }
 }
 
 private struct ChatMessageView: View {
     let note: Note
     let chatTitle: String
+    let highlightQuery: String?
     struct ChatAnchor { let noteId: UUID; let isImage: Bool; let localIndex: Int }
     let buildViewerPayload: (ChatAnchor) -> (items: [MediaSource], anchors: [ChatAnchor], index: Int)
     let onDelete: (ChatAnchor) -> Void
@@ -677,7 +790,8 @@ private struct ChatMessageView: View {
                         fontSize: 14,
                         textStyle: .body,
                         lineSpacing: 4,
-                        maxLayoutWidth: min(UIScreen.main.bounds.width * 0.78, 420)
+                        maxLayoutWidth: min(UIScreen.main.bounds.width * 0.78, 420),
+                        highlightQuery: highlightQuery
                     )
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.vertical, 12)
@@ -728,12 +842,12 @@ private struct ChatMessageView: View {
                     }
                 }
             } else if case let .files(files) = note.bundle {
-                FilesGrid(files: files)
+                FilesGrid(files: files, highlightQuery: highlightQuery)
             }
             // Audio attachments: always render single tile with anchored menu
             else if case let .audio(audios) = note.bundle {
                 if let first = audios.first {
-                    AudioSquareTile(url: first.url, duration: first.duration)
+                    AudioSquareTile(url: first.url, duration: first.duration, preferredLength: nil, titleOverride: nil, highlightQuery: highlightQuery)
                         .contextMenu {
                             Button { recordPayload = RecordPayload(url: first.url) } label: {
                                 Label("더보기", systemImage: "ellipsis.circle")
@@ -1032,6 +1146,7 @@ private struct MediaGrid: View {
 
 private struct FilesGrid: View {
     let files: [FileAttachment]
+    let highlightQuery: String?
 
     private let columns: [GridItem] = [
         GridItem(.flexible(), spacing: 2),
@@ -1042,7 +1157,7 @@ private struct FilesGrid: View {
     var body: some View {
         LazyVGrid(columns: columns, spacing: 2) {
             ForEach(files.indices, id: \.self) { idx in
-                FileGridTile(file: files[idx])
+                FileGridTile(file: files[idx], highlightQuery: highlightQuery)
             }
         }
         .environment(\.layoutDirection, .rightToLeft)
@@ -1051,6 +1166,7 @@ private struct FilesGrid: View {
 
 private struct FileGridTile: View {
     let file: FileAttachment
+    let highlightQuery: String?
 
     var body: some View {
         ZStack {
@@ -1063,12 +1179,21 @@ private struct FileGridTile: View {
 
                 Spacer()
 
-                Text(file.url.lastPathComponent)
-                    .font(.caption2)
-                    .lineLimit(4)
-                    .truncationMode(.middle)
-                    .foregroundStyle(.black)
-                    .padding(.bottom, 4)
+                if let attr = highlightedName() {
+                    Text(attr)
+                        .font(.caption2)
+                        .lineLimit(4)
+                        .truncationMode(.middle)
+                        .foregroundStyle(.black)
+                        .padding(.bottom, 4)
+                } else {
+                    Text(file.url.lastPathComponent)
+                        .font(.caption2)
+                        .lineLimit(4)
+                        .truncationMode(.middle)
+                        .foregroundStyle(.black)
+                        .padding(.bottom, 4)
+                }
 
                 if let sizeText = fileSizeText(for: file.url) {
                     Text(sizeText)
@@ -1102,6 +1227,27 @@ private struct FileGridTile: View {
     }
 }
 
+private extension FileGridTile {
+    func highlightedName() -> AttributedString? {
+        let name = file.url.lastPathComponent
+        guard let query = highlightQuery?.trimmingCharacters(in: .whitespacesAndNewlines), !query.isEmpty else { return nil }
+        let mas = NSMutableAttributedString(string: name)
+        let nameNSString = name as NSString
+        let fullRange = NSRange(location: 0, length: nameNSString.length)
+        let options: NSString.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
+        var searchRange = fullRange
+        while true {
+            let foundRange = nameNSString.range(of: query, options: options, range: searchRange)
+            if foundRange.location == NSNotFound { break }
+            mas.addAttribute(.backgroundColor, value: UIColor.systemYellow.withAlphaComponent(0.45), range: foundRange)
+            let nextLocation = foundRange.location + foundRange.length
+            if nextLocation >= nameNSString.length { break }
+            searchRange = NSRange(location: nextLocation, length: nameNSString.length - nextLocation)
+        }
+        return AttributedString(mas)
+    }
+}
+
 private func fileSystemSymbolName(for type: UTType?, url: URL?) -> String {
     var resolvedType: UTType? = type
     if resolvedType == nil, let ext = url?.pathExtension, !ext.isEmpty {
@@ -1131,6 +1277,7 @@ extension Notification.Name {
     static let apexOpenPhotoPicker = Notification.Name("apex.openPhotoPicker")
     static let apexSendSelectedAttachments = Notification.Name("apex.sendSelectedAttachments")
     static let apexStopAllAudioPlayback = Notification.Name("apex.stopAllAudioPlayback")
+    static let apexMediaSheetVisibilityChanged = Notification.Name("apex.mediaSheetVisibilityChanged")
 }
 
 private struct VideoThumbTile: View {
