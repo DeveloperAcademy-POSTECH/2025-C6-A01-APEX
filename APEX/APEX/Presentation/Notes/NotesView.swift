@@ -105,7 +105,25 @@ struct NotesView: View {
         return [allFilter] + companyFilters
     }
     
+    // MARK: - Navigation
+    
+    @ViewBuilder
+    private func chattingDestination(for clientId: UUID) -> some View {
+        // TODO: Replace with actual chatting view
+        // For now, we'll show a placeholder or you can replace this with your actual chatting view
+        Text("Chat for client: \(clientId.uuidString)")
+            .navigationTitle("Chat")
+            .navigationBarTitleDisplayMode(.inline)
+    }
+    
     // MARK: - Actions
+    
+    private func showDeleteConfirmation(_ client: Client) {
+        clientToDelete = client
+        withAnimation(.easeInOut(duration: 0.2)) {
+            showDeleteDialog = true
+        }
+    }
     
     private func togglePin(_ client: Client) {
         guard let index = clients.firstIndex(where: { $0.id == client.id }) else { return }

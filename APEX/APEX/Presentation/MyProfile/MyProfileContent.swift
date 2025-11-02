@@ -538,6 +538,7 @@ struct PressableRowButtonStyle: ButtonStyle {
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(configuration.isPressed ? pressedBackground : .clear)
+                    .padding(.horizontal, -16) // 좌우 패딩을 음수로 설정하여 화면 꽉 찬 효과
             )
             .animation(.easeInOut(duration: duration), value: configuration.isPressed)
     }
