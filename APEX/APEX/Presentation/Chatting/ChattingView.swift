@@ -49,6 +49,11 @@ struct ChattingView: View {
     @State private var matchedNoteIds: [UUID] = []
     @State private var currentMatchIndex: Int = 0
     @State private var sheetModeBeforeSearch: BottomSheetMode? = nil
+    // Date search
+    @State private var showDatePicker: Bool = false
+    @State private var datePickerSelection: Date = Date()
+    @State private var highlightedDate: Date?
+    @State private var dateHighlightOffsetY: CGFloat = 0
     private struct EditingPayload: Identifiable { let id = UUID(); let noteId: UUID; var text: String }
     @State private var editing: EditingPayload?
     private struct SelectCopyPayload: Identifiable { let id = UUID(); let text: String }
@@ -225,6 +230,14 @@ struct ChattingView: View {
                     self.showScrollToBottom = false
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: .apexNavigateToDate)) { notif in
+                if let date = notif.userInfo?["date"] as? Date {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        proxy.scrollTo(dateHeaderId(date), anchor: .top)
+                    }
+                    self.showScrollToBottom = false
+                }
+            }
             .onReceive(NotificationCenter.default.publisher(for: .apexAudioRenamed)) { notif in
                 guard let oldURL = notif.userInfo?["oldURL"] as? URL,
                       let newURL = notif.userInfo?["newURL"] as? URL else { return }
@@ -296,6 +309,7 @@ struct ChattingView: View {
         }
         .padding(.horizontal, 12)
         .toolbar(.hidden, for: .navigationBar)
+        
         .overlay(alignment: .trailing) {
             Color.clear
                 .frame(width: 44)
@@ -395,6 +409,13 @@ struct ChattingView: View {
                 isSearchFieldFocused = active
             }
             if !active {
+                // Reset search state back to original
+                searchText = ""
+                matchedNoteIds.removeAll()
+                currentMatchIndex = 0
+                highlightedDate = nil
+                dateHighlightOffsetY = 0
+                showDatePicker = false
                 if let previous = sheetModeBeforeSearch {
                     withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
                         sheetMode = previous
@@ -405,14 +426,33 @@ struct ChattingView: View {
             }
         }
         .safeAreaBar(edge: .top) {
-            APEXNavigationBar(
-                .memo(
-                    title: chatTitle,
-                    onBack: { dismiss() },
-                    onSearch: { withAnimation { isSearchActive = true } },
-                    onMenu: { }
+            if isSearchActive {
+                HStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    Button {
+                        datePickerSelection = Date()
+                        showDatePicker = true
+                    } label: {
+                        Image(systemName: "calendar")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(.black)
+                            .frame(width: 44, height: 44)
+                    }
+                    .glassEffect()
+                }
+                .frame(height: 52)
+                .padding(.horizontal, 12)
+                .background(Color("Background"))
+            } else {
+                APEXNavigationBar(
+                    .memo(
+                        title: chatTitle,
+                        onBack: { dismiss() },
+                        onSearch: { withAnimation { isSearchActive = true } },
+                        onMenu: { }
+                    )
                 )
-            )
+            }
         }
         
         .safeAreaInset(edge: .bottom) {
@@ -570,6 +610,17 @@ struct ChattingView: View {
         }
         .sheet(isPresented: $showShareFromEdit) {
             ShareView()
+        }
+        .sheet(isPresented: $showDatePicker) {
+            let memoDays: Set<Date> = Set(notes.map { Calendar.current.startOfDay(for: $0.uploadedAt) })
+            ChatDatePickerSheet(date: $datePickerSelection, hasMemoDays: memoDays, onClose: {
+                showDatePicker = false
+            }, onSelect: { selected in
+                showDatePicker = false
+                highlightedDate = selected
+                triggerDateBounce()
+                NotificationCenter.default.post(name: .apexNavigateToDate, object: nil, userInfo: ["date": selected])
+            })
         }
     }
 }
@@ -910,7 +961,8 @@ private extension ChattingView {
     func dateHeaderView(_ date: Date) -> some View {
         Text(date.formattedChatDayHeader)
             .font(.caption2)
-            .foregroundColor(.gray)
+            .foregroundColor(isSameCalendarDay(date, highlightedDate) ? Color("Primary") : .gray)
+            .offset(y: isSameCalendarDay(date, highlightedDate) ? dateHighlightOffsetY : 0)
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.vertical, 12)
             .background(
@@ -921,6 +973,7 @@ private extension ChattingView {
                     )
                 }
             )
+            .id(dateHeaderId(date))
     }
 
     func updateScrollDateIndicator(with positions: [Date: CGFloat]) {
@@ -951,6 +1004,40 @@ private extension ChattingView {
         let work = DispatchWorkItem { self.isShowingDateIndicator = false }
         hideIndicatorWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: work)
+    }
+    
+    func dateHeaderId(_ date: Date) -> String {
+        let comps = Calendar.current.dateComponents([.year, .month, .day], from: date)
+        let y = comps.year ?? 0
+        let m = (comps.month ?? 0)
+        let d = (comps.day ?? 0)
+        return String(format: "date-%04d%02d%02d", y, m, d)
+    }
+
+    func isSameCalendarDay(_ lhs: Date, _ rhs: Date?) -> Bool {
+        guard let rhs else { return false }
+        return Calendar.current.isDate(lhs, inSameDayAs: rhs)
+    }
+
+    func triggerDateBounce() {
+        withAnimation(.spring(response: 0.22, dampingFraction: 0.45)) {
+            dateHighlightOffsetY = -4
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            withAnimation(.spring(response: 0.22, dampingFraction: 0.5)) {
+                dateHighlightOffsetY = 3
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.24) {
+            withAnimation(.spring(response: 0.22, dampingFraction: 0.55)) {
+                dateHighlightOffsetY = -2
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.36) {
+            withAnimation(.spring(response: 0.26, dampingFraction: 0.7)) {
+                dateHighlightOffsetY = 0
+            }
+        }
     }
     func deleteMedia(anchor: ChatMessageView.ChatAnchor) {
         guard let noteIndex = notes.firstIndex(where: { $0.id == anchor.noteId }) else { return }
@@ -1271,6 +1358,7 @@ extension Notification.Name {
     static let apexInputFocused = Notification.Name("apex.inputFocused")
     static let apexInputBlurred = Notification.Name("apex.inputBlurred")
     static let apexNavigateToNote = Notification.Name("apex.navigateToNote")
+    static let apexNavigateToDate = Notification.Name("apex.navigateToDate")
     static let apexAudioRenamed = Notification.Name("apex.audioRenamed")
     static let apexOpenDocumentPicker = Notification.Name("apex.openDocumentPicker")
     static let apexOpenCamera = Notification.Name("apex.openCamera")
