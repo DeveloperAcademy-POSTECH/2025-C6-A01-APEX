@@ -302,3 +302,142 @@ private extension Color {
         onCardTapped: { print("Card tapped") }
     )
 }
+
+#Preview("명함 케이스 테스트") {
+    struct TestView: View {
+        @State private var currentPage1 = 0
+        @State private var currentPage2 = 0
+        @State private var currentPage3 = 0
+        @State private var currentPage4 = 0
+        @State private var currentPage5 = 0
+        
+        var body: some View {
+            ScrollView {
+                VStack(spacing: 32) {
+                    
+                    // 케이스 1: 이니셜만 (프로필 사진 없음, 명함 없음)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("케이스 1: 이니셜만")
+                            .font(.headline)
+                            .padding(.horizontal, 16)
+                        
+                        MyProfileHeaderView(
+                            client: Client(
+                                profile: nil,
+                                nameCardFront: nil, 
+                                nameCardBack: nil,
+                                surname: "김",
+                                name: "철수",
+                                position: "개발자", 
+                                company: "테크 컴퍼니",
+                                email: nil, phoneNumber: nil, linkedinURL: nil, memo: nil,
+                                action: nil, favorite: false, pin: false, notes: []
+                            ),
+                            page: $currentPage1,
+                            onCardTapped: { print("Card tapped - Case 1") }
+                        )
+                    }
+                    
+                    // 케이스 2: 명함 앞면만
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("케이스 2: 이니셜 + 명함 앞면만")
+                            .font(.headline)
+                            .padding(.horizontal, 16)
+                        
+                        MyProfileHeaderView(
+                            client: Client(
+                                profile: nil,
+                                nameCardFront: Image("CardL"), 
+                                nameCardBack: nil,
+                                surname: "박",
+                                name: "영희",
+                                position: "디자이너", 
+                                company: "크리에이티브 스튜디오",
+                                email: nil, phoneNumber: nil, linkedinURL: nil, memo: nil,
+                                action: nil, favorite: false, pin: false, notes: []
+                            ),
+                            page: $currentPage2,
+                            onCardTapped: { print("Card tapped - Case 2") }
+                        )
+                    }
+                    
+                    // 케이스 3: 명함 뒷면만
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("케이스 3: 이니셜 + 명함 뒷면만")
+                            .font(.headline)
+                            .padding(.horizontal, 16)
+                        
+                        MyProfileHeaderView(
+                            client: Client(
+                                profile: nil,
+                                nameCardFront: nil, 
+                                nameCardBack: Image("CardL"),
+                                surname: "이",
+                                name: "민수",
+                                position: "마케터", 
+                                company: "마케팅 에이전시",
+                                email: nil, phoneNumber: nil, linkedinURL: nil, memo: nil,
+                                action: nil, favorite: false, pin: false, notes: []
+                            ),
+                            page: $currentPage3,
+                            onCardTapped: { print("Card tapped - Case 3") }
+                        )
+                    }
+                    
+                    // 케이스 4: 명함 앞면 + 뒷면
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("케이스 4: 이니셜 + 명함 앞면 + 뒷면")
+                            .font(.headline)
+                            .padding(.horizontal, 16)
+                        
+                        MyProfileHeaderView(
+                            client: Client(
+                                profile: nil,
+                                nameCardFront: Image("CardL"), 
+                                nameCardBack: Image("CardL"),
+                                surname: "정",
+                                name: "수현",
+                                position: "PM", 
+                                company: "스타트업",
+                                email: nil, phoneNumber: nil, linkedinURL: nil, memo: nil,
+                                action: nil, favorite: false, pin: false, notes: []
+                            ),
+                            page: $currentPage4,
+                            onCardTapped: { print("Card tapped - Case 4") }
+                        )
+                    }
+                    
+                    // 케이스 5: 프로필 사진만 (명함 없음)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("케이스 5: 프로필 사진만")
+                            .font(.headline)
+                            .padding(.horizontal, 16)
+                        
+                        MyProfileHeaderView(
+                            client: Client(
+                                profile: UIImage(systemName: "person.crop.circle.fill")?.withTintColor(.blue, renderingMode: .alwaysOriginal),
+                                nameCardFront: nil, 
+                                nameCardBack: nil,
+                                surname: "최",
+                                name: "지혜",
+                                position: "기획자", 
+                                company: "엔터테인먼트",
+                                email: nil, phoneNumber: nil, linkedinURL: nil, memo: nil,
+                                action: nil, favorite: false, pin: false, notes: []
+                            ),
+                            page: $currentPage5,
+                            onCardTapped: { print("Card tapped - Case 5") }
+                        )
+                    }
+                }
+                .padding(.vertical, 16)
+            }
+            .background(Color("Background"))
+            .navigationTitle("명함 케이스 테스트")
+        }
+    }
+    
+    return NavigationView {
+        TestView()
+    }
+}
