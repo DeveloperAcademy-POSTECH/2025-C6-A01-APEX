@@ -26,8 +26,10 @@ struct ContactsListSection: View {
             // 1) 섹션 헤더
             headerRow
 
-            // 2) 헤더 아래 고정 간격 8
-            gapRow
+            // 2) 헤더 아래 고정 간격 8 (All 섹션은 제외)
+            if title != "All" {
+                gapRow
+            }
 
             // 3) 펼침 상태일 때 내용
             if isExpanded {
@@ -44,6 +46,8 @@ struct ContactsListSection: View {
                     }
 
                     ForEach(sortedKeys, id: \.self) { key in
+                        // 그룹 헤더 위에 8pt 패딩 추가
+                        gapRow
                         groupHeaderRow(title: key)
                         groupGapRow
                         let groupClients = grouped[key] ?? []
@@ -177,6 +181,7 @@ private extension View {
             .listStyle(.plain)
             .listRowSpacing(0)
             .environment(\.defaultMinListRowHeight, 1)
+            
         }
     }
     return Wrapper()
