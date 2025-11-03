@@ -187,6 +187,7 @@ struct NotesView: View {
         }
     }
     
+    
     // 핀 되돌리기 기능
     private func undoPinAction() {
         print("🔄 핀 되돌리기 버튼 클릭됨")
