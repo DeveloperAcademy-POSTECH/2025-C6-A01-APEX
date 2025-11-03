@@ -9,37 +9,32 @@ import SwiftUI
 
 struct NotesView: View {
     @State private var selectedFilter: NotesFilter = .all
-    @ObservedObject private var clientsStore = ClientsStore.shared
+    @State private var clients: [Client] = sampleClients
     @State private var showToast: Bool = false
     @State private var toastText: String = ""
     @State private var clientToDelete: Client?
     @State private var path: [UUID] = []
-    @State private var chatRefreshToken: Int = 0
+    
+    // 되돌리기 기능을 위한 상태
+    @State private var lastToggledClient: Client?
+    @State private var lastPinAction: PinAction?
     
     // 커스텀 삭제 모달 상태
     @State private var showDeleteDialog: Bool = false
     @State private var isDeleteConfirmed: Bool = false
     
+    // 핀 액션 타입
+    private enum PinAction {
+        case added
+        case removed
+    }
+    
     var body: some View {
         NavigationStack(path: $path) {
             ZStack {
                 mainContent
-                
                 if showDeleteDialog {
-                    OverlayLayer(
-                        isVisible: $showDeleteDialog,
-                        isChecked: $isDeleteConfirmed,
-                        clientToDelete: $clientToDelete,
-                        onConfirmDelete: { client in
-                            deleteClient(client)
-                        }
-                    )
-                    .transition(.asymmetric(
-                        insertion: .scale(scale: 0.98).combined(with: .opacity),
-                        removal: .opacity
-                    ))
-                    .zIndex(10)
-                    .compositingGroup() // 레이어 합성 안정화
+                    deleteOverlay
                 }
             }
             .apexToast(
@@ -47,23 +42,11 @@ struct NotesView: View {
                 image: Image(systemName: "pin"),
                 text: toastText,
                 buttonTitle: "되돌리기",
-                duration: 1.6
-            ) { }
+                duration: 1.6,
+                onButtonTap: undoPinAction
+            )
             .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(for: UUID.self) { id in
-                if let client = clientsStore.clients.first(where: { $0.id == id }) {
-                    ChattingView(clientId: id, chatTitle: "\(client.name) \(client.surname)", initialNotes: client.notes)
-                        .toolbar(.hidden, for: .navigationBar)
-                        .toolbar(.hidden, for: .tabBar)
-                } else {
-                    ChattingView(clientId: id, chatTitle: "채팅", initialNotes: [])
-                        .toolbar(.hidden, for: .navigationBar)
-                        .toolbar(.hidden, for: .tabBar)
-                }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .apexChatNotesUpdated)) { _ in
-                chatRefreshToken &+= 1
-            }
+            .navigationDestination(for: UUID.self, destination: chattingDestination)
         }
     }
     
@@ -79,50 +62,82 @@ struct NotesView: View {
             )
             
             NotesListView(
-                clients: clientsStore.clients,
+                clients: clients,
                 selectedFilter: $selectedFilter,
-                onTogglePin: { togglePin($0) },
-                onDelete: { client in
-                    clientToDelete = client
-                    isDeleteConfirmed = false
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.92)) {
-                        showDeleteDialog = true
-                    }
-                },
-                // 2) row 탭 시 id만 push
-                onTapRow: { client in
-                    path.append(client.id)
-                }
+                onTogglePin: togglePin,
+                onDelete: showDeleteConfirmation,
+                onTapRow: { path.append($0.id) }
             )
-            .id(chatRefreshToken)
             .padding(.vertical, 24)
         }
         .background(Color("Background"))
     }
     
-    // MARK: - Filters
+    private var deleteOverlay: some View {
+        OverlayLayer(
+            isVisible: $showDeleteDialog,
+            isChecked: $isDeleteConfirmed,
+            clientToDelete: $clientToDelete,
+            onConfirmDelete: deleteClient
+        )
+        .transition(.asymmetric(
+            insertion: .scale(scale: 0.98).combined(with: .opacity),
+            removal: .opacity
+        ))
+        .zIndex(10)
+        .compositingGroup()
+    }
+    
+    // MARK: - Computed Properties
     
     private var companyNamesWithNotes: [String] {
-        Set(
-            clientsStore.clients
-                .map { $0.company.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .filter { !$0.isEmpty }
-        )
-        .sorted()
+        Set(clients.compactMap { client in
+            let trimmed = client.company.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }).sorted()
     }
     
     private var availableFilters: [NotesFilterItem] {
         let allFilter = NotesFilterItem(filter: .all, isEnabled: true)
-        let companyFilters = companyNamesWithNotes.map { NotesFilterItem(filter: .company($0), isEnabled: true) }
+        let companyFilters = companyNamesWithNotes.map {
+            NotesFilterItem(filter: .company($0), isEnabled: true)
+        }
         return [allFilter] + companyFilters
+    }
+    
+    // MARK: - Navigation
+    
+    @ViewBuilder
+    private func chattingDestination(for clientId: UUID) -> some View {
+        // TODO: Replace with actual chatting view
+        // For now, we'll show a placeholder or you can replace this with your actual chatting view
+        Text("Chat for client: \(clientId.uuidString)")
+            .navigationTitle("Chat")
+            .navigationBarTitleDisplayMode(.inline)
     }
     
     // MARK: - Actions
     
+    private func showDeleteConfirmation(_ client: Client) {
+        clientToDelete = client
+        withAnimation(.easeInOut(duration: 0.2)) {
+            showDeleteDialog = true
+        }
+    }
+    
     private func togglePin(_ client: Client) {
-        guard let index = clientsStore.clients.firstIndex(where: { $0.id == client.id }) else { return }
-        clientsStore.clients[index] = Client(
-            id: client.id,
+        guard let index = clients.firstIndex(where: { $0.id == client.id }) else { return }
+        
+        // 되돌리기를 위해 현재 상태 저장
+        lastToggledClient = client
+        lastPinAction = client.pin ? .removed : .added
+        
+        print("🔧 핀 토글 시작: \(client.name) \(client.surname)")
+        print("🔧 현재 핀 상태: \(client.pin) → 변경될 상태: \(!client.pin)")
+        print("🔧 저장된 액션: \(lastPinAction!)")
+        
+        // 핀 상태 토글
+        clients[index] = Client(
             profile: client.profile,
             nameCardFront: client.nameCardFront,
             nameCardBack: client.nameCardBack,
@@ -139,18 +154,24 @@ struct NotesView: View {
             pin: !client.pin,
             notes: client.notes
         )
-        toastText = client.pin ? "핀을 해제했습니다" : "핀을 추가했습니다"
+        
+        // ✅ 수정: 변경될 상태 기준으로 메시지 생성
+        let newPinState = !client.pin
+        toastText = newPinState ? "핀을 추가했습니다" : "핀을 해제했습니다"
+        print("🔧 토스트 메시지: \(toastText)")
         presentToast()
     }
     
     private func deleteClient(_ client: Client) {
-        if let index = clientsStore.clients.firstIndex(where: { $0.id == client.id }) {
-            clientsStore.clients.remove(at: index)
-        }
+        clients.removeAll { $0.id == client.id }
+        
+        // 현재 필터가 삭제된 회사면 전체로 변경
         if case .company(let name) = selectedFilter,
            !companyNamesWithNotes.contains(name) {
             selectedFilter = .all
         }
+        
+        // 모달 상태 초기화
         clientToDelete = nil
         isDeleteConfirmed = false
     }
@@ -164,6 +185,68 @@ struct NotesView: View {
         } else {
             showToast = true
         }
+    }
+    
+    // 핀 되돌리기 기능
+    private func undoPinAction() {
+        print("🔄 핀 되돌리기 버튼 클릭됨")
+        
+        print("🔍 저장된 상태 확인:")
+        print("  - lastToggledClient: \(lastToggledClient?.name ?? "nil") \(lastToggledClient?.surname ?? "")")
+        print("  - lastPinAction: \(String(describing: lastPinAction))")
+        
+        guard let client = lastToggledClient,
+              let action = lastPinAction else {
+            print("❌ 되돌릴 수 있는 핀 액션이 없음")
+            return
+        }
+        
+        guard let index = clients.firstIndex(where: { $0.id == client.id }) else {
+            print("❌ 클라이언트를 찾을 수 없음: \(client.name) \(client.surname)")
+            return
+        }
+        
+        let currentClient = clients[index]
+        print("🔄 되돌리기 실행: \(client.name) \(client.surname)")
+        print("🔄 원본 액션: \(action), 현재 핀 상태: \(currentClient.pin)")
+        
+        // 핀 상태를 원래대로 되돌리기
+        let originalPinState: Bool
+        switch action {
+        case .added:
+            originalPinState = false  // 추가된 것을 되돌리기 (false로)
+            print("🔄 추가를 되돌림: true → false")
+        case .removed:
+            originalPinState = true   // 제거된 것을 되돌리기 (true로)
+            print("🔄 제거를 되돌림: false → true")
+        }
+        
+        clients[index] = Client(
+            profile: client.profile,
+            nameCardFront: client.nameCardFront,
+            nameCardBack: client.nameCardBack,
+            surname: client.surname,
+            name: client.name,
+            position: client.position,
+            company: client.company,
+            email: client.email,
+            phoneNumber: client.phoneNumber,
+            linkedinURL: client.linkedinURL,
+            memo: client.memo,
+            action: client.action,
+            favorite: client.favorite,
+            pin: originalPinState,
+            notes: client.notes
+        )
+        
+        print("✅ 핀 상태가 \(originalPinState)로 되돌려짐")
+        print("✅ 업데이트된 클라이언트 핀 상태: \(clients[index].pin)")
+        
+        // 되돌리기 완료 후 상태 초기화
+        lastToggledClient = nil
+        lastPinAction = nil
+        showToast = false
+        print("🔄 핀 되돌리기 완료, 토스트 숨김")
     }
 }
 
@@ -397,12 +480,12 @@ private struct DeleteConfirmCard: View {
             .padding(.horizontal, Metrics.buttonHPadding)
             .padding(.vertical, Metrics.buttonVPadding)
             .frame(width: Metrics.buttonWidth, height: Metrics.buttonHeight, alignment: .center)
-            .background(isChecked ? Color.red : Color.gray )
+            .background(isChecked ? deleteActiveBackground : Color("BackgroundSecondary"))
             .cornerRadius(Metrics.buttonCorner)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(isChecked)
+        .disabled(!isChecked)
         .accessibilityHint("확인 후 활성화됩니다.")
     }
 }
