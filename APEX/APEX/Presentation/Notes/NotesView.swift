@@ -408,7 +408,9 @@ private struct DeleteConfirmCard: View {
     private var confirmCheckSection: some View {
         Button {
             // 상태 토글은 버튼 액션에서만 애니메이션 처리
-            isChecked.toggle()
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isChecked.toggle()
+            }
             print(isChecked)
         } label: {
             HStack(spacing: Metrics.confirmCheckSpacing) {
@@ -445,31 +447,21 @@ private struct DeleteConfirmCard: View {
     private var checkboxView: some View {
         ZStack {
             Circle()
-                .fill(Color.white)
+                .fill(isChecked ? Color("Primary") : Color.white)
                 .frame(width: 24, height: 24)
+                .overlay(
+                    Circle()
+                        .stroke(isChecked ? Color("Primary") : checkboxStroke, lineWidth: 1)
+                )
             
             Image(systemName: "checkmark")
-                .frame(width: 24, height: 24)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.white)
                 .opacity(isChecked ? 1 : 0)
         }
-        //        ZStack {
-        //            Circle()
-        //                .fill(Color.white)
-        //                .frame(width: Metrics.checkboxSize, height: Metrics.checkboxSize)
-        //                .overlay(
-        //                    Circle()
-        //                        .stroke(checkboxStroke, lineWidth: 1)
-        //                )
-        //
-        //            if isChecked {
-        //                Image(systemName: "checkmark")
-        //                    .frame(width: 14, height: 14)
-        //            }
-//        //        }
-//            .frame(width: Metrics.checkboxSize, height: Metrics.checkboxSize)
-//            .contentShape(Rectangle())
-        // 내부 .animation은 제거하여 중복 트랜잭션 방지
-        
+        .frame(width: Metrics.checkboxSize, height: Metrics.checkboxSize)
+        .contentShape(Circle())
+        .animation(.easeInOut(duration: 0.2), value: isChecked)
     }
     
     private var cancelButton: some View {
