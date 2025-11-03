@@ -17,7 +17,7 @@ struct NotesView: View {
     @State private var chatRefreshToken: Int = 0
     
     // 되돌리기 기능을 위한 상태
-    @State private var lastToggledClient: Client?
+    @State private var lastToggledClientId: UUID?
     @State private var lastPinAction: PinAction?
     
     // 커스텀 삭제 모달 상태
@@ -43,9 +43,10 @@ struct NotesView: View {
                 image: Image(systemName: "pin"),
                 text: toastText,
                 buttonTitle: "되돌리기",
-                duration: 1.6,
-                onButtonTap: undoPinAction
-            )
+                duration: 1.6
+            ) {
+                undoPinAction()
+            }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: UUID.self) { id in
                 if let client = clientsStore.clients.first(where: { $0.id == id }) {
@@ -77,7 +78,7 @@ struct NotesView: View {
             )
             
             NotesListView(
-                clients: $clients,
+                clients: $clientsStore.clients,
 
                 selectedFilter: $selectedFilter,
                 onTogglePin: togglePin,
@@ -108,7 +109,7 @@ struct NotesView: View {
     // MARK: - Computed Properties
     
     private var companyNamesWithNotes: [String] {
-        Set(clients.compactMap { client in
+        Set(clientsStore.clients.compactMap { client in
             let trimmed = client.company.trimmingCharacters(in: .whitespacesAndNewlines)
             return trimmed.isEmpty ? nil : trimmed
         }).sorted()
@@ -144,19 +145,20 @@ struct NotesView: View {
     }
     
     private func togglePin(_ client: Client) {
-        guard let index = clients.firstIndex(where: { $0.id == client.id }) else { return }
+        guard let index = clientsStore.clients.firstIndex(where: { $0.id == client.id }) else { return }
         
-        // 되돌리기를 위해 현재 상태 저장
-        lastToggledClient = client
+        // 되돌리기를 위해 현재 상태 저장 (ID만 저장)
+        lastToggledClientId = client.id
         lastPinAction = client.pin ? .removed : .added
         
         print("🔧 핀 토글 시작: \(client.name) \(client.surname)")
         print("🔧 현재 핀 상태: \(client.pin) → 변경될 상태: \(!client.pin)")
+        print("🔧 저장된 클라이언트 ID: \(client.id)")
         print("🔧 저장된 액션: \(lastPinAction!)")
         
-        // 핀 상태 토글
-        clients[index] = Client(
-
+        // 핀 상태 토글 (ID 유지)
+        clientsStore.clients[index] = Client(
+            id: client.id,  // ✅ 기존 ID 유지
             profile: client.profile,
             nameCardFront: client.nameCardFront,
             nameCardBack: client.nameCardBack,
@@ -183,7 +185,7 @@ struct NotesView: View {
     
     private func deleteClient(_ client: Client) {
 
-        clients.removeAll { $0.id == client.id }
+        clientsStore.clients.removeAll { $0.id == client.id }
         
         // 현재 필터가 삭제된 회사면 전체로 변경
 
@@ -210,25 +212,29 @@ struct NotesView: View {
     
     // 핀 되돌리기 기능
     private func undoPinAction() {
-        print("🔄 핀 되돌리기 버튼 클릭됨")
+        print("🔄🔄🔄 핀 되돌리기 버튼 클릭됨!!!")
+        
+        // 간단한 테스트: 토스트만 숨기기
+        showToast = false
+        print("🔄 토스트 숨김 완료")
         
         print("🔍 저장된 상태 확인:")
-        print("  - lastToggledClient: \(lastToggledClient?.name ?? "nil") \(lastToggledClient?.surname ?? "")")
+        print("  - lastToggledClientId: \(lastToggledClientId?.uuidString ?? "nil")")
         print("  - lastPinAction: \(String(describing: lastPinAction))")
         
-        guard let client = lastToggledClient,
+        guard let clientId = lastToggledClientId,
               let action = lastPinAction else { 
             print("❌ 되돌릴 수 있는 핀 액션이 없음")
             return 
         }
         
-        guard let index = clients.firstIndex(where: { $0.id == client.id }) else {
-            print("❌ 클라이언트를 찾을 수 없음: \(client.name) \(client.surname)")
+        guard let index = clientsStore.clients.firstIndex(where: { $0.id == clientId }) else {
+            print("❌ 클라이언트를 찾을 수 없음: \(clientId)")
             return
         }
         
-        let currentClient = clients[index]
-        print("🔄 되돌리기 실행: \(client.name) \(client.surname)")
+        let currentClient = clientsStore.clients[index]
+        print("🔄 되돌리기 실행: \(currentClient.name) \(currentClient.surname)")
         print("🔄 원본 액션: \(action), 현재 핀 상태: \(currentClient.pin)")
         
         // 핀 상태를 원래대로 되돌리기
@@ -242,32 +248,33 @@ struct NotesView: View {
             print("🔄 제거를 되돌림: false → true")
         }
         
-        clients[index] = Client(
-            profile: client.profile,
-            nameCardFront: client.nameCardFront,
-            nameCardBack: client.nameCardBack,
-            surname: client.surname,
-            name: client.name,
-            position: client.position,
-            company: client.company,
-            email: client.email,
-            phoneNumber: client.phoneNumber,
-            linkedinURL: client.linkedinURL,
-            memo: client.memo,
-            action: client.action,
-            favorite: client.favorite,
+        // ✅ 수정: 현재 클라이언트를 기준으로 핀 상태만 변경 (ID 유지)
+        clientsStore.clients[index] = Client(
+            id: currentClient.id,  // ✅ 기존 ID 유지
+            profile: currentClient.profile,
+            nameCardFront: currentClient.nameCardFront,
+            nameCardBack: currentClient.nameCardBack,
+            surname: currentClient.surname,
+            name: currentClient.name,
+            position: currentClient.position,
+            company: currentClient.company,
+            email: currentClient.email,
+            phoneNumber: currentClient.phoneNumber,
+            linkedinURL: currentClient.linkedinURL,
+            memo: currentClient.memo,
+            action: currentClient.action,
+            favorite: currentClient.favorite,
             pin: originalPinState,
-            notes: client.notes
+            notes: currentClient.notes
         )
         
         print("✅ 핀 상태가 \(originalPinState)로 되돌려짐")
-        print("✅ 업데이트된 클라이언트 핀 상태: \(clients[index].pin)")
+        print("✅ 업데이트된 클라이언트 핀 상태: \(clientsStore.clients[index].pin)")
         
         // 되돌리기 완료 후 상태 초기화
-        lastToggledClient = nil
+        lastToggledClientId = nil
         lastPinAction = nil
-        showToast = false
-        print("🔄 핀 되돌리기 완료, 토스트 숨김")
+        print("🔄 핀 되돌리기 완료, 상태 초기화됨")
     }
 }
 
@@ -501,12 +508,12 @@ private struct DeleteConfirmCard: View {
             .padding(.horizontal, Metrics.buttonHPadding)
             .padding(.vertical, Metrics.buttonVPadding)
             .frame(width: Metrics.buttonWidth, height: Metrics.buttonHeight, alignment: .center)
-            .background(isChecked ? Color.red : Color.gray )
+            .background(isChecked ? deleteActiveBackground : Color("BackgroundSecondary"))
             .cornerRadius(Metrics.buttonCorner)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(isChecked)
+        .disabled(!isChecked)
         .accessibilityHint("확인 후 활성화됩니다.")
     }
 }
