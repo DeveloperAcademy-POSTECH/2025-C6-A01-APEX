@@ -23,26 +23,38 @@ struct Client: Identifiable, Hashable {
     let action: String?
     let favorite: Bool
     let pin: Bool
-    var notes: [Note]
-
-    init(
-        id: UUID = UUID(),
-        profile: UIImage?,
-        nameCardFront: Image?,
-        nameCardBack: Image?,
-        surname: String,
-        name: String,
-        position: String?,
-        company: String,
-        email: String?,
-        phoneNumber: String?,
-        linkedinURL: String?,
-        memo: String?,
-        action: String?,
-        favorite: Bool,
-        pin: Bool,
-        notes: [Note]
-    ) {
+    let notes: [Note]
+    
+    // 기본 초기화 함수 (새 UUID 생성)
+    init(profile: UIImage? = nil, nameCardFront: Image? = nil, nameCardBack: Image? = nil, 
+         surname: String, name: String, position: String? = nil, company: String, 
+         email: String? = nil, phoneNumber: String? = nil, linkedinURL: String? = nil, 
+         memo: String? = nil, action: String? = nil, favorite: Bool = false, 
+         pin: Bool = false, notes: [Note] = []) {
+        self.id = UUID()
+        self.profile = profile
+        self.nameCardFront = nameCardFront
+        self.nameCardBack = nameCardBack
+        self.surname = surname
+        self.name = name
+        self.position = position
+        self.company = company
+        self.email = email
+        self.phoneNumber = phoneNumber
+        self.linkedinURL = linkedinURL
+        self.memo = memo
+        self.action = action
+        self.favorite = favorite
+        self.pin = pin
+        self.notes = notes
+    }
+    
+    // ID를 유지하는 초기화 함수
+    init(id: UUID, profile: UIImage? = nil, nameCardFront: Image? = nil, nameCardBack: Image? = nil, 
+         surname: String, name: String, position: String? = nil, company: String, 
+         email: String? = nil, phoneNumber: String? = nil, linkedinURL: String? = nil, 
+         memo: String? = nil, action: String? = nil, favorite: Bool = false, 
+         pin: Bool = false, notes: [Note] = []) {
         self.id = id
         self.profile = profile
         self.nameCardFront = nameCardFront
