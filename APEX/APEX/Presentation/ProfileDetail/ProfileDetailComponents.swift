@@ -48,6 +48,7 @@ struct ProfileDetailMemoSection: View {
                 RoundedRectangle(cornerRadius: 4)
                     .inset(by: 0.5)
                     .stroke(Color("BackgroundDisabled"), lineWidth: 1)
+                
             }
         }
     }

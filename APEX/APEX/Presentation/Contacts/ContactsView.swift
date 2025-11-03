@@ -25,6 +25,10 @@ struct ContactsView: View {
     // 내 프로필 상세로 네비게이션 제어
     @State private var showMyProfileView: Bool = false
     @State private var myProfileDummy: DummyClient = sampleMyProfileClient
+    
+    // 타인 프로필 상세로 네비게이션 제어
+    @State private var showProfileDetailView: Bool = false
+    @State private var selectedClient: Client?
 
     private enum Metrics {
         static let gap: CGFloat = 8
@@ -63,6 +67,7 @@ struct ContactsView: View {
                         clients: favorites,
                         onToggleFavorite: { toggleFavorite($0) },
                         onDelete: { deleteClient($0) },
+                        onTapRow: { navigateToProfileDetail($0) },
                         showsSeparatorBelowHeader: true
                     )
                 }
@@ -77,6 +82,7 @@ struct ContactsView: View {
                     groupByCompany: true,
                     onToggleFavorite: { toggleFavorite($0) },
                     onDelete: { deleteClient($0) },
+                    onTapRow: { navigateToProfileDetail($0) },
                     showsSeparatorBelowHeader: false
                 )
             }
@@ -97,10 +103,21 @@ struct ContactsView: View {
                 }
                 .hidden()
             )
+            .background(
+                NavigationLink(
+                    "",
+                    isActive: $showProfileDetailView
+                ) {
+                    if let client = selectedClient {
+                        ProfileDetailView(client: .constant(convertToDummyClient(client)))
+                    }
+                }
+                .hidden()
+            )
         }
         .background(Color("Background"))
         .safeAreaInset(edge: .top) {
-            if !showMyProfileView {
+            if !showMyProfileView && !showProfileDetailView {
                 ContactsTopBarReplica(
                     title: "Contacts",
                     onPlus: onPlusTap
@@ -164,6 +181,11 @@ struct ContactsView: View {
     private func navigateToMyProfile() {
         showMyProfileView = true
     }
+    
+    private func navigateToProfileDetail(_ client: Client) {
+        selectedClient = client
+        showProfileDetailView = true
+    }
 
     private func convertToClient(_ dummy: DummyClient) -> Client {
         Client(
@@ -181,6 +203,26 @@ struct ContactsView: View {
             action: dummy.action,
             favorite: dummy.favorite,
             pin: dummy.pin,
+            notes: []
+        )
+    }
+    
+    private func convertToDummyClient(_ client: Client) -> DummyClient {
+        DummyClient(
+            profile: client.profile,
+            nameCardFront: client.nameCardFront,
+            nameCardBack: client.nameCardBack,
+            surname: client.surname,
+            name: client.name,
+            position: client.position,
+            company: client.company,
+            email: client.email,
+            phoneNumber: client.phoneNumber,
+            linkedinURL: client.linkedinURL,
+            memo: client.memo,
+            action: client.action,
+            favorite: client.favorite,
+            pin: client.pin,
             notes: []
         )
     }

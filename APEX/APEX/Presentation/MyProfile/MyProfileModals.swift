@@ -91,14 +91,20 @@ struct MyProfileEditSheet: View {
 
     // Photo picker
     @State private var presentedPhotoType: PhotoAddView.PhotoType?
+    
+    // AddItem 관련 상태  
+    @State private var isAddItemPresented: Bool = false
+    @State private var addItemConfig: AddItemConfig = .default
 
     var onCancel: () -> Void
     var onSave: (DummyClient) -> Void
+    var showDeleteButton: Bool = false  // 삭제 버튼 표시 여부
 
-    init(client: DummyClient, onCancel: @escaping () -> Void, onSave: @escaping (DummyClient) -> Void) {
+    init(client: DummyClient, onCancel: @escaping () -> Void, onSave: @escaping (DummyClient) -> Void, showDeleteButton: Bool = false) {
         self.client = client
         self.onCancel = onCancel
         self.onSave = onSave
+        self.showDeleteButton = showDeleteButton
 
         _profileUIImage = State(initialValue: client.profile)
         _cardFrontUIImage = State(initialValue: client.nameCardFront?.asUIImage())
@@ -189,6 +195,20 @@ struct MyProfileEditSheet: View {
                 // 메모 필드
                 APEXTextField(style: .editor, label: "메모", placeholder: "주요 대화", text: $memo, maxLength: 100)
                     .padding(.bottom, 48)
+                
+                // 항목 수정하기 버튼
+                AddItemButton {
+                    isAddItemPresented = true
+                }
+                .padding(.bottom, showDeleteButton ? 12 : 16)
+                
+                // 연락처 삭제하기 버튼 (ProfileDetailView에서만)
+                if showDeleteButton {
+                    DeleteContactButton {
+                        // TODO: 연락처 삭제 액션
+                    }
+                    .padding(.bottom, 16)
+                }
             }
             .padding(.horizontal, 24)
         }
@@ -205,6 +225,10 @@ struct MyProfileEditSheet: View {
                 initialBack: cardBackUIImage
             )
             .padding(.top, 30)
+        }
+        .sheet(isPresented: $isAddItemPresented) {
+            AddItemView(config: $addItemConfig)
+                .padding(.top, 30)
         }
         .safeAreaInset(edge: .top) {
             APEXSheetTopBar(
@@ -269,4 +293,76 @@ private extension Image {
         onCancel: { print("Cancel tapped") },
         onSave: { _ in print("Save tapped") }
     )
+}
+
+// MARK: - Add Item Button
+
+private struct AddItemButton: View {
+    let action: () -> Void
+    @State private var isPressed: Bool = false
+    
+    // 색상 정의
+    private let normalBackground = Color(red: 0xEE/255.0, green: 0xF0/255.0, blue: 0xF5/255.0) // #EEF0F5
+    private let pressedBackground = Color(red: 0xED/255.0, green: 0xF0/255.0, blue: 1.0) // #EDF0FF
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: "plus.circle.fill")
+                    .foregroundColor(Color("Primary"))
+                Text("항목 수정하기")
+                    .font(.body2)
+                    .foregroundColor(Color("Primary"))
+            }
+            .frame(maxWidth: .infinity, minHeight: 56, maxHeight: 56)
+            .background(isPressed ? pressedBackground : normalBackground)
+            .cornerRadius(4)
+        }
+        .buttonStyle(.plain)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    withAnimation(.easeInOut(duration: 0.12)) { isPressed = true }
+                }
+                .onEnded { _ in
+                    withAnimation(.easeInOut(duration: 0.12)) { isPressed = false }
+                }
+        )
+    }
+}
+
+// MARK: - Delete Contact Button
+
+private struct DeleteContactButton: View {
+    let action: () -> Void
+    @State private var isPressed: Bool = false
+    
+    // 색상 정의
+    private let normalBackground = Color(red: 1.0, green: 0xF6/255.0, blue: 0xF5/255.0) // #FFF6F5
+    private let pressedBackground = Color(red: 1.0, green: 0xE8/255.0, blue: 0xE5/255.0) // #FFE8E5
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: "minus.circle.fill")
+                    .foregroundColor(Color.red)
+                Text("연락처 삭제하기")
+                    .font(.body2)
+                    .foregroundColor(Color.red)
+            }
+            .frame(maxWidth: .infinity, minHeight: 56, maxHeight: 56)
+            .background(isPressed ? pressedBackground : normalBackground)
+            .cornerRadius(4)
+        }
+        .buttonStyle(.plain)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    withAnimation(.easeInOut(duration: 0.12)) { isPressed = true }
+                }
+                .onEnded { _ in
+                    withAnimation(.easeInOut(duration: 0.12)) { isPressed = false }
+                }
+        )
+    }
 }

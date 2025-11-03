@@ -84,13 +84,15 @@ struct ProfileDetailView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)
                 .padding(.top, 32)
+                
 
                 // 메모 섹션
                 ProfileDetailMemoSection(
                     memo: client.memo ?? ""
                 )
-                .padding(.horizontal, 16)
+                .padding(.horizontal, 24)
                 .padding(.top, 24)
+            
             }
         }
         .background(Color("Background"))
@@ -100,7 +102,8 @@ struct ProfileDetailView: View {
                 onCancel: { },
                 onSave: { updated in
                     self.client = updated
-                }
+                },
+                showDeleteButton: true  // ProfileDetailView에서만 삭제 버튼 표시
             )
         }
         .toolbar(.hidden, for: .navigationBar)
