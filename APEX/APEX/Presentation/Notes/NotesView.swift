@@ -9,11 +9,12 @@ import SwiftUI
 
 struct NotesView: View {
     @State private var selectedFilter: NotesFilter = .all
-    @State private var clients: [Client] = sampleClients
+    @ObservedObject private var clientsStore = ClientsStore.shared
     @State private var showToast: Bool = false
     @State private var toastText: String = ""
     @State private var clientToDelete: Client?
     @State private var path: [UUID] = []
+    @State private var chatRefreshToken: Int = 0
     
     // 되돌리기 기능을 위한 상태
     @State private var lastToggledClient: Client?
@@ -46,7 +47,21 @@ struct NotesView: View {
                 onButtonTap: undoPinAction
             )
             .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(for: UUID.self, destination: chattingDestination)
+            .navigationDestination(for: UUID.self) { id in
+                if let client = clientsStore.clients.first(where: { $0.id == id }) {
+                    ChattingView(clientId: id, chatTitle: "\(client.name) \(client.surname)", initialNotes: client.notes)
+                        .toolbar(.hidden, for: .navigationBar)
+                        .toolbar(.hidden, for: .tabBar)
+                } else {
+                    ChattingView(clientId: id, chatTitle: "채팅", initialNotes: [])
+                        .toolbar(.hidden, for: .navigationBar)
+                        .toolbar(.hidden, for: .tabBar)
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .apexChatNotesUpdated)) { _ in
+                chatRefreshToken &+= 1
+            }
+
         }
     }
     
@@ -63,11 +78,13 @@ struct NotesView: View {
             
             NotesListView(
                 clients: $clients,
+
                 selectedFilter: $selectedFilter,
                 onTogglePin: togglePin,
                 onDelete: showDeleteConfirmation,
                 onTapRow: { path.append($0.id) }
             )
+            .id(chatRefreshToken)
             .padding(.vertical, 24)
         }
         .background(Color("Background"))
@@ -95,6 +112,7 @@ struct NotesView: View {
             let trimmed = client.company.trimmingCharacters(in: .whitespacesAndNewlines)
             return trimmed.isEmpty ? nil : trimmed
         }).sorted()
+
     }
     
     private var availableFilters: [NotesFilterItem] {
@@ -138,6 +156,7 @@ struct NotesView: View {
         
         // 핀 상태 토글
         clients[index] = Client(
+
             profile: client.profile,
             nameCardFront: client.nameCardFront,
             nameCardBack: client.nameCardBack,
@@ -163,9 +182,11 @@ struct NotesView: View {
     }
     
     private func deleteClient(_ client: Client) {
+
         clients.removeAll { $0.id == client.id }
         
         // 현재 필터가 삭제된 회사면 전체로 변경
+
         if case .company(let name) = selectedFilter,
            !companyNamesWithNotes.contains(name) {
             selectedFilter = .all
