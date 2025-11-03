@@ -92,6 +92,7 @@ private extension InputBar {
     }
 
     func sendText() {
+        let shouldRestoreFocus = isEditorFocused
         let text = memo.trimmingCharacters(in: .whitespacesAndNewlines)
         if !stagedAttachments.isEmpty {
             sendSelectedAttachmentsAndText()
@@ -102,10 +103,13 @@ private extension InputBar {
         onSend(note)
         memo = ""
         showActions = false
-        isEditorFocused = false
+        if shouldRestoreFocus {
+            DispatchQueue.main.async { isEditorFocused = true }
+        }
     }
 
     func sendSelectedAttachmentsAndText() {
+        let shouldRestoreFocus = isEditorFocused
         // Build attachments from staged items
         var images: [ImageAttachment] = []
         var videos: [VideoAttachment] = []
@@ -144,11 +148,14 @@ private extension InputBar {
         isMediaSheetPresented = false
         shouldRestoreMediaSheetAfterKeyboard = false
         showActions = false
-        isEditorFocused = false
+        if shouldRestoreFocus {
+            DispatchQueue.main.async { isEditorFocused = true }
+        }
     }
 
     @MainActor
     func handlePicked(items: [PhotosPickerItem]) async {
+        let shouldRestoreFocus = isEditorFocused
         guard !items.isEmpty else { return }
         var images: [ImageAttachment] = []
         var videos: [VideoAttachment] = []
@@ -230,7 +237,9 @@ private extension InputBar {
         onSend(note)
         pickedItems.removeAll()
         showActions = false
-        isEditorFocused = false
+        if shouldRestoreFocus {
+            DispatchQueue.main.async { isEditorFocused = true }
+        }
         if failedCount > 0 {
             presentToast(text: "일부 항목(\(failedCount)개)을 불러올 수 없어 제외했어요.", buttonTitle: "확인", action: {})
         }
@@ -643,6 +652,7 @@ struct InputBar: View {
         // Camera sheet
         .fullScreenCover(isPresented: $showCamera) {
             ChatCameraPicker { image, videoURL in
+                let shouldRestoreFocus = isEditorFocused
                 var images: [ImageAttachment] = []
                 var videos: [VideoAttachment] = []
                 var orderCounter = 0
@@ -659,7 +669,9 @@ struct InputBar: View {
                 let note = Note(uploadedAt: Date(), text: nil, bundle: .media(images: images, videos: videos))
                 onSend(note)
                 showActions = false
-                isEditorFocused = false
+                if shouldRestoreFocus {
+                    DispatchQueue.main.async { isEditorFocused = true }
+                }
             }
             .ignoresSafeArea()
         }
@@ -677,6 +689,7 @@ struct InputBar: View {
         // Files picker
         .sheet(isPresented: $showDocumentPicker) {
             DocumentPickerView { urls in
+                let shouldRestoreFocus = isEditorFocused
                 // Map picked URLs to FileAttachment and send
                 let files: [FileAttachment] = urls.map {
                     let type = try? $0.resourceValues(forKeys: [.contentTypeKey]).contentType
@@ -686,7 +699,9 @@ struct InputBar: View {
                 let note = Note(uploadedAt: Date(), text: nil, bundle: .files(files))
                 onSend(note)
                 showActions = false
-                isEditorFocused = false
+                if shouldRestoreFocus {
+                    DispatchQueue.main.async { isEditorFocused = true }
+                }
             }
         }
     }
@@ -931,52 +946,60 @@ private extension InputBar {
                     ) { openAppSettings() }
                     return
                 }
+                
+                // 키보드가 올라와 있으면 바깥 탭과 동일한 방식으로 내리기
+                let wasFocused = isEditorFocused
+                isEditorFocused = false
+                UIApplication.apexDismissKeyboard()
+
                 // 녹음 시작 시 미디어 시트가 열려 있으면 먼저 내린다
                 withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
                     isMediaSheetPresented = false
                 }
-                do {
-                    let session = AVAudioSession.sharedInstance()
-                    try session.setCategory(.playAndRecord, options: [.defaultToSpeaker, .allowBluetooth])
-                    try session.setActive(true)
+                
+                let delay: TimeInterval = wasFocused ? 0.14 : 0.0
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                    do {
+                        let session = AVAudioSession.sharedInstance()
+                        try session.setCategory(.playAndRecord, options: [.defaultToSpeaker, .allowBluetooth])
+                        try session.setActive(true)
 
-                    let url = nextSequentialRecordingURL()
+                        let url = nextSequentialRecordingURL()
+                        let settings: [String: Any] = [
+                            AVFormatIDKey: kAudioFormatMPEG4AAC,
+                            AVSampleRateKey: 44_100,
+                            AVNumberOfChannelsKey: 1,
+                            AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
+                        ]
 
-                    let settings: [String: Any] = [
-                        AVFormatIDKey: kAudioFormatMPEG4AAC,
-                        AVSampleRateKey: 44_100,
-                        AVNumberOfChannelsKey: 1,
-                        AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
-                    ]
+                        let recorder = try AVAudioRecorder(url: url, settings: settings)
+                        recorder.isMeteringEnabled = true
+                        recorder.record()
 
-                    let recorder = try AVAudioRecorder(url: url, settings: settings)
-                    recorder.isMeteringEnabled = true
-                    recorder.record()
+                        self.audioRecorder = recorder
+                        self.isRecording = true
+                        self.recordingDuration = 0
+                        self.recordingURL = url
+                        self.waveformLevels.removeAll()
+                        self.levelTimer?.invalidate()
 
-                    self.audioRecorder = recorder
-                    self.isRecording = true
-                    self.recordingDuration = 0
-                    self.recordingURL = url
-                    self.waveformLevels.removeAll()
-                    self.levelTimer?.invalidate()
-
-                    let dt = 1.0 / 60.0
-                    let waveSpeed: CGFloat = 1 // 초당 0.6 사이클
-
-                    self.levelTimer = Timer.scheduledTimer(withTimeInterval: dt, repeats: true) { _ in
-                        updateMeters()
-                        wavePhase += .pi * 2 * waveSpeed * dt
-                        if wavePhase > .pi * 2 { wavePhase -= .pi * 2 }
-                        if let current = audioRecorder?.currentTime { recordingDuration = current }
+                        let dt = 1.0 / 60.0
+                        let waveSpeed: CGFloat = 1
+                        self.levelTimer = Timer.scheduledTimer(withTimeInterval: dt, repeats: true) { _ in
+                            updateMeters()
+                            wavePhase += .pi * 2 * waveSpeed * dt
+                            if wavePhase > .pi * 2 { wavePhase -= .pi * 2 }
+                            if let current = audioRecorder?.currentTime { recordingDuration = current }
+                        }
+                    } catch {
+                        presentToast(text: "녹음을 시작할 수 없어요.", buttonTitle: "확인") {}
                     }
-                } catch {
-                    presentToast(text: "녹음을 시작할 수 없어요.", buttonTitle: "확인") {}
-                }
-            }
+                }            }
         }
     }
 
     func stopRecordingAndSend() {
+        let shouldRestoreFocus = isEditorFocused
         guard let recorder = audioRecorder else { return }
         recorder.stop()
         recordingDuration = recorder.currentTime
@@ -991,7 +1014,9 @@ private extension InputBar {
         recordingURL = nil
         waveformLevels.removeAll()
         showActions = false
-        isEditorFocused = false
+        if shouldRestoreFocus {
+            DispatchQueue.main.async { isEditorFocused = true }
+        }
     }
 
     func cleanupRecording() {

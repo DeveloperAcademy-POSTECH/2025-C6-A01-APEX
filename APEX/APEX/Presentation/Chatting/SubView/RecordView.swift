@@ -33,35 +33,6 @@ struct RecordView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Top bar: only dismiss on the left
-            ZStack(alignment: .center) {
-                HStack(spacing: 0) {
-                    Button(action: { dismiss() }, label: {
-                        Image(systemName: "xmark")
-                            .font(.title4)
-                            .foregroundColor(.black)
-                            .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
-                    })
-                    .buttonStyle(.plain)
-                    .glassEffect()
-                    Spacer(minLength: 0)
-                    Button(action: { saveAudio(); dismiss() }, label: {
-                        Text("완료")
-                            .font(.callout)
-                            .foregroundColor(.black)
-                            .frame(height: 44)
-                            .padding(.horizontal, 10)
-                            .contentShape(Rectangle())
-                    })
-                    .buttonStyle(.plain)
-                    .glassEffect()
-                }
-                .frame(height: 52)
-                .padding(.horizontal, 12)
-                .background(Color("Background"))
-            }
-
             // Square audio tile (ChattingView UI, larger for editor)
             HStack {
                 Spacer(minLength: 0)
@@ -162,7 +133,41 @@ struct RecordView: View {
             }
             .padding(.vertical, 12)
         }
-        .background(Color("Background"))
+        .safeAreaInset(edge: .top) {
+            ZStack(alignment: .center) {
+                HStack(spacing: 0) {
+                    Button(action: { dismiss() }, label: {
+                        Image(systemName: "xmark")
+                            .font(.title4)
+                            .foregroundColor(.black)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    })
+                    .buttonStyle(.plain)
+                    .glassEffect()
+                    Spacer(minLength: 0)
+                    Button(action: { saveAudio(); dismiss() }, label: {
+                        Text("완료")
+                            .font(.callout)
+                            .foregroundColor(.black)
+                            .frame(height: 44)
+                            .padding(.horizontal, 10)
+                            .contentShape(Rectangle())
+                    })
+                    .buttonStyle(.plain)
+                    .glassEffect()
+                }
+                .frame(height: 52)
+                .padding(.horizontal, 12)
+                .background(Color("Background"))
+            }
+        }
+        .background(
+            Color("Background")
+                .contentShape(Rectangle())
+                .onTapGesture { UIApplication.apexDismissKeyboard() }
+        )
+        .ignoresSafeArea(.keyboard, edges: .bottom)
         .sheet(isPresented: $showShareSheet) {
             ShareView()
         }
@@ -307,6 +312,8 @@ struct RecordView: View {
             // no-op: keep old name if move failed
         }
     }
+
+    // removed: local dismissKeyboard() in favor of UIApplication.apexDismissKeyboard()
 
     private func defaultTitle() -> String {
         guard let url = workingURL ?? audioURL else { return "음성 메모" }

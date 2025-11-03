@@ -61,8 +61,14 @@ struct ChattingView: View {
     @State private var showShareFromEdit: Bool = false
 
     private enum Metrics {
-        static let timeWidth: CGFloat = 72
+        static let timeWidth: CGFloat = 66
         static let timeGap: CGFloat = 12
+    }
+    private func timeTextWidth(for date: Date) -> CGFloat {
+        let text = date.formattedChatTime
+        let font = UIFont.preferredFont(forTextStyle: .caption2)
+        let size = (text as NSString).size(withAttributes: [.font: font])
+        return ceil(size.width)
     }
     private let bottomSentinelId: String = "chat-bottom-sentinel"
     var body: some View {
@@ -130,7 +136,7 @@ struct ChattingView: View {
                                     selectCopy = SelectCopyPayload(text: text)
                                 }
                             )
-                            .offset(x: -timestampRevealProgress * (Metrics.timeWidth + Metrics.timeGap))
+                            .offset(x: -timestampRevealProgress * (timeTextWidth(for: note.uploadedAt) + Metrics.timeGap))
                         }
                         .id(note.id)
                     }
@@ -160,7 +166,7 @@ struct ChattingView: View {
                     )
                 }
             )
-            .onTapGesture { dismissKeyboard() }
+            .onTapGesture { UIApplication.apexDismissKeyboard() }
             .onAppear {
                 DispatchQueue.main.async {
                     if notes.isEmpty {
@@ -1350,9 +1356,7 @@ private func openFileURL(_ url: URL) {
     UIApplication.shared.open(url, options: [:], completionHandler: nil)
 }
 
-private func dismissKeyboard() {
-    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-}
+// removed: local dismissKeyboard() in favor of UIApplication.apexDismissKeyboard()
 
 extension Notification.Name {
     static let apexInputFocused = Notification.Name("apex.inputFocused")
