@@ -9,7 +9,7 @@ import SwiftUI
 
 struct NotesView: View {
     @State private var selectedFilter: NotesFilter = .all
-    @State private var clients: [Client] = sampleClients
+    @ObservedObject private var clientsStore = ClientsStore.shared
     @State private var showToast: Bool = false
     @State private var toastText: String = ""
     @State private var clientToDelete: Client?
@@ -58,7 +58,6 @@ struct NotesView: View {
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: .apexChatNotesUpdated)) { _ in
-                chatRefreshToken &+= 1
             }
 
         }
