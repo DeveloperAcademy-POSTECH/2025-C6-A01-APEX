@@ -23,7 +23,7 @@ struct Client: Identifiable, Hashable {
     let action: String?
     let favorite: Bool
     let pin: Bool
-    let notes: [Note]
+    var notes: [Note]
     
     // 기본 초기화 함수 (새 UUID 생성)
     init(profile: UIImage? = nil, nameCardFront: Image? = nil, nameCardBack: Image? = nil,
