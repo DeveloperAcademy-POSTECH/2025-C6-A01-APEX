@@ -28,10 +28,10 @@ struct MediaHeaderBar: View {
                 Button(action: { onBack() }, label: {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 17, weight: .medium))
-                        .foregroundColor(.white)
                         .frame(width: 44, height: 44)
                         .glassEffect()
                 })
+                .buttonStyle(.plain)
 
                 Spacer()
                 
@@ -39,30 +39,29 @@ struct MediaHeaderBar: View {
                     VStack(alignment: .center, spacing: 2) {
                         Text(title)
                             .font(.title5)
-                            .foregroundStyle(.white)
                         if let uploadedAt {
                             HStack(alignment: .center, spacing: 4) {
                                 Text(uploadedAt.formattedHeaderDate)
                                     .font(.caption3)
-                                    .foregroundStyle(.white)
                                 
                                 Image(systemName: "chevron.right")
                                     .font(.system(size: 10, weight: .medium))
-                                    .foregroundStyle(.white)
                             }
                         }
                     }
                 }
+                .glassEffect()
+                .buttonStyle(.plain)
                 
                 Spacer()
 
                 Button(action: { onGrid() }, label: {
                     Image(systemName: "square.grid.2x2")
                         .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(.white)
                         .frame(width: 44, height: 44)
                         .glassEffect()
                 })
+                .buttonStyle(.plain)
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
