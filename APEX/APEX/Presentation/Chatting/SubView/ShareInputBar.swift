@@ -28,10 +28,10 @@ struct ShareInputBar: View {
         HStack(spacing: 8) {
             if isEditing {
                 Button(
-                    action: {
-                        text = ""
+                action: {
                         isFocused = false
                         isEditing = false
+                        UIApplication.apexDismissKeyboard()
                     },
                     label: {
                         Image(systemName: "xmark")
@@ -93,7 +93,7 @@ struct ShareInputBar: View {
     }
 
     private var computedIsEnabled: Bool {
-        isEnabled || !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        isEnabled
     }
 }
 

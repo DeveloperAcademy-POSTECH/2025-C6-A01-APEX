@@ -58,7 +58,24 @@ struct ChattingView: View {
     @State private var editing: EditingPayload?
     private struct SelectCopyPayload: Identifiable { let id = UUID(); let text: String }
     @State private var selectCopy: SelectCopyPayload?
-    @State private var showShareFromEdit: Bool = false
+    private struct ShareSeed: Identifiable {
+        let id = UUID()
+        var text: String?
+        var files: [URL]
+        var audios: [URL]
+    }
+    @State private var shareSeed: ShareSeed?
+    // Lifted media viewer state to parent to avoid cell re-creation closing the cover
+    private struct ViewerPayload: Identifiable {
+        let id = UUID()
+        let items: [MediaSource]
+        let anchors: [ChatMessageView.ChatAnchor]
+        let index: Int
+    }
+    @State private var viewer: ViewerPayload?
+    // Parent-scoped record viewer state
+    private struct RecordPayload: Identifiable { let id = UUID(); let url: URL }
+    @State private var recordPayload: RecordPayload?
 
     private enum Metrics {
         static let timeWidth: CGFloat = 66
@@ -103,6 +120,7 @@ struct ChattingView: View {
                             ChatMessageView(
                                 note: note,
                                 chatTitle: chatTitle,
+                                currentClientId: clientId,
                                 highlightQuery: (
                                     isSearchActive &&
                                     !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
@@ -112,6 +130,31 @@ struct ChattingView: View {
                                 ) ? searchText : nil,
                                 buildViewerPayload: { anchor in
                                     buildGlobalViewerPayload(startingFrom: anchor)
+                                },
+                                onOpenViewer: { anchor in
+                                    openViewer(anchor: anchor)
+                                },
+                                onOpenShare: { selectedText in
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                        shareSeed = ShareSeed(text: selectedText, files: [], audios: [])
+                                    }
+                                },
+                                onOpenShareFiles: { urls in
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                        shareSeed = ShareSeed(text: nil, files: urls, audios: [])
+                                    }
+                                },
+                                onOpenShareAudio: { url in
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                        shareSeed = ShareSeed(text: nil, files: [], audios: [url])
+                                    }
+                                },
+                                onDeleteFile: { noteId, fileIndex in
+                                    deleteFile(noteId: noteId, fileIndex: fileIndex)
+                                },
+                                onOpenRecord: { url in
+                                    NotificationCenter.default.post(name: .apexStopAllAudioPlayback, object: nil)
+                                    recordPayload = RecordPayload(url: url)
                                 },
                                 onDelete: { anchor in
                                     deleteMedia(anchor: anchor)
@@ -263,6 +306,30 @@ struct ChattingView: View {
                     }
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: .apexAudioDeleted)) { notif in
+                guard let url = notif.userInfo?["url"] as? URL else { return }
+                var changedAny = false
+                for idx in notes.indices {
+                    if case var .audio(audios) = notes[idx].bundle {
+                        let before = audios.count
+                        audios.removeAll { $0.url == url }
+                        if audios.count != before {
+                            notes[idx].bundle = audios.isEmpty ? nil : .audio(audios)
+                            changedAny = true
+                        }
+                    }
+                }
+                if changedAny {
+                    ChatStore.shared.setNotes(notes, for: clientId)
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .apexChatNotesUpdated)) { notif in
+                // When any chat's notes change, refresh if this view's clientId matches
+                if let changedId = notif.userInfo?["clientId"] as? UUID, changedId == clientId {
+                    let latest = ChatStore.shared.notes(for: clientId)
+                    notes = latest
+                }
+            }
             .overlay(alignment: .bottomTrailing) {
                 if showScrollToBottom, canScroll {
                     Button {
@@ -315,7 +382,6 @@ struct ChattingView: View {
         }
         .padding(.horizontal, 12)
         .toolbar(.hidden, for: .navigationBar)
-        
         .overlay(alignment: .trailing) {
             Color.clear
                 .frame(width: 44)
@@ -571,10 +637,8 @@ struct ChattingView: View {
                 }
             }
         }
-        
         .scrollEdgeEffectStyle(.soft, for: .all)
         .onPreferenceChange(BottomInsetHeightKey.self) { height in bottomInsetHeight = height }
-        .onDisappear { ChatStore.shared.setNotes(notes, for: clientId) }
         .sheet(item: $editing) { payload in
             TextEditSheet(
                 initialText: payload.text,
@@ -591,8 +655,12 @@ struct ChattingView: View {
                     withAnimation { showCopyToast = true }
                 },
                 onShare: {
-                    editing = nil
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { showShareFromEdit = true }
+                    DispatchQueue.main.async {
+                        editing = nil
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                            shareSeed = ShareSeed(text: payload.text, files: [], audios: [])
+                        }
+                    }
                 },
                 onDelete: {
                     if let idx = notes.firstIndex(where: { $0.id == payload.noteId }) {
@@ -614,8 +682,55 @@ struct ChattingView: View {
                 }
             )
         }
-        .sheet(isPresented: $showShareFromEdit) {
-            ShareView()
+        .sheet(item: $shareSeed) { seed in
+            let initialAttachments: [ShareAttachmentItem] = {
+                var items: [ShareAttachmentItem] = []
+                if let text = seed.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
+                    items.append(ShareAttachmentItem(id: UUID(), kind: .text(text)))
+                }
+                for url in seed.files {
+                    items.append(ShareAttachmentItem(id: UUID(), kind: .file(url)))
+                }
+                for url in seed.audios {
+                    items.append(ShareAttachmentItem(id: UUID(), kind: .audio(url)))
+                }
+                return items
+            }()
+            ShareView(
+                initialAttachments: initialAttachments,
+                excludedClientIds: [clientId]
+            )
+        }
+        // Centralized media viewer presentation to prevent dismissal due to cell re-render
+        .fullScreenCover(item: $viewer) { payload in
+            let currentAnchor = payload.anchors.indices.contains(payload.index) ? payload.anchors[payload.index] : nil
+            let initialUploadedAt = currentAnchor.flatMap { anchor in
+                notes.first(where: { $0.id == anchor.noteId })?.uploadedAt
+            }
+            MediaView(
+                items: payload.items,
+                selectedIndex: payload.index,
+                title: chatTitle,
+                uploadedAt: initialUploadedAt,
+                excludedClientIds: [clientId],
+                onDelete: { removedIndex, _ in
+                    guard payload.anchors.indices.contains(removedIndex) else { return }
+                    let anchor = payload.anchors[removedIndex]
+                    deleteMedia(anchor: anchor)
+                },
+                onTitleTap: { currentIndex in
+                    guard payload.anchors.indices.contains(currentIndex) else { return }
+                    let anchor = payload.anchors[currentIndex]
+                    NotificationCenter.default.post(
+                        name: .apexNavigateToNote,
+                        object: nil,
+                        userInfo: ["noteId": anchor.noteId]
+                    )
+                }
+            )
+        }
+        .fullScreenCover(item: $recordPayload) { payload in
+            RecordView(audioURL: payload.url)
         }
         .sheet(isPresented: $showDatePicker) {
             let memoDays: Set<Date> = Set(notes.map { Calendar.current.startOfDay(for: $0.uploadedAt) })
@@ -807,30 +922,32 @@ private extension ChattingView {
         currentMatchIndex = (currentMatchIndex + 1) % matchedNoteIds.count
         scrollToCurrentMatch()
     }
+
+    private func openViewer(anchor: ChatMessageView.ChatAnchor) {
+        let payload = buildGlobalViewerPayload(startingFrom: anchor)
+        viewer = ViewerPayload(items: payload.items, anchors: payload.anchors, index: payload.index)
+    }
 }
 
 private struct ChatMessageView: View {
     let note: Note
     let chatTitle: String
+    let currentClientId: UUID
     let highlightQuery: String?
     struct ChatAnchor { let noteId: UUID; let isImage: Bool; let localIndex: Int }
     let buildViewerPayload: (ChatAnchor) -> (items: [MediaSource], anchors: [ChatAnchor], index: Int)
+    let onOpenViewer: (ChatAnchor) -> Void
+    let onOpenShare: (String) -> Void
+    let onOpenShareFiles: ([URL]) -> Void
+    let onOpenShareAudio: (URL) -> Void
+    let onDeleteFile: (UUID, Int) -> Void
+    let onOpenRecord: (URL) -> Void
     let onDelete: (ChatAnchor) -> Void
     let onDeleteAudio: (UUID, URL) -> Void
     let onCopyText: (String) -> Void
     let onStartEdit: (UUID, String) -> Void
     let onDeleteNote: (UUID) -> Void
     let onStartSelectCopy: (String) -> Void
-    private struct ViewerPayload: Identifiable {
-        let id = UUID()
-        let items: [MediaSource]
-        let anchors: [ChatAnchor]
-        let index: Int
-    }
-    @State private var viewer: ViewerPayload?
-    @State private var showShareSheet: Bool = false
-    private struct RecordPayload: Identifiable { let id = UUID(); let url: URL }
-    @State private var recordPayload: RecordPayload?
     // Removed selectedRange; SelectableText now manages selection internally
     @State private var showDeleteAlert: Bool = false
     @State private var deleteSubjectText: String = ""
@@ -839,6 +956,69 @@ private struct ChatMessageView: View {
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 8) {
+            if case let .media(images, videos) = note.bundle {
+                if videos.count == 1, images.isEmpty {
+                    SingleVideoCard(url: videos[0].url) {
+                        onOpenViewer(ChatAnchor(noteId: note.id, isImage: false, localIndex: 0))
+                    }
+                } else if images.count == 1, videos.isEmpty {
+                    SingleImageCard(imageData: images[0].data) {
+                        onOpenViewer(ChatAnchor(noteId: note.id, isImage: true, localIndex: 0))
+                    }
+                } else {
+                    MediaGrid(images: images, videos: videos) { isImage, localIndex in
+                        onOpenViewer(ChatAnchor(noteId: note.id, isImage: isImage, localIndex: localIndex))
+                    }
+                }
+            } else if case let .files(files) = note.bundle {
+                FilesGrid(
+                    files: files,
+                    highlightQuery: highlightQuery,
+                    onShareFile: { url in onOpenShareFiles([url]) },
+                    onDeleteFileAt: { idx in onDeleteFile(note.id, idx) }
+                )
+                .contentShape(Rectangle())
+                .contextMenu {
+                    Button {
+                        let urls = files.map { $0.url }
+                        onOpenShareFiles(urls)
+                    } label: {
+                        Label("모두 공유", systemImage: "square.and.arrow.up")
+                    }
+                    Button(role: .destructive) {
+                        deleteSubjectText = "파일 메모를"
+                        pendingDelete = { onDeleteNote(note.id) }
+                        showDeleteAlert = true
+                    } label: {
+                        Label("메모 삭제", systemImage: "trash")
+                    }
+                }
+            }
+            // Audio attachments: always render single tile with anchored menu
+            else if case let .audio(audios) = note.bundle {
+                if let first = audios.first {
+                    AudioSquareTile(url: first.url, duration: first.duration, preferredLength: nil, titleOverride: nil, highlightQuery: highlightQuery)
+                        .contextMenu {
+                            Button { onOpenRecord(first.url) } label: {
+                                Label("더보기", systemImage: "ellipsis.circle")
+                            }
+                            Button {
+                                NotificationCenter.default.post(name: .apexStopAllAudioPlayback, object: nil)
+                                onOpenShareAudio(first.url)
+                            } label: {
+                                Label("공유", systemImage: "square.and.arrow.up")
+                            }
+                            Button(role: .destructive) {
+                                deleteSubjectText = "음성 녹음을"
+                                pendingDelete = { onDeleteAudio(note.id, first.url) }
+                                showDeleteAlert = true
+                            } label: {
+                                Label("삭제", systemImage: "trash")
+                            }
+                        }
+                }
+            }
+            
             if let text = note.text {
                 VStack(alignment: .trailing, spacing: 8) {
                     // ChattingView.swift (텍스트 버블 부분만)
@@ -862,16 +1042,16 @@ private struct ChatMessageView: View {
                 }
                 .contentShape(Rectangle())
                 .contextMenu {
-                    Button { onStartEdit(note.id, text) } label: {
-                        Label("수정", systemImage: "pencil")
+                    Button { onCopyText(text) } label: {
+                        Label("전체 복사", systemImage: "doc.on.doc")
                     }
                     Button { onStartSelectCopy(text) } label: {
                         Label("선택 복사", systemImage: "text.viewfinder")
                     }
-                    Button { onCopyText(text) } label: {
-                        Label("전체 복사", systemImage: "doc.on.doc")
+                    Button { onStartEdit(note.id, text) } label: {
+                        Label("수정", systemImage: "pencil")
                     }
-                    Button { showShareSheet = true } label: {
+                    Button { onOpenShare(text) } label: {
                         Label("공유", systemImage: "square.and.arrow.up")
                     }
                     Button(role: .destructive) {
@@ -883,82 +1063,12 @@ private struct ChatMessageView: View {
                     }
                 }
             }
-
-            if case let .media(images, videos) = note.bundle {
-                if videos.count == 1, images.isEmpty {
-                    SingleVideoCard(url: videos[0].url) {
-                        openViewer(anchor: ChatAnchor(noteId: note.id, isImage: false, localIndex: 0))
-                    }
-                } else if images.count == 1, videos.isEmpty {
-                    SingleImageCard(imageData: images[0].data) {
-                        openViewer(anchor: ChatAnchor(noteId: note.id, isImage: true, localIndex: 0))
-                    }
-                } else {
-                    MediaGrid(images: images, videos: videos) { isImage, localIndex in
-                        openViewer(anchor: ChatAnchor(noteId: note.id, isImage: isImage, localIndex: localIndex))
-                    }
-                }
-            } else if case let .files(files) = note.bundle {
-                FilesGrid(files: files, highlightQuery: highlightQuery)
-            }
-            // Audio attachments: always render single tile with anchored menu
-            else if case let .audio(audios) = note.bundle {
-                if let first = audios.first {
-                    AudioSquareTile(url: first.url, duration: first.duration, preferredLength: nil, titleOverride: nil, highlightQuery: highlightQuery)
-                        .contextMenu {
-                            Button { recordPayload = RecordPayload(url: first.url) } label: {
-                                Label("더보기", systemImage: "ellipsis.circle")
-                            }
-                            Button { showShareSheet = true } label: {
-                                Label("공유", systemImage: "square.and.arrow.up")
-                            }
-                            Button(role: .destructive) {
-                                deleteSubjectText = "음성 녹음을"
-                                pendingDelete = { onDeleteAudio(note.id, first.url) }
-                                showDeleteAlert = true
-                            } label: {
-                                Label("삭제", systemImage: "trash")
-                            }
-                        }
-                }
-            }
         }
         .alert("\(deleteSubjectText) 삭제하겠습니까?", isPresented: $showDeleteAlert) {
             Button("삭제", role: .destructive) { pendingDelete?() }
             Button("취소", role: .cancel) { }
         }
-        .fullScreenCover(item: $viewer) { payload in
-            MediaView(
-                items: payload.items,
-                selectedIndex: payload.index,
-                title: chatTitle,
-                uploadedAt: note.uploadedAt,
-                onDelete: { removedIndex, _ in
-                    guard payload.anchors.indices.contains(removedIndex) else { return }
-                    onDelete(payload.anchors[removedIndex])
-                },
-                onTitleTap: { currentIndex in
-                    guard payload.anchors.indices.contains(currentIndex) else { return }
-                    let anchor = payload.anchors[currentIndex]
-                    NotificationCenter.default.post(
-                        name: .apexNavigateToNote,
-                        object: nil,
-                        userInfo: ["noteId": anchor.noteId]
-                    )
-                }
-            )
-        }
-        .sheet(isPresented: $showShareSheet) {
-            ShareView()
-        }
-        .fullScreenCover(item: $recordPayload) { payload in
-            RecordView(audioURL: payload.url)
-        }
-    }
-
-    private func openViewer(anchor: ChatAnchor) {
-        let payload = buildViewerPayload(anchor)
-        viewer = ViewerPayload(items: payload.items, anchors: payload.anchors, index: payload.index)
+        // removed per-cell share sheet and record cover; handled at parent level
     }
 }
 
@@ -1074,6 +1184,15 @@ private extension ChattingView {
         }
 
         notes[noteIndex].bundle = .media(images: images, videos: videos)
+        ChatStore.shared.setNotes(notes, for: clientId)
+    }
+    
+    func deleteFile(noteId: UUID, fileIndex: Int) {
+        guard let noteIndex = notes.firstIndex(where: { $0.id == noteId }) else { return }
+        guard case var .files(files) = notes[noteIndex].bundle else { return }
+        guard files.indices.contains(fileIndex) else { return }
+        files.remove(at: fileIndex)
+        notes[noteIndex].bundle = .files(files)
         ChatStore.shared.setNotes(notes, for: clientId)
     }
 }
@@ -1240,6 +1359,8 @@ private struct MediaGrid: View {
 private struct FilesGrid: View {
     let files: [FileAttachment]
     let highlightQuery: String?
+    let onShareFile: (URL) -> Void
+    let onDeleteFileAt: (Int) -> Void
 
     private let columns: [GridItem] = [
         GridItem(.flexible(), spacing: 2),
@@ -1251,6 +1372,14 @@ private struct FilesGrid: View {
         LazyVGrid(columns: columns, spacing: 2) {
             ForEach(files.indices, id: \.self) { idx in
                 FileGridTile(file: files[idx], highlightQuery: highlightQuery)
+                    .contextMenu {
+                        Button { onShareFile(files[idx].url) } label: {
+                            Label("공유", systemImage: "square.and.arrow.up")
+                        }
+                        Button(role: .destructive) { onDeleteFileAt(idx) } label: {
+                            Label("삭제", systemImage: "trash")
+                        }
+                    }
             }
         }
         .environment(\.layoutDirection, .rightToLeft)
@@ -1364,6 +1493,7 @@ extension Notification.Name {
     static let apexNavigateToNote = Notification.Name("apex.navigateToNote")
     static let apexNavigateToDate = Notification.Name("apex.navigateToDate")
     static let apexAudioRenamed = Notification.Name("apex.audioRenamed")
+    static let apexAudioDeleted = Notification.Name("apex.audioDeleted")
     static let apexOpenDocumentPicker = Notification.Name("apex.openDocumentPicker")
     static let apexOpenCamera = Notification.Name("apex.openCamera")
     static let apexOpenPhotoPicker = Notification.Name("apex.openPhotoPicker")

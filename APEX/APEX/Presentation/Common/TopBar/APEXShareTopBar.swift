@@ -33,7 +33,6 @@ struct APEXShareTopBar: View {
 
     var body: some View {
         ZStack(alignment: .center) {
-            // Left / Right controls
             HStack(spacing: 0) {
                 leftButton
                 Spacer(minLength: 0)
@@ -41,25 +40,24 @@ struct APEXShareTopBar: View {
             }
             .frame(height: height)
             .padding(.horizontal, 12)
-
-            // Center title + selected count
             VStack(spacing: 0) {
                 Text(title)
+                    .lineLimit(1)
                     .font(.title5)
                     .foregroundColor(foreground)
-                    .lineLimit(1)
-                
                 if selectedCount > 0 {
                     Text("\(selectedCount)명")
+                        .lineLimit(1)
                         .font(.caption2)
                         .foregroundColor(Color("Primary"))
-                        .lineLimit(1)
                 }
             }
             .frame(height: height)
             .padding(.horizontal, 12)
             .allowsHitTesting(false)
         }
+        .padding(.vertical, 8)
+        .background(.white)
     }
 
     private var leftButton: some View {
@@ -94,3 +92,52 @@ struct APEXShareTopBar: View {
         APEXShareTopBar(title: "Share", selectedCount: 4, onClose: { }, onSearch: { })
     }
 }
+
+// MARK: - Record Top Bar (Close + Done)
+
+struct APEXRecordTopBar: View {
+    let onClose: () -> Void
+    let onDone: () -> Void
+
+    private var background: Color = Color("Background")
+    private var foreground: Color = .black
+    private var height: CGFloat = 52
+
+    init(onClose: @escaping () -> Void, onDone: @escaping () -> Void) {
+        self.onClose = onClose
+        self.onDone = onDone
+    }
+
+    var body: some View {
+        ZStack(alignment: .center) {
+            HStack(spacing: 0) {
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(.title4)
+                        .foregroundColor(foreground)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .glassEffect()
+
+                Spacer(minLength: 0)
+
+                Button(action: onDone) {
+                    Text("완료")
+                        .font(.callout)
+                        .foregroundColor(foreground)
+                        .frame(height: 44)
+                        .padding(.horizontal, 10)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .glassEffect()
+            }
+            .frame(height: height)
+            .padding(.horizontal, 12)
+            .background(background)
+        }
+    }
+}
+

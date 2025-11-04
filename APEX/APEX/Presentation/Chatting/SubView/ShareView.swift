@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import UniformTypeIdentifiers
+import AVFoundation
 
 struct ShareView: View {
     private enum Tab: String, CaseIterable, Identifiable {
@@ -18,12 +20,21 @@ struct ShareView: View {
     @State private var selectedIds: Set<UUID> = []
     @State private var inputText: String = ""
     @State private var attachments: [ShareAttachmentItem]
+    // Seeds captured from initializer and re-applied on appear
+    private let initialAttachmentsSeed: [ShareAttachmentItem]
+    private let excludedIds: Set<UUID>
     @Environment(\.dismiss) private var dismiss
 
     @ObservedObject private var store = ClientsStore.shared
 
-    init(initialAttachments: [ShareAttachmentItem] = []) {
+    init(
+        initialAttachments: [ShareAttachmentItem] = [],
+        excludedClientIds: [UUID] = []
+    ) {
         _attachments = State(initialValue: initialAttachments)
+        self.excludedIds = Set(excludedClientIds)
+        _inputText = State(initialValue: "")
+        self.initialAttachmentsSeed = initialAttachments
     }
 
     @State private var inputBarHeight: CGFloat = 0
@@ -95,22 +106,32 @@ struct ShareView: View {
         }
         .background(Color("Background"))
         .padding(.horizontal, 16)
-        .ignoresSafeArea(.container, edges: .top)
         .scrollEdgeEffectStyle(.soft, for: .bottom)
-        .overlay(alignment: .bottom) {
-            if !attachments.isEmpty {
-                AttachBar(
-                    items: attachments,
-                    onRemove: { removeAttachment($0) }
-                )
-                .background(
-                    GeometryReader { proxy in
-                        Color.clear.preference(key: AttachBarHeightKey.self, value: proxy.size.height)
-                    }
-                )
-                .padding(.bottom, inputBarHeight + 8)
-                .ignoresSafeArea(.keyboard, edges: .bottom)
+        .simultaneousGesture(
+            TapGesture().onEnded {
+                UIApplication.apexDismissKeyboard()
             }
+        )
+        .overlay(alignment: .bottom) {
+            VStack(spacing: 6) {
+                // Image/Video attachments bar (only when there is visual media)
+                let visualItems: [ShareAttachmentItem] = attachments.filter { item in
+                    switch item.kind { case .image, .video: return true; default: return false }
+                }
+                if !visualItems.isEmpty {
+                    AttachBar(
+                        items: visualItems,
+                        onRemove: { removeAttachment($0) }
+                    )
+                    .background(
+                        GeometryReader { proxy in
+                            Color.clear.preference(key: AttachBarHeightKey.self, value: proxy.size.height)
+                        }
+                    )
+                }
+            }
+            .padding(.bottom, inputBarHeight + 8)
+            .ignoresSafeArea(.keyboard, edges: .bottom)
         }
         .safeAreaInset(edge: .top) {
             VStack(spacing: 0) {
@@ -120,7 +141,7 @@ struct ShareView: View {
                     onClose: { dismiss() },
                     onSearch: { performSearch() }
                 )
-                .padding(.top, 12)
+                .padding(.top, 16)
                 .background(Color("Background"))
 
                 Group {
@@ -128,35 +149,151 @@ struct ShareView: View {
                         selectedClientsBar
                             .padding(.vertical, 8)
                             .background(Color("Background"))
+                            .padding(.horizontal, 16)
                     } else {
-                        Picker("", selection: $selectedTab) {
-                            ForEach(Tab.allCases) { tab in Text(tab.rawValue).tag(tab) }
-                        }
-                        .pickerStyle(.segmented)
+                        tabPicker
                     }
                 }
-                .padding(.horizontal, 16)
             }
         }
         .safeAreaBar(edge: .bottom) {
+            let seededText = attachments.compactMap { item -> String? in
+                if case let .text(text) = item.kind { return text } else { return nil }
+            }.first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let hasEffectiveText = !(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && seededText.isEmpty)
+            let hasEffectiveFiles = attachments.contains { if case .file = $0.kind { return true } else { return false } }
+            let hasEffectiveAudio = attachments.contains { if case .audio = $0.kind { return true } else { return false } }
+            let hasMedia = attachments.contains { item in
+                switch item.kind { case .image, .video: return true; default: return false }
+            }
             ShareInputBar(
                 text: $inputText,
-                isEnabled: !selectedIds.isEmpty || !attachments.isEmpty,
+                isEnabled: !selectedIds.isEmpty,
                 onSend: { handleSend() }
             )
         }
         .onPreferenceChange(InputBarHeightKey.self) { inputBarHeight = $0 }
         .onPreferenceChange(AttachBarHeightKey.self) { attachBarHeight = $0 }
+        // Re-seed state each time the sheet appears, so prefilled data works repeatedly
+        .onAppear {
+            inputText = ""
+            attachments = initialAttachmentsSeed
+        }
+    }
+
+    // MARK: - Payload Summary (Text / Files / Audio)
+
+    private var hasNonVisualPayloads: Bool {
+        let trimmedTyped = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let seededText = attachments.compactMap { item -> String? in
+            if case let .text(text) = item.kind { return text } else { return nil }
+        }.first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let filesCount = attachments.reduce(0) { acc, item in
+            if case .file = item.kind { return acc + 1 } else { return acc }
+        }
+        let audioCount = attachments.reduce(0) { acc, item in
+            if case .audio = item.kind { return acc + 1 } else { return acc }
+        }
+        return !trimmedTyped.isEmpty || !seededText.isEmpty || filesCount > 0 || audioCount > 0
+    }
+
+    private var payloadSummaryBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                let typed = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+                let seededText = attachments.compactMap { item -> String? in
+                    if case let .text(text) = item.kind { return text } else { return nil }
+                }.first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                let effectiveText = typed.isEmpty ? seededText : typed
+                if !effectiveText.isEmpty {
+                    chip(icon: "textformat", label: "텍스트") {
+                        if !typed.isEmpty {
+                            inputText = ""
+                        } else {
+                            attachments.removeAll { item in if case .text = item.kind { return true } else { return false } }
+                        }
+                    }
+                }
+
+                let filesCount = attachments.reduce(0) { acc, item in
+                    if case .file = item.kind { return acc + 1 } else { return acc }
+                }
+                if filesCount > 0 {
+                    chip(icon: "doc.fill", label: "파일 \(filesCount)개") {
+                        attachments.removeAll { item in if case .file = item.kind { return true } else { return false } }
+                    }
+                }
+
+                let audioCount = attachments.reduce(0) { acc, item in
+                    if case .audio = item.kind { return acc + 1 } else { return acc }
+                }
+                if audioCount > 0 {
+                    chip(icon: "waveform", label: "음성 \(audioCount)개") {
+                        attachments.removeAll { item in if case .audio = item.kind { return true } else { return false } }
+                    }
+                }
+            }
+            .padding(.vertical, 6)
+        }
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func chip(icon: String, label: String, onRemove: @escaping () -> Void) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+            Text(label)
+                .font(.caption2)
+                .lineLimit(1)
+            Button(action: onRemove) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 14, weight: .semibold))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(Color("BackgroundSecondary"))
+        .clipShape(Capsule())
+    }
+
+    private var tabPicker: some View {
+        HStack(spacing: 0) {
+            ForEach(Tab.allCases) { tab in
+                Button {
+                    withAnimation(.spring(response: 0.22, dampingFraction: 0.95)) {
+                        selectedTab = tab
+                    }
+                } label: {
+                    VStack(spacing: 8) {
+                        Text(tab.rawValue)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(selectedTab == tab ? Color("Primary") : Color("BackgroundHover"))
+                        Rectangle()
+                            .fill(selectedTab == tab ? Color("Primary") : Color("BackgroundHover"))
+                            .frame(height: selectedTab == tab ? 4 : 2)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .background(.white)
+        .frame(height: 40)
     }
 
     // MARK: - Connects (favorites + grouped by company)
 
     private var connectsFavorites: [Client] {
-        store.clients.filter { $0.favorite }.sorted(by: sortByName)
+        store.clients.filter { !excludedIds.contains($0.id) && $0.favorite }.sorted(by: sortByName)
     }
 
     private var connectsGrouped: [String: [Client]] {
-        let grouped = Dictionary(grouping: store.clients) { client -> String in
+        let filtered = store.clients.filter { !excludedIds.contains($0.id) }
+        let grouped = Dictionary(grouping: filtered) { client -> String in
             let trimmed = client.company.trimmingCharacters(in: .whitespacesAndNewlines)
             return trimmed.isEmpty ? "Ungrouped" : trimmed
         }
@@ -178,6 +315,7 @@ struct ShareView: View {
 
     private var recentsSorted: [Client] {
         store.clients
+            .filter { !excludedIds.contains($0.id) }
             .sorted { lhs, rhs in
                 let lDate = latestNoteDate(of: lhs) ?? .distantPast
                 let rDate = latestNoteDate(of: rhs) ?? .distantPast
@@ -210,22 +348,47 @@ struct ShareView: View {
     }
 
     private func handleSend() {
-        let trimmed = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Compute typed vs seeded text separately
+        let typed = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let seeded = attachments.compactMap { item -> String? in
+            if case let .text(text) = item.kind { return text } else { return nil }
+        }.first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        // Build bundle (media/files/audio) — text handled as separate notes
         let bundle = makeAttachmentBundle()
-        if selectedIds.isEmpty && (bundle == nil && trimmed.isEmpty) { return }
 
-        let note = Note(
-            uploadedAt: Date(),
-            text: trimmed.isEmpty ? nil : trimmed,
-            bundle: bundle
-        )
+        // Require at least one recipient and at least one payload
+        if selectedIds.isEmpty { return }
+        if bundle == nil && seeded.isEmpty && typed.isEmpty { return }
 
+        // Build notes in desired visual order (top to bottom)
+        var notesToSend: [Note] = []
+        if let bundle {
+            notesToSend.append(Note(uploadedAt: Date(), text: nil, bundle: bundle))
+        }
+        if !seeded.isEmpty {
+            notesToSend.append(Note(uploadedAt: Date(), text: seeded, bundle: nil))
+        }
+        if !typed.isEmpty {
+            notesToSend.append(Note(uploadedAt: Date(), text: typed, bundle: nil))
+        }
+
+        // Insert at index 0 (newest first) but maintain above order by inserting in reverse
         for id in selectedIds {
             if let idx = store.clients.firstIndex(where: { $0.id == id }) {
                 var client = store.clients[idx]
-                client.notes.insert(note, at: 0)
+                for note in notesToSend {
+                    client.notes.append(note)
+                }
                 store.update(client)
             }
+            // Also update ChatStore so already-open chats reflect the new notes immediately
+            let existing = ChatStore.shared.notes(for: id)
+            var updated = existing
+            for note in notesToSend {
+                updated.append(note)
+            }
+            ChatStore.shared.setNotes(updated, for: id)
         }
 
         inputText = ""
@@ -235,7 +398,7 @@ struct ShareView: View {
     }
 
     private func makeAttachmentBundle() -> AttachmentBundle? {
-        if attachments.isEmpty { return nil }
+        // media from attachments (images/videos)
         var images: [ImageAttachment] = []
         var videos: [VideoAttachment] = []
         for (order, item) in attachments.enumerated() {
@@ -245,13 +408,38 @@ struct ShareView: View {
                     images.append(ImageAttachment(data: data, progress: nil, orderIndex: order))
                 }
             case .video(let url, _):
-                if let url {
-                    videos.append(VideoAttachment(url: url, progress: nil, orderIndex: order))
-                }
+                if let url { videos.append(VideoAttachment(url: url, progress: nil, orderIndex: order)) }
+            default:
+                break
             }
         }
-        if images.isEmpty && videos.isEmpty { return nil }
-        return .media(images: images, videos: videos)
+        if !images.isEmpty || !videos.isEmpty {
+            return .media(images: images, videos: videos)
+        }
+
+        // files (not shown in attach bar)
+        let fileURLs: [URL] = attachments.compactMap { item in
+            if case let .file(url) = item.kind { return url } else { return nil }
+        }
+        if !fileURLs.isEmpty {
+            let files = fileURLs.map { url in
+                FileAttachment(url: url, contentType: UTType(filenameExtension: url.pathExtension), progress: nil)
+            }
+            return .files(files)
+        }
+
+        // audio (not shown in attach bar)
+        let audioURLs: [URL] = attachments.compactMap { item in
+            if case let .audio(url) = item.kind { return url } else { return nil }
+        }
+        if !audioURLs.isEmpty {
+            let sharedURLs: [URL] = audioURLs.map { ensureSharedAudioCopy(of: $0) }
+            let audios: [AudioAttachment] = sharedURLs.map { url in
+                AudioAttachment(url: url, duration: assetDuration(for: url))
+            }
+            return .audio(audios)
+        }
+        return nil
     }
 
     private func removeAttachment(_ item: ShareAttachmentItem) {
@@ -332,6 +520,36 @@ struct ShareView: View {
     }
 }
 
+// MARK: - Audio utilities (copy to app storage + duration)
+private func ensureSharedAudioCopy(of sourceURL: URL) -> URL {
+    let fm = FileManager.default
+    // Target directory under Documents/SharedAudios
+    let baseDir = fm.urls(for: .documentDirectory, in: .userDomainMask).first ?? sourceURL.deletingLastPathComponent()
+    let sharedDir = baseDir.appendingPathComponent("SharedAudios", isDirectory: true)
+    if !fm.fileExists(atPath: sharedDir.path) {
+        try? fm.createDirectory(at: sharedDir, withIntermediateDirectories: true)
+    }
+    let name = sourceURL.deletingPathExtension().lastPathComponent
+    let ext = sourceURL.pathExtension.isEmpty ? "m4a" : sourceURL.pathExtension
+    var dest = sharedDir.appendingPathComponent(name).appendingPathExtension(ext)
+    var counter = 2
+    while fm.fileExists(atPath: dest.path) {
+        dest = sharedDir.appendingPathComponent("\(name) \(counter)").appendingPathExtension(ext)
+        counter += 1
+    }
+    if sourceURL == dest { return dest }
+    if fm.fileExists(atPath: dest.path) == false {
+        try? fm.copyItem(at: sourceURL, to: dest)
+    }
+    return dest
+}
+
+private func assetDuration(for url: URL) -> TimeInterval? {
+    let asset = AVAsset(url: url)
+    let seconds = asset.duration.seconds
+    return seconds.isFinite && seconds > 0 ? seconds : nil
+}
+
 #Preview {
     let img = UIImage(systemName: "photo")!
     let thumb = UIImage(systemName: "film")!
@@ -342,3 +560,11 @@ struct ShareView: View {
     return ShareView(initialAttachments: sample)
         .background(Color("Background"))
 }
+#Preview("Text seed") {
+    let seed: [ShareAttachmentItem] = [
+        ShareAttachmentItem(id: UUID(), kind: .text("초기 텍스트 시드 테스트입니다.\n두 줄로 테스트합니다."))
+    ]
+    ShareView(initialAttachments: seed, excludedClientIds: [])
+    .background(Color("Background"))
+}
+

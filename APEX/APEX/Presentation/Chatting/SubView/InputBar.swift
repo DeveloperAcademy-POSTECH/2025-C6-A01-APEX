@@ -113,6 +113,7 @@ private extension InputBar {
         // Build attachments from staged items
         var images: [ImageAttachment] = []
         var videos: [VideoAttachment] = []
+        var files: [FileAttachment] = []
         var orderCounter = 0
         for item in stagedAttachments {
             switch item.kind {
@@ -126,19 +127,29 @@ private extension InputBar {
                     videos.append(VideoAttachment(url: url, progress: 0, orderIndex: orderCounter))
                     orderCounter += 1
                 }
+            case .file(let url):
+                let type = UTType(filenameExtension: url.pathExtension)
+                files.append(FileAttachment(url: url, contentType: type, progress: 0))
+            case .text:
+                // Text is handled via memo; ignore here
+                break
+            case .audio:
+                // Audio attachments are not supported in InputBar staged flow
+                break
             }
         }
 
         let text = memo.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        if images.isEmpty && videos.isEmpty && text.isEmpty {
+        if images.isEmpty && videos.isEmpty && files.isEmpty && text.isEmpty {
             return
         }
 
-        let bundle: AttachmentBundle? =
-            (images.isEmpty && videos.isEmpty)
-            ? nil
-            : .media(images: images, videos: videos)
+        let bundle: AttachmentBundle? = {
+            if !images.isEmpty || !videos.isEmpty { return .media(images: images, videos: videos) }
+            if !files.isEmpty { return .files(files) }
+            return nil
+        }()
         let note = Note(uploadedAt: Date(), text: text.isEmpty ? nil : text, bundle: bundle)
         onSend(note)
 

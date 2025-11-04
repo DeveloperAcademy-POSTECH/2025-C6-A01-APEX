@@ -11,6 +11,9 @@ struct ShareAttachmentItem: Identifiable, Equatable {
     enum Kind: Equatable {
         case image(UIImage)
         case video(URL?, thumbnail: UIImage?)
+        case file(URL)
+        case text(String)
+        case audio(URL)
     }
     let id: UUID
     var kind: Kind
@@ -31,7 +34,15 @@ struct AttachBar: View {
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: Metrics.spacing) {
-                ForEach(items) { item in
+                // Only show visual media (image/video) in the attach bar
+                ForEach(items.filter { item in
+                    switch item.kind {
+                    case .image, .video:
+                        return true
+                    default:
+                        return false
+                    }
+                }) { item in
                     itemView(item)
                 }
             }
@@ -84,6 +95,15 @@ struct AttachBar: View {
                     .foregroundColor(.white.opacity(0.95))
                     .shadow(radius: 2)
             }
+        case .file:
+            // Non-visual in AttachBar (hidden via filter above)
+            Color.clear
+        case .text:
+            // Non-visual in AttachBar (hidden via filter above)
+            Color.clear
+        case .audio:
+            // Non-visual in AttachBar (hidden via filter above)
+            Color.clear
         }
     }
 }

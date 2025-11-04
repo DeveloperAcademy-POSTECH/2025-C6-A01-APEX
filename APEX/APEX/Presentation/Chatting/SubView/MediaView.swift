@@ -29,6 +29,7 @@ struct MediaView: View {
     let items: [MediaSource]
     let title: String
     let uploadedAt: Date?
+    let excludedClientIds: [UUID]
     var onSave: ((Int, MediaSource) -> Void)?
     var onDelete: ((Int, MediaSource) -> Void)?
     var onTitleTap: ((Int) -> Void)?
@@ -57,6 +58,7 @@ struct MediaView: View {
         selectedIndex: Int,
         title: String,
         uploadedAt: Date?,
+        excludedClientIds: [UUID] = [],
         onSave: ((Int, MediaSource) -> Void)? = nil,
         onDelete: ((Int, MediaSource) -> Void)? = nil,
         onTitleTap: ((Int) -> Void)? = nil
@@ -64,6 +66,7 @@ struct MediaView: View {
         self.items = items
         self.title = title
         self.uploadedAt = uploadedAt
+        self.excludedClientIds = excludedClientIds
         self.onSave = onSave
         self.onDelete = onDelete
         self.onTitleTap = onTitleTap
@@ -132,7 +135,7 @@ struct MediaView: View {
             Button("취소", role: .cancel) { }
         }
         .sheet(isPresented: $showShareSheet) {
-            ShareView(initialAttachments: shareAttachments)
+            ShareView(initialAttachments: shareAttachments, excludedClientIds: excludedClientIds)
                 .background(Color("Background"))
                 .presentationDetents([.large])
                 .presentationDragIndicator(.hidden)

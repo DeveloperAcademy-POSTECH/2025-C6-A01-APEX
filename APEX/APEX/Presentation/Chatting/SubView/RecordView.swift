@@ -30,154 +30,188 @@ struct RecordView: View {
 
     // Timer
     @State private var timeObserver: Timer?
+    @State private var showDeleteAlert: Bool = false
+    @State private var isKeyboardShown: Bool = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Square audio tile (ChattingView UI, larger for editor)
-            HStack {
-                Spacer(minLength: 0)
-                if let url = workingURL ?? audioURL {
-                    AudioSquareTile(
-                        url: url,
-                        duration: resolveDuration(for: url),
-                        preferredLength: 174,
-                        titleOverride: filenameText
-                    )
-                    .allowsHitTesting(false)
-                } else {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color("BackgroundSecondary"))
-                        .frame(width: 240, height: 240)
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(.top, 24)
+        ScrollViewReader { proxy in
+        ScrollView {
+            VStack(spacing: 0) {
 
-            // Play/Pause button
-            Button(action: { togglePlay() }, label: {
-                Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(.white)
-                    .frame(width: 64, height: 64)
-                    .background(Color("Primary"))
-                    .clipShape(Circle())
-            })
-            .buttonStyle(.plain)
-            .padding(.top, 16)
-
-            // Playback bar (reused)
-            MediaPlaybackBar(
-                current: $currentTime,
-                total: $totalTime,
-                volume: Binding(
-                    get: { Double(player?.volume ?? 1.0) },
-                    set: { newVal in player?.volume = Float(newVal) }
-                ),
-                onScrub: { newSeconds in
-                    seek(to: newSeconds)
-                },
-                onScrubBegan: { isPlaying = false; player?.pause() },
-                onScrubEnded: {
-                    if player != nil {
-                        player?.play()
-                        isPlaying = true
-                    }
-                },
-                timeColor: .gray,
-                trackColor: Color.gray.opacity(0.25)
-            )
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
-
-            // Filename editor
-            APEXTextField(
-                kind: .singleLine,
-                label: "파일 이름",
-                placeholder: "파일 이름 입력",
-                text: $filenameText,
-                state: .normal(helper: nil),
-                isRequired: false,
-                isDisabled: false,
-                showsClearButton: true
-            )
-            .padding(.horizontal, 16)
-            .padding(.top, 20)
-
-            Spacer()
-
-            // Bottom bar actions: 저장, 공유, 삭제
-            HStack(spacing: 48) {
-                Button(action: { saveAudio() }, label: {
-                    Image(systemName: "square.and.arrow.down")
-                        .font(.system(size: 15, weight: .semibold))
-                        .frame(width: 44, height: 44)
-                        .glassEffect()
-                })
-                .buttonStyle(.plain)
-
-                Button(action: { showShareSheet = true }, label: {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 15, weight: .semibold))
-                        .frame(width: 44, height: 44)
-                        .glassEffect()
-                })
-                .buttonStyle(.plain)
-
-                Button(action: { deleteAudio() }, label: {
-                    Image(systemName: "trash")
-                        .font(.system(size: 15, weight: .semibold))
-                        .frame(width: 44, height: 44)
-                        .glassEffect()
-                })
-                .buttonStyle(.plain)
-            }
-            .padding(.vertical, 12)
-        }
-        .safeAreaInset(edge: .top) {
-            ZStack(alignment: .center) {
-                HStack(spacing: 0) {
-                    Button(action: { dismiss() }, label: {
-                        Image(systemName: "xmark")
-                            .font(.title4)
-                            .foregroundColor(.black)
-                            .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
-                    })
-                    .buttonStyle(.plain)
-                    .glassEffect()
+                // Square audio tile (ChattingView UI, larger for editor)
+                HStack {
                     Spacer(minLength: 0)
-                    Button(action: { saveAudio(); dismiss() }, label: {
-                        Text("완료")
-                            .font(.callout)
-                            .foregroundColor(.black)
-                            .frame(height: 44)
-                            .padding(.horizontal, 10)
-                            .contentShape(Rectangle())
-                    })
-                    .buttonStyle(.plain)
-                    .glassEffect()
+                    if let url = workingURL ?? audioURL {
+                        AudioSquareTile(
+                            url: url,
+                            duration: resolveDuration(for: url),
+                            preferredLength: 174,
+                            titleOverride: filenameText
+                        )
+                        .allowsHitTesting(false)
+                    } else {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color("BackgroundSecondary"))
+                            .frame(width: 240, height: 240)
+                    }
+                    Spacer(minLength: 0)
                 }
-                .frame(height: 52)
-                .padding(.horizontal, 12)
-                .background(Color("Background"))
+                .padding(.top, 24)
+
+                // Play/Pause button
+                Button(action: { togglePlay() }, label: {
+                    Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(width: 48, height: 48)
+                        .background(Color("Primary"))
+                        .clipShape(Circle())
+                })
+                .buttonStyle(.plain)
+                .padding(.top, 16)
+
+                // Playback bar (reused)
+                MediaPlaybackBar(
+                    current: $currentTime,
+                    total: $totalTime,
+                    volume: Binding(
+                        get: { Double(player?.volume ?? 1.0) },
+                        set: { newVal in player?.volume = Float(newVal) }
+                    ),
+                    onScrub: { newSeconds in
+                        seek(to: newSeconds)
+                    },
+                    onScrubBegan: { isPlaying = false; player?.pause() },
+                    onScrubEnded: {
+                        if player != nil {
+                            player?.play()
+                            isPlaying = true
+                        }
+                    },
+                    timeColor: .gray,
+                    trackColor: Color.gray.opacity(0.25)
+                )
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+
+                // Filename editor
+                APEXTextField(
+                    kind: .singleLine,
+                    label: "파일 이름",
+                    placeholder: "파일 이름 입력",
+                    text: $filenameText,
+                    state: .normal(helper: nil),
+                    isRequired: false,
+                    isDisabled: false,
+                    showsClearButton: true
+                )
+                .id("filenameField")
+                .padding(.horizontal, 16)
+                .padding(.top, 20)
             }
         }
-        .background(
-            Color("Background")
-                .contentShape(Rectangle())
-                .onTapGesture { UIApplication.apexDismissKeyboard() }
-        )
-        .ignoresSafeArea(.keyboard, edges: .bottom)
-        .sheet(isPresented: $showShareSheet) {
-            ShareView()
+        // Allow programmatic scrolling only when keyboard is shown
+        .scrollDisabled(!isKeyboardShown)
+        .background(Color("Background"))
+        .toolbar(.hidden, for: .navigationBar)
+        .safeAreaBar(edge: .top) {
+            APEXRecordTopBar(
+                onClose: { dismiss() },
+                onDone: { saveAudio(); dismiss() }
+            )
         }
+        .scrollDismissesKeyboard(.interactively)
+        .overlay {
+            GeometryReader { proxy in
+                VStack(spacing: 0) {
+                    Spacer() // 전체 높이 채운 뒤 아래로 밀기
+                    HStack(spacing: 48) {
+                        Button(action: { saveAudio() }) {
+                            Image(systemName: "square.and.arrow.down")
+                                .font(.system(size: 15, weight: .semibold))
+                                .frame(width: 44, height: 44)
+                                .glassEffect()
+                        }
+                        .buttonStyle(.plain)
+
+                        Button(action: { showShareSheet = true }) {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.system(size: 15, weight: .semibold))
+                                .frame(width: 44, height: 44)
+                                .glassEffect()
+                        }
+                        .buttonStyle(.plain)
+
+                        Button(action: { deleteAudio() }) {
+                            Image(systemName: "trash")
+                                .font(.system(size: 15, weight: .semibold))
+                                .frame(width: 44, height: 44)
+                                .glassEffect()
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .padding(.bottom, proxy.safeAreaInsets.bottom) // 홈 인디케이터 보정
+                    .background(Color("Background"))
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity) // 전체 영역 채우기
+            }
+            .ignoresSafeArea(.keyboard, edges: .bottom) // 키보드 올라와도 고정
+        }
+        .sheet(isPresented: $showShareSheet) {
+            if let url = workingURL ?? audioURL {
+                ShareView(initialAttachments: [ShareAttachmentItem(id: UUID(), kind: .audio(url))])
+            } else {
+                ShareView()
+            }
+        }
+        .alert("음성 녹음을 삭제할까요?", isPresented: $showDeleteAlert) {
+            Button("삭제", role: .destructive) {
+                guard let oldURL = workingURL ?? audioURL else { return }
+                // Stop playback
+                teardown()
+                // Preserve existing shares by copying to app-managed storage and notifying rename
+                let preservedURL = ensureSharedAudioCopy(of: oldURL)
+                NotificationCenter.default.post(
+                    name: .apexAudioRenamed,
+                    object: nil,
+                    userInfo: ["oldURL": oldURL, "newURL": preservedURL]
+                )
+                // Remove original file
+                try? FileManager.default.removeItem(at: oldURL)
+                dismiss()
+            }
+            Button("취소", role: .cancel) { }
+        }
+        .simultaneousGesture(
+            TapGesture().onEnded {
+                UIApplication.apexDismissKeyboard()
+            }
+        )
         .onAppear {
-            NotificationCenter.default.post(name: .apexStopAllAudioPlayback, object: nil)
             workingURL = audioURL
             setupPlayerIfNeeded()
             filenameText = defaultTitle()
         }
         .onDisappear { teardown() }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            isKeyboardShown = true
+            withAnimation(.easeOut(duration: 0.25)) {
+                proxy.scrollTo("filenameField", anchor: .bottom)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { _ in
+            if isKeyboardShown {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    proxy.scrollTo("filenameField", anchor: .bottom)
+                }
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            isKeyboardShown = false
+        }
+        }
     }
 
     // MARK: - Helpers
@@ -270,7 +304,31 @@ struct RecordView: View {
     }
 
     private func deleteAudio() {
-        // Placeholder: integrate deletion flow if needed
+        showDeleteAlert = true
+    }
+
+    // MARK: - File helpers
+    private func ensureSharedAudioCopy(of sourceURL: URL) -> URL {
+        let fm = FileManager.default
+        // Target directory under Documents/SharedAudios
+        let baseDir = fm.urls(for: .documentDirectory, in: .userDomainMask).first ?? sourceURL.deletingLastPathComponent()
+        let sharedDir = baseDir.appendingPathComponent("SharedAudios", isDirectory: true)
+        if !fm.fileExists(atPath: sharedDir.path) {
+            try? fm.createDirectory(at: sharedDir, withIntermediateDirectories: true)
+        }
+        let name = sourceURL.deletingPathExtension().lastPathComponent
+        let ext = sourceURL.pathExtension.isEmpty ? "m4a" : sourceURL.pathExtension
+        var dest = sharedDir.appendingPathComponent(name).appendingPathExtension(ext)
+        var counter = 2
+        while fm.fileExists(atPath: dest.path) {
+            dest = sharedDir.appendingPathComponent("\(name) \(counter)").appendingPathExtension(ext)
+            counter += 1
+        }
+        if sourceURL == dest { return dest }
+        if fm.fileExists(atPath: dest.path) == false {
+            try? fm.copyItem(at: sourceURL, to: dest)
+        }
+        return dest
     }
 
     private func saveAudio() {
@@ -312,8 +370,6 @@ struct RecordView: View {
             // no-op: keep old name if move failed
         }
     }
-
-    // removed: local dismissKeyboard() in favor of UIApplication.apexDismissKeyboard()
 
     private func defaultTitle() -> String {
         guard let url = workingURL ?? audioURL else { return "음성 메모" }
