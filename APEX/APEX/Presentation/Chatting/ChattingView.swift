@@ -42,15 +42,50 @@ struct ChattingView: View {
     @State private var bottomInsetHeight: CGFloat = 0
     @State private var isEditorCurrentlyFocused: Bool = false
     @State private var showCopyToast: Bool = false
+    @FocusState private var isSearchFieldFocused: Bool
+    // Search state
+    @State private var isSearchActive: Bool = false
+    @State private var searchText: String = ""
+    @State private var matchedNoteIds: [UUID] = []
+    @State private var currentMatchIndex: Int = 0
+    @State private var sheetModeBeforeSearch: BottomSheetMode? = nil
+    // Date search
+    @State private var showDatePicker: Bool = false
+    @State private var datePickerSelection: Date = Date()
+    @State private var highlightedDate: Date?
+    @State private var dateHighlightOffsetY: CGFloat = 0
     private struct EditingPayload: Identifiable { let id = UUID(); let noteId: UUID; var text: String }
     @State private var editing: EditingPayload?
     private struct SelectCopyPayload: Identifiable { let id = UUID(); let text: String }
     @State private var selectCopy: SelectCopyPayload?
-    @State private var showShareFromEdit: Bool = false
+    private struct ShareSeed: Identifiable {
+        let id = UUID()
+        var text: String?
+        var files: [URL]
+        var audios: [URL]
+    }
+    @State private var shareSeed: ShareSeed?
+    // Lifted media viewer state to parent to avoid cell re-creation closing the cover
+    private struct ViewerPayload: Identifiable {
+        let id = UUID()
+        let items: [MediaSource]
+        let anchors: [ChatMessageView.ChatAnchor]
+        let index: Int
+    }
+    @State private var viewer: ViewerPayload?
+    // Parent-scoped record viewer state
+    private struct RecordPayload: Identifiable { let id = UUID(); let url: URL }
+    @State private var recordPayload: RecordPayload?
 
     private enum Metrics {
-        static let timeWidth: CGFloat = 72
+        static let timeWidth: CGFloat = 66
         static let timeGap: CGFloat = 12
+    }
+    private func timeTextWidth(for date: Date) -> CGFloat {
+        let text = date.formattedChatTime
+        let font = UIFont.preferredFont(forTextStyle: .caption2)
+        let size = (text as NSString).size(withAttributes: [.font: font])
+        return ceil(size.width)
     }
     private let bottomSentinelId: String = "chat-bottom-sentinel"
     var body: some View {
@@ -85,8 +120,41 @@ struct ChattingView: View {
                             ChatMessageView(
                                 note: note,
                                 chatTitle: chatTitle,
+                                currentClientId: clientId,
+                                highlightQuery: (
+                                    isSearchActive &&
+                                    !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+                                    !matchedNoteIds.isEmpty &&
+                                    matchedNoteIds.indices.contains(currentMatchIndex) &&
+                                    matchedNoteIds[currentMatchIndex] == note.id
+                                ) ? searchText : nil,
                                 buildViewerPayload: { anchor in
                                     buildGlobalViewerPayload(startingFrom: anchor)
+                                },
+                                onOpenViewer: { anchor in
+                                    openViewer(anchor: anchor)
+                                },
+                                onOpenShare: { selectedText in
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                        shareSeed = ShareSeed(text: selectedText, files: [], audios: [])
+                                    }
+                                },
+                                onOpenShareFiles: { urls in
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                        shareSeed = ShareSeed(text: nil, files: urls, audios: [])
+                                    }
+                                },
+                                onOpenShareAudio: { url in
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                        shareSeed = ShareSeed(text: nil, files: [], audios: [url])
+                                    }
+                                },
+                                onDeleteFile: { noteId, fileIndex in
+                                    deleteFile(noteId: noteId, fileIndex: fileIndex)
+                                },
+                                onOpenRecord: { url in
+                                    NotificationCenter.default.post(name: .apexStopAllAudioPlayback, object: nil)
+                                    recordPayload = RecordPayload(url: url)
                                 },
                                 onDelete: { anchor in
                                     deleteMedia(anchor: anchor)
@@ -111,7 +179,7 @@ struct ChattingView: View {
                                     selectCopy = SelectCopyPayload(text: text)
                                 }
                             )
-                            .offset(x: -timestampRevealProgress * (Metrics.timeWidth + Metrics.timeGap))
+                            .offset(x: -timestampRevealProgress * (timeTextWidth(for: note.uploadedAt) + Metrics.timeGap))
                         }
                         .id(note.id)
                     }
@@ -141,7 +209,7 @@ struct ChattingView: View {
                     )
                 }
             )
-            .onTapGesture { dismissKeyboard() }
+            .onTapGesture { UIApplication.apexDismissKeyboard() }
             .onAppear {
                 DispatchQueue.main.async {
                     if notes.isEmpty {
@@ -149,6 +217,8 @@ struct ChattingView: View {
                         notes = persisted.isEmpty ? initialNotes : persisted
                     }
                     proxy.scrollTo(bottomSentinelId, anchor: .bottom)
+                    // If any incoming notes carry pending progress, kick off simulations
+                    kickOffPendingUploadsIfNeeded()
                 }
             }
             .onChange(of: notes.count) { _ in
@@ -211,6 +281,14 @@ struct ChattingView: View {
                     self.showScrollToBottom = false
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: .apexNavigateToDate)) { notif in
+                if let date = notif.userInfo?["date"] as? Date {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        proxy.scrollTo(dateHeaderId(date), anchor: .top)
+                    }
+                    self.showScrollToBottom = false
+                }
+            }
             .onReceive(NotificationCenter.default.publisher(for: .apexAudioRenamed)) { notif in
                 guard let oldURL = notif.userInfo?["oldURL"] as? URL,
                       let newURL = notif.userInfo?["newURL"] as? URL else { return }
@@ -228,6 +306,32 @@ struct ChattingView: View {
                             notes[idx].bundle = .audio(audios)
                         }
                     }
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .apexAudioDeleted)) { notif in
+                guard let url = notif.userInfo?["url"] as? URL else { return }
+                var changedAny = false
+                for idx in notes.indices {
+                    if case var .audio(audios) = notes[idx].bundle {
+                        let before = audios.count
+                        audios.removeAll { $0.url == url }
+                        if audios.count != before {
+                            notes[idx].bundle = audios.isEmpty ? nil : .audio(audios)
+                            changedAny = true
+                        }
+                    }
+                }
+                if changedAny {
+                    ChatStore.shared.setNotes(notes, for: clientId)
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .apexChatNotesUpdated)) { notif in
+                // When any chat's notes change, refresh if this view's clientId matches
+                if let changedId = notif.userInfo?["clientId"] as? UUID, changedId == clientId {
+                    let latest = ChatStore.shared.notes(for: clientId)
+                    notes = latest
+                    // Ensure any items with progress resume/complete simulation
+                    kickOffPendingUploadsIfNeeded()
                 }
             }
             .overlay(alignment: .bottomTrailing) {
@@ -248,6 +352,14 @@ struct ChattingView: View {
                     .transition(.scale.combined(with: .opacity))
                 }
             }
+            
+            .apexToast(
+                isPresented: $showCopyToast,
+                image: Image(systemName: "doc.on.doc.fill"),
+                text: "복사되었습니다.",
+                buttonTitle: nil,
+                duration: 1.6
+            )
             }
 
             // Right-side floating date indicator
@@ -273,7 +385,6 @@ struct ChattingView: View {
             }
         }
         .padding(.horizontal, 12)
-        .scrollEdgeEffectStyle(.soft, for: .all)
         .toolbar(.hidden, for: .navigationBar)
         .overlay(alignment: .trailing) {
             Color.clear
@@ -358,38 +469,109 @@ struct ChattingView: View {
         .onPreferenceChange(ChipHeightKey.self) { h in
             if h > 0 { chipHeight = h }
         }
-        .safeAreaInset(edge: .top) {
-            APEXNavigationBar(
-                .memo(
-                    title: chatTitle,
-                    onBack: { dismiss() },
-                    onSearch: { },
-                    onMenu: { }
-                )
-            )
+        .onChange(of: isSearchActive) { _, active in
+            if active {
+                withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
+                    if sheetMode != .hidden {
+                        sheetModeBeforeSearch = sheetMode
+                    }
+                    sheetMode = .hidden
+                    bottomBarOffsetY = 0
+                }
+                NotificationCenter.default.post(name: .apexMediaSheetVisibilityChanged, object: nil, userInfo: ["visible": false])
+            }
+            // Toggle focus on search field based on visibility
+            DispatchQueue.main.async {
+                isSearchFieldFocused = active
+            }
+            if !active {
+                // Reset search state back to original
+                searchText = ""
+                matchedNoteIds.removeAll()
+                currentMatchIndex = 0
+                highlightedDate = nil
+                dateHighlightOffsetY = 0
+                showDatePicker = false
+                if let previous = sheetModeBeforeSearch {
+                    withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
+                        sheetMode = previous
+                    }
+                    sheetModeBeforeSearch = nil
+                    NotificationCenter.default.post(name: .apexMediaSheetVisibilityChanged, object: nil, userInfo: ["visible": true])
+                }
+            }
         }
+        .safeAreaBar(edge: .top) {
+            if isSearchActive {
+                HStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    Button {
+                        datePickerSelection = Date()
+                        showDatePicker = true
+                    } label: {
+                        Image(systemName: "calendar")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(.black)
+                            .frame(width: 44, height: 44)
+                    }
+                    .glassEffect()
+                }
+                .frame(height: 52)
+                .padding(.horizontal, 12)
+                .background(Color("Background"))
+            } else {
+                APEXNavigationBar(
+                    .memo(
+                        title: chatTitle,
+                        onBack: { dismiss() },
+                        onSearch: { withAnimation { isSearchActive = true } },
+                        onMenu: { }
+                    )
+                )
+            }
+        }
+        
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 8) {
-                if !stagedAttachments.isEmpty {
-                    AttachBar(items: stagedAttachments) { removed in
-                        stagedAttachments.removeAll { $0.id == removed.id }
-                    }
-                }
-
-                InputBar({ note in
-                    handleIncoming(note: note)
-                }, onSheetVisibilityChanged: { visible in
-                    // Map InputBar left button toggle to our custom sheet modes
-                    withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
-                        if visible {
-                            sheetMode = .collapsed
-                        } else {
-                            sheetMode = (sheetMode == .expanded) ? .collapsed : .hidden
+                if isSearchActive {
+                    ChatSearchBar(
+                        text: $searchText,
+                        isFocused: _isSearchFieldFocused,
+                        onPrev: { navigateToPrevMatch() },
+                        onNext: { navigateToNextMatch() },
+                        onClose: {
+                            isSearchFieldFocused = false
+                            withAnimation { isSearchActive = false }
+                            searchText = ""
+                            matchedNoteIds.removeAll()
+                        },
+                        onTextChange: { _ in
+                            recomputeMatches()
+                            scrollToCurrentMatch()
+                        }
+                    )
+                } else {
+                    if !stagedAttachments.isEmpty {
+                        AttachBar(items: stagedAttachments) { removed in
+                            stagedAttachments.removeAll { $0.id == removed.id }
                         }
                     }
-                }, stagedAttachments: $stagedAttachments, onBarOffsetChanged: { offset in
-                    bottomBarOffsetY = offset
-                })
+
+                    InputBar({ note in
+                        handleIncoming(note: note)
+                    }, onSheetVisibilityChanged: { visible in
+                        // Map InputBar left button toggle to our custom sheet modes
+                        withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
+                            if visible {
+                                sheetMode = .collapsed
+                            } else {
+                                sheetMode = (sheetMode == .expanded) ? .collapsed : .hidden
+                            }
+                        }
+                    }, stagedAttachments: $stagedAttachments, onBarOffsetChanged: { offset in
+                        bottomBarOffsetY = offset
+                    })
+                }
             }
             .offset(y: bottomBarOffsetY)
             .animation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2), value: bottomBarOffsetY)
@@ -444,55 +626,23 @@ struct ChattingView: View {
                                 NotificationCenter.default.post(name: .apexSendSelectedAttachments, object: nil)
                                 sheetMode = .hidden
                             },
-                            selectedAttachmentItems: $stagedAttachments
+                            selectedAttachmentItems: $stagedAttachments,
+                            isFullyExpandedOverride: (sheetMode == .expanded),
+                            onCloseTopBar: {
+                                withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
+                                    sheetMode = .hidden
+                                }
+                            }
                         )
                         .padding(.bottom, 0)
                     }
                     .zIndex(1)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
-
-                    // Upload button when fully expanded
-                    if sheetMode == .expanded {
-                        let bottomInset: CGFloat = {
-                            if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                               let win = scene.windows.first(where: { $0.isKeyWindow }) {
-                                return win.safeAreaInsets.bottom
-                            }
-                            return 0
-                        }()
-                        Button {
-                            NotificationCenter.default.post(name: .apexSendSelectedAttachments, object: nil)
-                            withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
-                                sheetMode = .hidden
-                            }
-                        } label: {
-                            Image(systemName: "arrow.up")
-                                .font(.system(size: 20, weight: .medium))
-                                .foregroundColor(.white)
-                                .frame(width: 48, height: 48)
-                                .background(Color("Primary"))
-                                .clipShape(Circle())
-                                .glassEffect()
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.trailing, 16)
-                        .padding(.bottom, 16 + bottomInset)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                        .transition(.scale.combined(with: .opacity))
-                        .zIndex(2)
-                    }
                 }
             }
         }
+        .scrollEdgeEffectStyle(.soft, for: .all)
         .onPreferenceChange(BottomInsetHeightKey.self) { height in bottomInsetHeight = height }
-        .onDisappear { ChatStore.shared.setNotes(notes, for: clientId) }
-        .apexToast(
-            isPresented: $showCopyToast,
-            image: Image(systemName: "doc.on.doc.fill"),
-            text: "복사되었습니다.",
-            buttonTitle: nil,
-            duration: 1.6
-        )
         .sheet(item: $editing) { payload in
             TextEditSheet(
                 initialText: payload.text,
@@ -509,8 +659,12 @@ struct ChattingView: View {
                     withAnimation { showCopyToast = true }
                 },
                 onShare: {
-                    editing = nil
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { showShareFromEdit = true }
+                    DispatchQueue.main.async {
+                        editing = nil
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                            shareSeed = ShareSeed(text: payload.text, files: [], audios: [])
+                        }
+                    }
                 },
                 onDelete: {
                     if let idx = notes.firstIndex(where: { $0.id == payload.noteId }) {
@@ -532,8 +686,66 @@ struct ChattingView: View {
                 }
             )
         }
-        .sheet(isPresented: $showShareFromEdit) {
-            ShareView(shouldSeedIfEmpty: false)
+        .sheet(item: $shareSeed) { seed in
+            let initialAttachments: [ShareAttachmentItem] = {
+                var items: [ShareAttachmentItem] = []
+                if let text = seed.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
+                    items.append(ShareAttachmentItem(id: UUID(), kind: .text(text)))
+                }
+                for url in seed.files {
+                    items.append(ShareAttachmentItem(id: UUID(), kind: .file(url)))
+                }
+                for url in seed.audios {
+                    items.append(ShareAttachmentItem(id: UUID(), kind: .audio(url)))
+                }
+                return items
+            }()
+            ShareView(
+                initialAttachments: initialAttachments,
+                excludedClientIds: [clientId]
+            )
+        }
+        // Centralized media viewer presentation to prevent dismissal due to cell re-render
+        .fullScreenCover(item: $viewer) { payload in
+            let currentAnchor = payload.anchors.indices.contains(payload.index) ? payload.anchors[payload.index] : nil
+            let initialUploadedAt = currentAnchor.flatMap { anchor in
+                notes.first(where: { $0.id == anchor.noteId })?.uploadedAt
+            }
+            MediaView(
+                items: payload.items,
+                selectedIndex: payload.index,
+                title: chatTitle,
+                uploadedAt: initialUploadedAt,
+                excludedClientIds: [clientId],
+                onDelete: { removedIndex, _ in
+                    guard payload.anchors.indices.contains(removedIndex) else { return }
+                    let anchor = payload.anchors[removedIndex]
+                    deleteMedia(anchor: anchor)
+                },
+                onTitleTap: { currentIndex in
+                    guard payload.anchors.indices.contains(currentIndex) else { return }
+                    let anchor = payload.anchors[currentIndex]
+                    NotificationCenter.default.post(
+                        name: .apexNavigateToNote,
+                        object: nil,
+                        userInfo: ["noteId": anchor.noteId]
+                    )
+                }
+            )
+        }
+        .fullScreenCover(item: $recordPayload) { payload in
+            RecordView(audioURL: payload.url)
+        }
+        .sheet(isPresented: $showDatePicker) {
+            let memoDays: Set<Date> = Set(notes.map { Calendar.current.startOfDay(for: $0.uploadedAt) })
+            ChatDatePickerSheet(date: $datePickerSelection, hasMemoDays: memoDays, onClose: {
+                showDatePicker = false
+            }, onSelect: { selected in
+                showDatePicker = false
+                highlightedDate = selected
+                triggerDateBounce()
+                NotificationCenter.default.post(name: .apexNavigateToDate, object: nil, userInfo: ["date": selected])
+            })
         }
     }
 }
@@ -662,29 +874,84 @@ private extension ChattingView {
         files[fileIndex].progress = value
         notes[idx].bundle = .files(files)
     }
+
+    // MARK: - Search helpers
+    func recomputeMatches() {
+        let trimmedQuery = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedQuery.isEmpty else {
+            matchedNoteIds.removeAll()
+            currentMatchIndex = 0
+            return
+        }
+        let lowercasedQuery = trimmedQuery.lowercased()
+        var results: [UUID] = []
+        for note in notes.reversed() {
+            var matched = false
+            if let textLowercased = note.text?.lowercased(), textLowercased.contains(lowercasedQuery) {
+                matched = true
+            }
+            if !matched, case let .files(files) = note.bundle {
+                if files.contains(where: { $0.url.lastPathComponent.lowercased().contains(lowercasedQuery) }) {
+                    matched = true
+                }
+            }
+            if !matched, case let .audio(audios) = note.bundle {
+                if audios.contains(where: { $0.url.deletingPathExtension().lastPathComponent.lowercased().contains(lowercasedQuery) }) {
+                    matched = true
+                }
+            }
+            if matched { results.append(note.id) }
+        }
+        matchedNoteIds = results
+        // Always start at the most recent match when query changes
+        currentMatchIndex = results.isEmpty ? 0 : 0
+    }
+
+    func scrollToCurrentMatch() {
+        guard !matchedNoteIds.isEmpty else { return }
+        let id = matchedNoteIds[currentMatchIndex]
+        NotificationCenter.default.post(name: .apexNavigateToNote, object: nil, userInfo: ["noteId": id])
+    }
+
+    func navigateToNextMatch() {
+        guard !matchedNoteIds.isEmpty else { return }
+        // Down arrow: move toward newer (list is newest-first), so decrement index
+        currentMatchIndex = (currentMatchIndex - 1 + matchedNoteIds.count) % matchedNoteIds.count
+        scrollToCurrentMatch()
+    }
+
+    func navigateToPrevMatch() {
+        guard !matchedNoteIds.isEmpty else { return }
+        // Up arrow: move toward older (list is newest-first), so increment index
+        currentMatchIndex = (currentMatchIndex + 1) % matchedNoteIds.count
+        scrollToCurrentMatch()
+    }
+
+    private func openViewer(anchor: ChatMessageView.ChatAnchor) {
+        let payload = buildGlobalViewerPayload(startingFrom: anchor)
+        viewer = ViewerPayload(items: payload.items, anchors: payload.anchors, index: payload.index)
+    }
 }
 
 private struct ChatMessageView: View {
     let note: Note
     let chatTitle: String
+    let currentClientId: UUID
+    let highlightQuery: String?
     struct ChatAnchor { let noteId: UUID; let isImage: Bool; let localIndex: Int }
     let buildViewerPayload: (ChatAnchor) -> (items: [MediaSource], anchors: [ChatAnchor], index: Int)
+    let onOpenViewer: (ChatAnchor) -> Void
+    let onOpenShare: (String) -> Void
+    let onOpenShareFiles: ([URL]) -> Void
+    let onOpenShareAudio: (URL) -> Void
+    let onDeleteFile: (UUID, Int) -> Void
+    let onOpenRecord: (URL) -> Void
     let onDelete: (ChatAnchor) -> Void
     let onDeleteAudio: (UUID, URL) -> Void
     let onCopyText: (String) -> Void
     let onStartEdit: (UUID, String) -> Void
     let onDeleteNote: (UUID) -> Void
     let onStartSelectCopy: (String) -> Void
-    private struct ViewerPayload: Identifiable {
-        let id = UUID()
-        let items: [MediaSource]
-        let anchors: [ChatAnchor]
-        let index: Int
-    }
-    @State private var viewer: ViewerPayload?
-    @State private var showShareSheet: Bool = false
-    private struct RecordPayload: Identifiable { let id = UUID(); let url: URL }
-    @State private var recordPayload: RecordPayload?
     // Removed selectedRange; SelectableText now manages selection internally
     @State private var showDeleteAlert: Bool = false
     @State private var deleteSubjectText: String = ""
@@ -693,6 +960,69 @@ private struct ChatMessageView: View {
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 8) {
+            if case let .media(images, videos) = note.bundle {
+                if videos.count == 1, images.isEmpty {
+                    SingleVideoCard(url: videos[0].url) {
+                        onOpenViewer(ChatAnchor(noteId: note.id, isImage: false, localIndex: 0))
+                    }
+                } else if images.count == 1, videos.isEmpty {
+                    SingleImageCard(imageData: images[0].data) {
+                        onOpenViewer(ChatAnchor(noteId: note.id, isImage: true, localIndex: 0))
+                    }
+                } else {
+                    MediaGrid(images: images, videos: videos) { isImage, localIndex in
+                        onOpenViewer(ChatAnchor(noteId: note.id, isImage: isImage, localIndex: localIndex))
+                    }
+                }
+            } else if case let .files(files) = note.bundle {
+                FilesGrid(
+                    files: files,
+                    highlightQuery: highlightQuery,
+                    onShareFile: { url in onOpenShareFiles([url]) },
+                    onDeleteFileAt: { idx in onDeleteFile(note.id, idx) }
+                )
+                .contentShape(Rectangle())
+                .contextMenu {
+                    Button {
+                        let urls = files.map { $0.url }
+                        onOpenShareFiles(urls)
+                    } label: {
+                        Label("모두 공유", systemImage: "square.and.arrow.up")
+                    }
+                    Button(role: .destructive) {
+                        deleteSubjectText = "파일 메모를"
+                        pendingDelete = { onDeleteNote(note.id) }
+                        showDeleteAlert = true
+                    } label: {
+                        Label("메모 삭제", systemImage: "trash")
+                    }
+                }
+            }
+            // Audio attachments: always render single tile with anchored menu
+            else if case let .audio(audios) = note.bundle {
+                if let first = audios.first {
+                    AudioSquareTile(url: first.url, duration: first.duration, preferredLength: nil, titleOverride: nil, highlightQuery: highlightQuery)
+                        .contextMenu {
+                            Button { onOpenRecord(first.url) } label: {
+                                Label("더보기", systemImage: "ellipsis.circle")
+                            }
+                            Button {
+                                NotificationCenter.default.post(name: .apexStopAllAudioPlayback, object: nil)
+                                onOpenShareAudio(first.url)
+                            } label: {
+                                Label("공유", systemImage: "square.and.arrow.up")
+                            }
+                            Button(role: .destructive) {
+                                deleteSubjectText = "음성 녹음을"
+                                pendingDelete = { onDeleteAudio(note.id, first.url) }
+                                showDeleteAlert = true
+                            } label: {
+                                Label("삭제", systemImage: "trash")
+                            }
+                        }
+                }
+            }
+            
             if let text = note.text {
                 VStack(alignment: .trailing, spacing: 8) {
                     // ChattingView.swift (텍스트 버블 부분만)
@@ -701,7 +1031,8 @@ private struct ChatMessageView: View {
                         fontSize: 14,
                         textStyle: .body,
                         lineSpacing: 4,
-                        maxLayoutWidth: min(UIScreen.main.bounds.width * 0.78, 420)
+                        maxLayoutWidth: min(UIScreen.main.bounds.width * 0.78, 420),
+                        highlightQuery: highlightQuery
                     )
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.vertical, 12)
@@ -715,16 +1046,16 @@ private struct ChatMessageView: View {
                 }
                 .contentShape(Rectangle())
                 .contextMenu {
-                    Button { onStartEdit(note.id, text) } label: {
-                        Label("수정", systemImage: "pencil")
+                    Button { onCopyText(text) } label: {
+                        Label("전체 복사", systemImage: "doc.on.doc")
                     }
                     Button { onStartSelectCopy(text) } label: {
                         Label("선택 복사", systemImage: "text.viewfinder")
                     }
-                    Button { onCopyText(text) } label: {
-                        Label("전체 복사", systemImage: "doc.on.doc")
+                    Button { onStartEdit(note.id, text) } label: {
+                        Label("수정", systemImage: "pencil")
                     }
-                    Button { showShareSheet = true } label: {
+                    Button { onOpenShare(text) } label: {
                         Label("공유", systemImage: "square.and.arrow.up")
                     }
                     Button(role: .destructive) {
@@ -736,82 +1067,12 @@ private struct ChatMessageView: View {
                     }
                 }
             }
-
-            if case let .media(images, videos) = note.bundle {
-                if videos.count == 1, images.isEmpty {
-                    SingleVideoCard(url: videos[0].url) {
-                        openViewer(anchor: ChatAnchor(noteId: note.id, isImage: false, localIndex: 0))
-                    }
-                } else if images.count == 1, videos.isEmpty {
-                    SingleImageCard(imageData: images[0].data) {
-                        openViewer(anchor: ChatAnchor(noteId: note.id, isImage: true, localIndex: 0))
-                    }
-                } else {
-                    MediaGrid(images: images, videos: videos) { isImage, localIndex in
-                        openViewer(anchor: ChatAnchor(noteId: note.id, isImage: isImage, localIndex: localIndex))
-                    }
-                }
-            } else if case let .files(files) = note.bundle {
-                FilesGrid(files: files)
-            }
-            // Audio attachments: always render single tile with anchored menu
-            else if case let .audio(audios) = note.bundle {
-                if let first = audios.first {
-                    AudioSquareTile(url: first.url, duration: first.duration)
-                        .contextMenu {
-                            Button { recordPayload = RecordPayload(url: first.url) } label: {
-                                Label("더보기", systemImage: "ellipsis.circle")
-                            }
-                            Button { showShareSheet = true } label: {
-                                Label("공유", systemImage: "square.and.arrow.up")
-                            }
-                            Button(role: .destructive) {
-                                deleteSubjectText = "음성 녹음을"
-                                pendingDelete = { onDeleteAudio(note.id, first.url) }
-                                showDeleteAlert = true
-                            } label: {
-                                Label("삭제", systemImage: "trash")
-                            }
-                        }
-                }
-            }
         }
         .alert("\(deleteSubjectText) 삭제하겠습니까?", isPresented: $showDeleteAlert) {
             Button("삭제", role: .destructive) { pendingDelete?() }
             Button("취소", role: .cancel) { }
         }
-        .fullScreenCover(item: $viewer) { payload in
-            MediaView(
-                items: payload.items,
-                selectedIndex: payload.index,
-                title: chatTitle,
-                uploadedAt: note.uploadedAt,
-                onDelete: { removedIndex, _ in
-                    guard payload.anchors.indices.contains(removedIndex) else { return }
-                    onDelete(payload.anchors[removedIndex])
-                },
-                onTitleTap: { currentIndex in
-                    guard payload.anchors.indices.contains(currentIndex) else { return }
-                    let anchor = payload.anchors[currentIndex]
-                    NotificationCenter.default.post(
-                        name: .apexNavigateToNote,
-                        object: nil,
-                        userInfo: ["noteId": anchor.noteId]
-                    )
-                }
-            )
-        }
-        .sheet(isPresented: $showShareSheet) {
-            ShareView(shouldSeedIfEmpty: false)
-        }
-        .fullScreenCover(item: $recordPayload) { payload in
-            RecordView(audioURL: payload.url)
-        }
-    }
-
-    private func openViewer(anchor: ChatAnchor) {
-        let payload = buildViewerPayload(anchor)
-        viewer = ViewerPayload(items: payload.items, anchors: payload.anchors, index: payload.index)
+        // removed per-cell share sheet and record cover; handled at parent level
     }
 }
 
@@ -820,7 +1081,8 @@ private extension ChattingView {
     func dateHeaderView(_ date: Date) -> some View {
         Text(date.formattedChatDayHeader)
             .font(.caption2)
-            .foregroundColor(.gray)
+            .foregroundColor(isSameCalendarDay(date, highlightedDate) ? Color("Primary") : .gray)
+            .offset(y: isSameCalendarDay(date, highlightedDate) ? dateHighlightOffsetY : 0)
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.vertical, 12)
             .background(
@@ -831,6 +1093,7 @@ private extension ChattingView {
                     )
                 }
             )
+            .id(dateHeaderId(date))
     }
 
     func updateScrollDateIndicator(with positions: [Date: CGFloat]) {
@@ -862,6 +1125,40 @@ private extension ChattingView {
         hideIndicatorWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: work)
     }
+    
+    func dateHeaderId(_ date: Date) -> String {
+        let comps = Calendar.current.dateComponents([.year, .month, .day], from: date)
+        let y = comps.year ?? 0
+        let m = (comps.month ?? 0)
+        let d = (comps.day ?? 0)
+        return String(format: "date-%04d%02d%02d", y, m, d)
+    }
+
+    func isSameCalendarDay(_ lhs: Date, _ rhs: Date?) -> Bool {
+        guard let rhs else { return false }
+        return Calendar.current.isDate(lhs, inSameDayAs: rhs)
+    }
+
+    func triggerDateBounce() {
+        withAnimation(.spring(response: 0.22, dampingFraction: 0.45)) {
+            dateHighlightOffsetY = -4
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            withAnimation(.spring(response: 0.22, dampingFraction: 0.5)) {
+                dateHighlightOffsetY = 3
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.24) {
+            withAnimation(.spring(response: 0.22, dampingFraction: 0.55)) {
+                dateHighlightOffsetY = -2
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.36) {
+            withAnimation(.spring(response: 0.26, dampingFraction: 0.7)) {
+                dateHighlightOffsetY = 0
+            }
+        }
+    }
     func deleteMedia(anchor: ChatMessageView.ChatAnchor) {
         guard let noteIndex = notes.firstIndex(where: { $0.id == anchor.noteId }) else { return }
         guard case var .media(images, videos) = notes[noteIndex].bundle else { return }
@@ -892,6 +1189,34 @@ private extension ChattingView {
 
         notes[noteIndex].bundle = .media(images: images, videos: videos)
         ChatStore.shared.setNotes(notes, for: clientId)
+    }
+    
+    func deleteFile(noteId: UUID, fileIndex: Int) {
+        guard let noteIndex = notes.firstIndex(where: { $0.id == noteId }) else { return }
+        guard case var .files(files) = notes[noteIndex].bundle else { return }
+        guard files.indices.contains(fileIndex) else { return }
+        files.remove(at: fileIndex)
+        notes[noteIndex].bundle = .files(files)
+        ChatStore.shared.setNotes(notes, for: clientId)
+    }
+
+    // MARK: - Pending upload helpers
+    func hasPendingProgress(at index: Int) -> Bool {
+        guard notes.indices.contains(index) else { return false }
+        switch notes[index].bundle {
+        case .media(let images, let videos):
+            return images.contains { $0.progress != nil } || videos.contains { $0.progress != nil }
+        case .files(let files):
+            return files.contains { $0.progress != nil }
+        default:
+            return false
+        }
+    }
+
+    func kickOffPendingUploadsIfNeeded() {
+        for idx in notes.indices where hasPendingProgress(at: idx) {
+            startUploadsForNote(at: idx)
+        }
     }
 }
 
@@ -1056,6 +1381,9 @@ private struct MediaGrid: View {
 
 private struct FilesGrid: View {
     let files: [FileAttachment]
+    let highlightQuery: String?
+    let onShareFile: (URL) -> Void
+    let onDeleteFileAt: (Int) -> Void
 
     private let columns: [GridItem] = [
         GridItem(.flexible(), spacing: 2),
@@ -1066,7 +1394,15 @@ private struct FilesGrid: View {
     var body: some View {
         LazyVGrid(columns: columns, spacing: 2) {
             ForEach(files.indices, id: \.self) { idx in
-                FileGridTile(file: files[idx])
+                FileGridTile(file: files[idx], highlightQuery: highlightQuery)
+                    .contextMenu {
+                        Button { onShareFile(files[idx].url) } label: {
+                            Label("공유", systemImage: "square.and.arrow.up")
+                        }
+                        Button(role: .destructive) { onDeleteFileAt(idx) } label: {
+                            Label("삭제", systemImage: "trash")
+                        }
+                    }
             }
         }
         .environment(\.layoutDirection, .rightToLeft)
@@ -1075,6 +1411,7 @@ private struct FilesGrid: View {
 
 private struct FileGridTile: View {
     let file: FileAttachment
+    let highlightQuery: String?
 
     var body: some View {
         ZStack {
@@ -1087,12 +1424,21 @@ private struct FileGridTile: View {
 
                 Spacer()
 
-                Text(file.url.lastPathComponent)
-                    .font(.caption2)
-                    .lineLimit(4)
-                    .truncationMode(.middle)
-                    .foregroundStyle(.black)
-                    .padding(.bottom, 4)
+                if let attr = highlightedName() {
+                    Text(attr)
+                        .font(.caption2)
+                        .lineLimit(4)
+                        .truncationMode(.middle)
+                        .foregroundStyle(.black)
+                        .padding(.bottom, 4)
+                } else {
+                    Text(file.url.lastPathComponent)
+                        .font(.caption2)
+                        .lineLimit(4)
+                        .truncationMode(.middle)
+                        .foregroundStyle(.black)
+                        .padding(.bottom, 4)
+                }
 
                 if let sizeText = fileSizeText(for: file.url) {
                     Text(sizeText)
@@ -1107,6 +1453,7 @@ private struct FileGridTile: View {
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
         }
+        .frame(width: 119, height: 119)
         .cornerRadius(10)
         .environment(\.layoutDirection, .leftToRight)
         .contentShape(Rectangle())
@@ -1125,6 +1472,27 @@ private struct FileGridTile: View {
     }
 }
 
+private extension FileGridTile {
+    func highlightedName() -> AttributedString? {
+        let name = file.url.lastPathComponent
+        guard let query = highlightQuery?.trimmingCharacters(in: .whitespacesAndNewlines), !query.isEmpty else { return nil }
+        let mas = NSMutableAttributedString(string: name)
+        let nameNSString = name as NSString
+        let fullRange = NSRange(location: 0, length: nameNSString.length)
+        let options: NSString.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
+        var searchRange = fullRange
+        while true {
+            let foundRange = nameNSString.range(of: query, options: options, range: searchRange)
+            if foundRange.location == NSNotFound { break }
+            mas.addAttribute(.backgroundColor, value: UIColor.systemYellow.withAlphaComponent(0.45), range: foundRange)
+            let nextLocation = foundRange.location + foundRange.length
+            if nextLocation >= nameNSString.length { break }
+            searchRange = NSRange(location: nextLocation, length: nameNSString.length - nextLocation)
+        }
+        return AttributedString(mas)
+    }
+}
+
 private func fileSystemSymbolName(for type: UTType?, url: URL?) -> String {
     var resolvedType: UTType? = type
     if resolvedType == nil, let ext = url?.pathExtension, !ext.isEmpty {
@@ -1140,19 +1508,21 @@ private func openFileURL(_ url: URL) {
     UIApplication.shared.open(url, options: [:], completionHandler: nil)
 }
 
-private func dismissKeyboard() {
-    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-}
+// removed: local dismissKeyboard() in favor of UIApplication.apexDismissKeyboard()
 
 extension Notification.Name {
     static let apexInputFocused = Notification.Name("apex.inputFocused")
     static let apexInputBlurred = Notification.Name("apex.inputBlurred")
     static let apexNavigateToNote = Notification.Name("apex.navigateToNote")
+    static let apexNavigateToDate = Notification.Name("apex.navigateToDate")
     static let apexAudioRenamed = Notification.Name("apex.audioRenamed")
+    static let apexAudioDeleted = Notification.Name("apex.audioDeleted")
     static let apexOpenDocumentPicker = Notification.Name("apex.openDocumentPicker")
     static let apexOpenCamera = Notification.Name("apex.openCamera")
     static let apexOpenPhotoPicker = Notification.Name("apex.openPhotoPicker")
     static let apexSendSelectedAttachments = Notification.Name("apex.sendSelectedAttachments")
+    static let apexStopAllAudioPlayback = Notification.Name("apex.stopAllAudioPlayback")
+    static let apexMediaSheetVisibilityChanged = Notification.Name("apex.mediaSheetVisibilityChanged")
 }
 
 private struct VideoThumbTile: View {
@@ -1702,11 +2072,13 @@ private struct BottomSheetHost<Content: View>: View {
         }()
 
         VStack(spacing: 0) {
-            Capsule()
-                .fill(Color.gray.opacity(0.3))
-                .frame(width: 36, height: 5)
-                .padding(.top, 8)
-                .padding(.bottom, 8)
+            if mode != .expanded {
+                Capsule()
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(width: 36, height: 5)
+                    .padding(.top, 8)
+                    .padding(.bottom, 8)
+            }
 
             content()
         }

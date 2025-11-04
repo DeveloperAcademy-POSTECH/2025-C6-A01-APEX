@@ -22,11 +22,11 @@ struct ContactsView: View {
     @State private var lastToggledClient: Client?
     @State private var lastFavoriteAction: FavoriteAction?
 
+
     // 커스텀 삭제 모달 상태
     @State private var showDeleteDialog: Bool = false
     @State private var isDeleteConfirmed: Bool = false
     @State private var clientToDelete: Client?
-
     // 내 프로필 상세로 네비게이션 제어
     @State private var showMyProfileView: Bool = false
     @State private var myProfileDummy: DummyClient = sampleMyProfileClient

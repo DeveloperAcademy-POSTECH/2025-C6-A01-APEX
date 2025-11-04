@@ -19,6 +19,10 @@ struct NotesView: View {
     @State private var lastToggledClientId: UUID?
     @State private var lastPinAction: PinAction?
     
+    // 되돌리기 기능을 위한 상태
+    @State private var lastToggledClient: Client?
+    @State private var lastPinAction: PinAction?
+    
     // 커스텀 삭제 모달 상태
     @State private var showDeleteDialog: Bool = false
     @State private var isDeleteConfirmed: Bool = false
@@ -43,7 +47,7 @@ struct NotesView: View {
                 text: toastText,
                 buttonTitle: "되돌리기",
                 duration: 1.6,
-				onButtonTap: undoPinAction
+				        onButtonTap: undoPinAction
             )
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: UUID.self) { id in
@@ -76,7 +80,6 @@ struct NotesView: View {
             
             NotesListView(
                 clients: $clientsStore.clients,
-
                 selectedFilter: $selectedFilter,
                 onTogglePin: togglePin,
                 onDelete: showDeleteConfirmation,
