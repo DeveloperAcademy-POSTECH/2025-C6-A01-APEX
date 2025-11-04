@@ -14,6 +14,7 @@ struct AudioSquareTile: View {
     let duration: TimeInterval?
     var preferredLength: CGFloat?
     var titleOverride: String? = nil
+    var highlightQuery: String? = nil
 
     @State private var isPlaying: Bool = false
     @State private var player: AVAudioPlayer?
@@ -40,10 +41,17 @@ struct AudioSquareTile: View {
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(.black)
                         Spacer(minLength: 0)
-                        Text(titleOverride ?? titleText())
-                            .font(.caption2)
-                            .lineLimit(1)
-                            .padding(.bottom, 4)
+                        if let attr = highlightedTitle() {
+                            Text(attr)
+                                .font(.caption2)
+                                .lineLimit(1)
+                                .padding(.bottom, 4)
+                        } else {
+                            Text(titleOverride ?? titleText())
+                                .font(.caption2)
+                                .lineLimit(1)
+                                .padding(.bottom, 4)
+                        }
                         Text(durationText)
                             .font(.caption2)
                             .foregroundStyle(.gray)
@@ -76,6 +84,14 @@ struct AudioSquareTile: View {
             phase = -2.0 * CGFloat.pi * waveSpeed * CGFloat(audioPlayer.currentTime)
         }
         .onAppear { updateDuration() }
+        .onReceive(NotificationCenter.default.publisher(for: .apexStopAllAudioPlayback)) { _ in
+            stopWork?.cancel(); inactivityWork?.cancel()
+            player?.pause()
+            isPlaying = false
+            showWaveform = false
+            phase = 0
+            level = 0
+        }
         .onDisappear {
             inactivityWork?.cancel(); inactivityWork = nil
             stopPlayback()
@@ -150,6 +166,25 @@ struct AudioSquareTile: View {
     private func titleText() -> String {
         let base = url.deletingPathExtension().lastPathComponent
         return base.isEmpty ? "음성 메모" : base
+    }
+
+    private func highlightedTitle() -> AttributedString? {
+        let base = titleOverride ?? titleText()
+        guard let query = highlightQuery?.trimmingCharacters(in: .whitespacesAndNewlines), !query.isEmpty else { return nil }
+        let mas = NSMutableAttributedString(string: base)
+        let baseNSString = base as NSString
+        let fullRange = NSRange(location: 0, length: baseNSString.length)
+        let options: NSString.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
+        var searchRange = fullRange
+        while true {
+            let foundRange = baseNSString.range(of: query, options: options, range: searchRange)
+            if foundRange.location == NSNotFound { break }
+            mas.addAttribute(.backgroundColor, value: UIColor.systemYellow.withAlphaComponent(0.45), range: foundRange)
+            let nextLocation = foundRange.location + foundRange.length
+            if nextLocation >= baseNSString.length { break }
+            searchRange = NSRange(location: nextLocation, length: baseNSString.length - nextLocation)
+        }
+        return AttributedString(mas)
     }
 
     private func formatDuration(_ duration: TimeInterval?) -> String {

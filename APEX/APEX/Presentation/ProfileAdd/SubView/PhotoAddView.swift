@@ -80,31 +80,35 @@ struct PhotoAddView: View {
                             Image("ProfileL")
                         }
                     } else {
-                        let currentCardImage: UIImage? = (selectedCardSide == .front) ? pickedFrontImage : pickedBackImage
-                        Group {
-                            if let img = currentCardImage {
-                                Image(uiImage: img)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 308, height: 184)
-                                    .cornerRadius(8)
-                            } else {
-                                Image("CardL")
-                            }
-                        }
-                        .contentShape(Rectangle())
-                        .gesture(
-                            DragGesture(minimumDistance: 20, coordinateSpace: .local)
-                                .onEnded { value in
-                                    let dragX = value.translation.width
-                                    if dragX < -30 { if selectedCardSide == .front { selectedCardSide = .back } }
-                                    else if dragX > 30 { if selectedCardSide == .back { selectedCardSide = .front } }
+                        TabView(selection: $selectedCardSide) {
+                            Group {
+                                if let img = pickedFrontImage {
+                                    Image(uiImage: img)
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 308, height: 184)
+                                        .cornerRadius(8)
+                                } else {
+                                    Image("CardL")
                                 }
-                        )
-                        .onTapGesture {
-                            // quick toggle front/back
-                            selectedCardSide = (selectedCardSide == .front) ? .back : .front
+                            }
+                            .tag(CardSide.front)
+
+                            Group {
+                                if let img = pickedBackImage {
+                                    Image(uiImage: img)
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 308, height: 184)
+                                        .cornerRadius(8)
+                                } else {
+                                    Image("CardL")
+                                }
+                            }
+                            .tag(CardSide.back)
                         }
+                        .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
+                        .frame(maxWidth: .infinity)
                         .padding(.vertical, 24)
                     }
                 }

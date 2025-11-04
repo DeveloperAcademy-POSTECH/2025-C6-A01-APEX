@@ -71,7 +71,13 @@ struct ShareRow: View {
     }
 
     private var subtitle: String {
-        latestMemoText(from: client.notes) ?? ""
+        switch mode {
+        case .contacts:
+            return client.position ?? ""
+        case .recents:
+            return latestMemoText(from: client.notes) ?? ""
+        }
+        
     }
 
     private var nameBadgeIconName: String? {
