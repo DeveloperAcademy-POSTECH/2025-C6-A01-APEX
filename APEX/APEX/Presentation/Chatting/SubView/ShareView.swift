@@ -408,7 +408,10 @@ struct ShareView: View {
                     images.append(ImageAttachment(data: data, progress: nil, orderIndex: order))
                 }
             case .video(let url, _):
-                if let url { videos.append(VideoAttachment(url: url, progress: nil, orderIndex: order)) }
+                if let url {
+                    let copied = ensureSharedCopy(of: url, directoryName: "SharedVideos", defaultExtension: "mov")
+                    videos.append(VideoAttachment(url: copied, progress: nil, orderIndex: order))
+                }
             default:
                 break
             }
@@ -423,7 +426,8 @@ struct ShareView: View {
         }
         if !fileURLs.isEmpty {
             let files = fileURLs.map { url in
-                FileAttachment(url: url, contentType: UTType(filenameExtension: url.pathExtension), progress: nil)
+                let copied = ensureSharedCopy(of: url, directoryName: "SharedFiles", defaultExtension: "dat")
+                return FileAttachment(url: copied, contentType: UTType(filenameExtension: copied.pathExtension), progress: nil)
             }
             return .files(files)
         }
@@ -522,24 +526,45 @@ struct ShareView: View {
 
 // MARK: - Audio utilities (copy to app storage + duration)
 private func ensureSharedAudioCopy(of sourceURL: URL) -> URL {
-    let fm = FileManager.default
+    let fileManager = FileManager.default
     // Target directory under Documents/SharedAudios
-    let baseDir = fm.urls(for: .documentDirectory, in: .userDomainMask).first ?? sourceURL.deletingLastPathComponent()
+    let baseDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first ?? sourceURL.deletingLastPathComponent()
     let sharedDir = baseDir.appendingPathComponent("SharedAudios", isDirectory: true)
-    if !fm.fileExists(atPath: sharedDir.path) {
-        try? fm.createDirectory(at: sharedDir, withIntermediateDirectories: true)
+    if !fileManager.fileExists(atPath: sharedDir.path) {
+        try? fileManager.createDirectory(at: sharedDir, withIntermediateDirectories: true)
     }
     let name = sourceURL.deletingPathExtension().lastPathComponent
     let ext = sourceURL.pathExtension.isEmpty ? "m4a" : sourceURL.pathExtension
     var dest = sharedDir.appendingPathComponent(name).appendingPathExtension(ext)
     var counter = 2
-    while fm.fileExists(atPath: dest.path) {
+    while fileManager.fileExists(atPath: dest.path) {
         dest = sharedDir.appendingPathComponent("\(name) \(counter)").appendingPathExtension(ext)
         counter += 1
     }
     if sourceURL == dest { return dest }
-    if fm.fileExists(atPath: dest.path) == false {
-        try? fm.copyItem(at: sourceURL, to: dest)
+    if fileManager.fileExists(atPath: dest.path) == false {
+        try? fileManager.copyItem(at: sourceURL, to: dest)
+    }
+    return dest
+}
+
+private func ensureSharedCopy(of sourceURL: URL, directoryName: String, defaultExtension: String) -> URL {
+    let fileManager = FileManager.default
+    let baseDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first ?? sourceURL.deletingLastPathComponent()
+    let sharedDir = baseDir.appendingPathComponent(directoryName, isDirectory: true)
+    if !fileManager.fileExists(atPath: sharedDir.path) {
+        try? fileManager.createDirectory(at: sharedDir, withIntermediateDirectories: true)
+    }
+    let name = sourceURL.deletingPathExtension().lastPathComponent
+    let ext = sourceURL.pathExtension.isEmpty ? defaultExtension : sourceURL.pathExtension
+    var dest = sharedDir.appendingPathComponent(name).appendingPathExtension(ext)
+    var counter = 2
+    while fileManager.fileExists(atPath: dest.path) {
+        dest = sharedDir.appendingPathComponent("\(name) \(counter)").appendingPathExtension(ext)
+        counter += 1
+    }
+    if sourceURL != dest, !fileManager.fileExists(atPath: dest.path) {
+        try? fileManager.copyItem(at: sourceURL, to: dest)
     }
     return dest
 }

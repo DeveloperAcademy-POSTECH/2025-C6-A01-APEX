@@ -217,6 +217,8 @@ struct ChattingView: View {
                         notes = persisted.isEmpty ? initialNotes : persisted
                     }
                     proxy.scrollTo(bottomSentinelId, anchor: .bottom)
+                    // If any incoming notes carry pending progress, kick off simulations
+                    kickOffPendingUploadsIfNeeded()
                 }
             }
             .onChange(of: notes.count) { _ in
@@ -328,6 +330,8 @@ struct ChattingView: View {
                 if let changedId = notif.userInfo?["clientId"] as? UUID, changedId == clientId {
                     let latest = ChatStore.shared.notes(for: clientId)
                     notes = latest
+                    // Ensure any items with progress resume/complete simulation
+                    kickOffPendingUploadsIfNeeded()
                 }
             }
             .overlay(alignment: .bottomTrailing) {
@@ -1194,6 +1198,25 @@ private extension ChattingView {
         files.remove(at: fileIndex)
         notes[noteIndex].bundle = .files(files)
         ChatStore.shared.setNotes(notes, for: clientId)
+    }
+
+    // MARK: - Pending upload helpers
+    func hasPendingProgress(at index: Int) -> Bool {
+        guard notes.indices.contains(index) else { return false }
+        switch notes[index].bundle {
+        case .media(let images, let videos):
+            return images.contains { $0.progress != nil } || videos.contains { $0.progress != nil }
+        case .files(let files):
+            return files.contains { $0.progress != nil }
+        default:
+            return false
+        }
+    }
+
+    func kickOffPendingUploadsIfNeeded() {
+        for idx in notes.indices where hasPendingProgress(at: idx) {
+            startUploadsForNote(at: idx)
+        }
     }
 }
 
