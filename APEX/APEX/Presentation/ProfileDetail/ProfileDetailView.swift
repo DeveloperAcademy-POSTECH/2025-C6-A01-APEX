@@ -15,6 +15,9 @@ struct ProfileDetailView: View {
     @State private var isShowingCardViewer = false
     @State private var alertMessage: String?
     @State private var currentPageIndex: Int = 0
+    @State private var isPushingChat: Bool = false
+    @State private var chatClientId: UUID?
+    @State private var chatTitle: String = ""
 
     // 임시 어댑터: DummyClient를 Client로 변환 (헤더뷰 연결용)
     private var adaptedClient: Client {
@@ -63,7 +66,7 @@ struct ProfileDetailView: View {
 
                 // 프라이머리 액션
                 MyProfilePrimaryActionView(title: "메모하기") {
-                    // TODO: 메모하기 액션
+                    openChatForClient()
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 0)
@@ -139,6 +142,23 @@ struct ProfileDetailView: View {
                 onClose: { isShowingCardViewer = false }
             )
         }
+        .background(
+            NavigationLink(
+                isActive: $isPushingChat,
+                destination: {
+                    if let id = chatClientId {
+                        let initial = ClientsStore.shared.clients.first(where: { $0.id == id })?.notes ?? []
+                        ChattingView(clientId: id, chatTitle: chatTitle, initialNotes: initial)
+                            .toolbar(.hidden, for: .navigationBar)
+                            .toolbar(.hidden, for: .tabBar)
+                    } else {
+                        EmptyView()
+                    }
+                },
+                label: { EmptyView() }
+            )
+            .hidden()
+        )
     }
 
     // MARK: - Helpers
@@ -178,6 +198,36 @@ struct ProfileDetailView: View {
 
     private func copyToPasteboard(_ text: String) {
         UIPasteboard.general.string = text
+    }
+
+    private func openChatForClient() {
+        let emailKey = client.email ?? ""
+        chatTitle = "\(client.name) \(client.surname)"
+        if let existing = ClientsStore.shared.clients.first(where: { ($0.email ?? "") == emailKey }) {
+            chatClientId = existing.id
+            isPushingChat = true
+            return
+        }
+        let newClient = Client(
+            profile: client.profile,
+            nameCardFront: client.nameCardFront,
+            nameCardBack: client.nameCardBack,
+            surname: client.surname,
+            name: client.name,
+            position: client.position,
+            company: client.company,
+            email: client.email,
+            phoneNumber: client.phoneNumber,
+            linkedinURL: client.linkedinURL,
+            memo: client.memo,
+            action: client.action,
+            favorite: client.favorite,
+            pin: client.pin,
+            notes: []
+        )
+        ClientsStore.shared.add(newClient, atTop: true)
+        chatClientId = newClient.id
+        isPushingChat = true
     }
 }
 
