@@ -13,7 +13,7 @@ struct APEXNavigationBar: View {
         /// 1) Plain: back button only
         case plain(onBack: () -> Void)
         /// 2) Memo: back (left), title (center), search + hamburger (right)
-        case memo(title: String, onBack: () -> Void, onSearch: () -> Void, onMenu: () -> Void)
+        case memo(title: String, onBack: () -> Void, onTitleTap: () -> Void, onSearch: () -> Void, onMenu: () -> Void)
     }
 
     private let kind: Kind
@@ -44,7 +44,6 @@ struct APEXNavigationBar: View {
                 center
                     .frame(height: height)
                     .padding(.horizontal, 12)
-                    .allowsHitTesting(false)
             }
         }
     }
@@ -61,7 +60,7 @@ struct APEXNavigationBar: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-        case .memo(_, let onBack, _, _):
+        case .memo(_, let onBack, _, _, _):
             Button(action: onBack) {
                 Image(systemName: "chevron.left")
                     .font(.title4)
@@ -78,11 +77,14 @@ struct APEXNavigationBar: View {
         switch kind {
         case .plain:
             EmptyView()
-        case .memo(let title, _, _, _):
-            Text(title)
-                .font(.title3)
-                .foregroundColor(foreground)
-                .lineLimit(1)
+        case .memo(let title, _, let onTitleTap, _, _):
+            Button(action: onTitleTap) {
+                Text(title)
+                    .font(.title3)
+                    .foregroundColor(foreground)
+                    .lineLimit(1)
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -91,7 +93,7 @@ struct APEXNavigationBar: View {
         switch kind {
         case .plain:
             Color.clear.frame(width: 44, height: 44)
-        case .memo(_, _, let onSearch, let onMenu):
+        case .memo(_, _, _, let onSearch, let onMenu):
             HStack(spacing: 4) {
                 Button(action: onSearch) {
                     Image(systemName: "magnifyingglass")
@@ -123,6 +125,7 @@ struct APEXNavigationBar: View {
             .memo(
                 title: "Gyeong",
                 onBack: { },
+                onTitleTap: { },
                 onSearch: { },
                 onMenu: { }
             )

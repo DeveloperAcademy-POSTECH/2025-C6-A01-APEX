@@ -60,7 +60,7 @@ struct APEXToast: View {
         }
         .padding(.leading, 20)
         .padding(.trailing, 16)
-        .padding(.vertical, 10)
+        .padding(.vertical, 12)
         .background(background)
         .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
         .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 3)
@@ -172,4 +172,8 @@ extension View {
         }
     }
     return PreviewContainer()
+}
+
+#Preview("Toast") {
+    APEXToast(text: "테스트용 토스트")
 }

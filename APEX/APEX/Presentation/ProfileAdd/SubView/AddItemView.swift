@@ -127,11 +127,11 @@ struct AddItemView: View {
 
     private var content: some View {
         List {
-            stepperRow(title: "이메일: \(draft.emailCount)가지", value: $draft.emailCount, range: 0...5)
+            stepperRow(title: "이메일 (\(draft.emailCount))", value: $draft.emailCount, range: 1...5)
                 .listRowSeparator(.hidden)
-            stepperRow(title: "연락처: \(draft.phoneCount)가지", value: $draft.phoneCount, range: 0...5)
+            stepperRow(title: "연락처: (\(draft.phoneCount))", value: $draft.phoneCount, range: 1...5)
                 .listRowSeparator(.hidden)
-            stepperRow(title: "URL: \(draft.urlCount)가지", value: $draft.urlCount, range: 0...5)
+            stepperRow(title: "URL: (\(draft.urlCount))", value: $draft.urlCount, range: 0...5)
                 .listRowSeparator(.hidden)
             toggleRow(title: "링크드인 URL", isOn: $draft.showsLinkedIn)
                 .listRowSeparator(.hidden)

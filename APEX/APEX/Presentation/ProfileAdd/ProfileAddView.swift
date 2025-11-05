@@ -46,11 +46,18 @@ struct ProfileAddView: View {
                         VStack(spacing: 10) {
                             let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
                             let trimmedSurname = surname.trimmingCharacters(in: .whitespacesAndNewlines)
-                            if trimmedName.isEmpty && trimmedSurname.isEmpty {
+                            if let image = profileUIImage {
+                                Profile(
+                                    image: image,
+                                    initials: Profile.makeInitials(name: trimmedName, surname: trimmedSurname),
+                                    size: .large,
+                                    fontSize: 64
+                                )
+                            } else if trimmedName.isEmpty && trimmedSurname.isEmpty {
                                 Image("ProfileS")
                             } else {
                                 Profile(
-                                    image: profileUIImage,
+                                    image: nil,
                                     initials: Profile.makeInitials(name: trimmedName, surname: trimmedSurname),
                                     size: .large,
                                     fontSize: 64

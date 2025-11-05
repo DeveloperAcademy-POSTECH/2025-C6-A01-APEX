@@ -131,11 +131,18 @@ struct MyProfileEditSheet: View {
                         VStack(spacing: 10) {
                             let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
                             let trimmedSurname = surname.trimmingCharacters(in: .whitespacesAndNewlines)
-                            if trimmedName.isEmpty && trimmedSurname.isEmpty {
+                            if let image = profileUIImage {
+                                Profile(
+                                    image: image,
+                                    initials: Profile.makeInitials(name: trimmedName, surname: trimmedSurname),
+                                    size: .large,
+                                    fontSize: 64
+                                )
+                            } else if trimmedName.isEmpty && trimmedSurname.isEmpty {
                                 Image("ProfileS")
                             } else {
                                 Profile(
-                                    image: profileUIImage,
+                                    image: nil,
                                     initials: Profile.makeInitials(name: trimmedName, surname: trimmedSurname),
                                     size: .large,
                                     fontSize: 64
@@ -153,8 +160,14 @@ struct MyProfileEditSheet: View {
                         presentedPhotoType = .card
                     } label: {
                         VStack(spacing: 13) {
-                            if let image = cardFrontUIImage {
-                                Image(uiImage: image)
+                            if let ui = cardFrontUIImage {
+                                Image(uiImage: ui)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 154, height: 92)
+                                    .cornerRadius(4)
+                            } else if let existing = client.nameCardFront {
+                                existing
                                     .resizable()
                                     .scaledToFit()
                                     .frame(width: 154, height: 92)
@@ -213,9 +226,9 @@ struct MyProfileEditSheet: View {
             .padding(.horizontal, 24)
         }
         .scrollEdgeEffectStyle(.hard, for: .all)
-        .sheet(item: $presentedPhotoType) { t in
+        .sheet(item: $presentedPhotoType) { sheetType in
             PhotoAddView(
-                type: t,
+                type: sheetType,
                 onCroppedProfile: { profileUIImage = $0 },
                 onCroppedCard: { img, isFront in
                     if isFront { cardFrontUIImage = img } else { cardBackUIImage = img }
@@ -238,8 +251,8 @@ struct MyProfileEditSheet: View {
                 onRightTap: {
                     let updated = DummyClient(
                         profile: profileUIImage,
-                        nameCardFront: cardFrontUIImage.map { Image(uiImage: $0) },
-                        nameCardBack: cardBackUIImage.map { Image(uiImage: $0) },
+                        nameCardFront: (cardFrontUIImage.map { Image(uiImage: $0) }) ?? client.nameCardFront,
+                        nameCardBack: (cardBackUIImage.map { Image(uiImage: $0) }) ?? client.nameCardBack,
                         surname: surname,
                         name: name,
                         position: position.isEmpty ? nil : position,
@@ -270,7 +283,18 @@ struct MyProfileEditSheet: View {
 // MARK: - Helpers
 
 private extension Image {
-    func asUIImage() -> UIImage? { nil }
+    func asUIImage() -> UIImage? {
+        // Render the SwiftUI Image into a UIImage for use in pickers/croppers
+        let targetSize = CGSize(width: 358, height: 214)
+        let rendered = ImageRenderer(
+            content: self
+                .resizable()
+                .scaledToFit()
+                .frame(width: targetSize.width, height: targetSize.height)
+        )
+        rendered.scale = UIScreen.main.scale
+        return rendered.uiImage
+    }
 }
 
 // makeInitials moved to common component: Profile.makeInitials

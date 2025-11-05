@@ -34,6 +34,7 @@ struct ContactsView: View {
     // 타인 프로필 상세로 네비게이션 제어
     @State private var showProfileDetailView: Bool = false
     @State private var selectedClient: Client?
+    @State private var selectedDummy: DummyClient?
 
     private enum Metrics {
         static let gap: CGFloat = 8
@@ -154,12 +155,44 @@ struct ContactsView: View {
                 "",
                 isActive: $showProfileDetailView
             ) {
-                if let client = selectedClient {
-                    ProfileDetailView(client: .constant(convertToDummyClient(client)))
+                if let _ = selectedDummy {
+                    let binding = Binding<DummyClient>(
+                        get: { self.selectedDummy! },
+                        set: { self.selectedDummy = $0 }
+                    )
+                    ProfileDetailView(client: binding)
                 }
             }
             .hidden()
         )
+        .onChange(of: selectedDummy) { newValue in
+            guard let base = selectedClient, let updated = newValue else { return }
+            let updatedClient = Client(
+                id: base.id,
+                profile: updated.profile,
+                nameCardFront: updated.nameCardFront,
+                nameCardBack: updated.nameCardBack,
+                surname: updated.surname,
+                name: updated.name,
+                position: updated.position,
+                company: updated.company,
+                email: updated.email,
+                phoneNumber: updated.phoneNumber,
+                linkedinURL: updated.linkedinURL,
+                memo: updated.memo,
+                action: base.action,
+                favorite: base.favorite,
+                pin: base.pin,
+                notes: base.notes
+            )
+            if let idx = allUngrouped.firstIndex(where: { $0.id == base.id }) {
+                allUngrouped[idx] = updatedClient
+            }
+            if let fidx = favorites.firstIndex(where: { $0.id == base.id }) {
+                favorites[fidx] = updatedClient
+            }
+            ClientsStore.shared.update(updatedClient)
+        }
     }
     
     private var deleteOverlay: some View {
@@ -229,6 +262,7 @@ struct ContactsView: View {
     
     private func navigateToProfileDetail(_ client: Client) {
         selectedClient = client
+        selectedDummy = convertToDummyClient(client)
         showProfileDetailView = true
     }
 
