@@ -76,6 +76,10 @@ struct ChattingView: View {
     // Parent-scoped record viewer state
     private struct RecordPayload: Identifiable { let id = UUID(); let url: URL }
     @State private var recordPayload: RecordPayload?
+    // Profile navigation state
+    @State private var isPushingProfile: Bool = false
+    @State private var pushToMyProfile: Bool = false
+    @State private var profileDummy: DummyClient?
 
     private enum Metrics {
         static let timeWidth: CGFloat = 66
@@ -194,6 +198,7 @@ struct ChattingView: View {
                             }
                         )
                 }
+                .padding(.horizontal, 12)
             }
             .textSelection(.enabled)
             .padding(.bottom, bottomInsetHeight + max(0, -bottomBarOffsetY))
@@ -384,7 +389,8 @@ struct ChattingView: View {
                 .transition(.opacity)
             }
         }
-        .padding(.horizontal, 12)
+        
+        .scrollEdgeEffectStyle(.soft, for: .all)
         .toolbar(.hidden, for: .navigationBar)
         .overlay(alignment: .trailing) {
             Color.clear
@@ -524,6 +530,9 @@ struct ChattingView: View {
                     .memo(
                         title: chatTitle,
                         onBack: { dismiss() },
+                        onTitleTap: {
+                            onTapTitleNavigate()
+                        },
                         onSearch: { withAnimation { isSearchActive = true } },
                         onMenu: { }
                     )
@@ -641,7 +650,14 @@ struct ChattingView: View {
                 }
             }
         }
-        .scrollEdgeEffectStyle(.soft, for: .all)
+        .onChange(of: sheetMode) { _, newMode in
+            let visible = (newMode != .hidden)
+            NotificationCenter.default.post(
+                name: .apexMediaSheetVisibilityChanged,
+                object: nil,
+                userInfo: ["visible": visible]
+            )
+        }
         .onPreferenceChange(BottomInsetHeightKey.self) { height in bottomInsetHeight = height }
         .sheet(item: $editing) { payload in
             TextEditSheet(
@@ -747,12 +763,67 @@ struct ChattingView: View {
                 NotificationCenter.default.post(name: .apexNavigateToDate, object: nil, userInfo: ["date": selected])
             })
         }
+
+        // Hidden navigation link for profile push
+        .background(
+            NavigationLink(
+                isActive: $isPushingProfile,
+                destination: {
+                    if let _ = profileDummy {
+                        let binding = Binding<DummyClient>(
+                            get: { self.profileDummy! },
+                            set: { self.profileDummy = $0 }
+                        )
+                        if pushToMyProfile {
+                            MyProfileView(client: binding)
+                                .toolbar(.hidden, for: .navigationBar)
+                                .toolbar(.hidden, for: .tabBar)
+                        } else {
+                            ProfileDetailView(client: binding)
+                                .toolbar(.hidden, for: .navigationBar)
+                                .toolbar(.hidden, for: .tabBar)
+                        }
+                    } else {
+                        EmptyView()
+                    }
+                },
+                label: { EmptyView() }
+            )
+            .hidden()
+        )
     }
 }
 
 // MARK: - Send handling & simulated uploads
 
 private extension ChattingView {
+    func onTapTitleNavigate() {
+        guard let client = ClientsStore.shared.clients.first(where: { $0.id == clientId }) else { return }
+        let isMe = (client.email ?? "") == sampleMyProfileClient.email
+        self.profileDummy = convertToDummy(client)
+        self.pushToMyProfile = isMe
+        self.isPushingProfile = true
+    }
+
+    func convertToDummy(_ client: Client) -> DummyClient {
+        DummyClient(
+            profile: client.profile,
+            nameCardFront: client.nameCardFront ?? Image("CardL"),
+            nameCardBack: client.nameCardBack ?? Image("CardL"),
+            surname: client.surname,
+            name: client.name,
+            position: client.position,
+            company: client.company,
+            email: client.email,
+            phoneNumber: client.phoneNumber,
+            linkedinURL: client.linkedinURL,
+            memo: client.memo,
+            action: client.action,
+            favorite: client.favorite,
+            pin: client.pin,
+            notes: []
+        )
+    }
     func deleteAudio(noteId: UUID, url: URL) {
         guard let idx = notes.firstIndex(where: { $0.id == noteId }) else { return }
         guard case var .audio(audios) = notes[idx].bundle else { return }
@@ -2021,7 +2092,7 @@ private struct BottomSheetHost<Content: View>: View {
     }
 
     var body: some View {
-        let threshold: CGFloat = 80
+        let threshold: CGFloat = 60
         let drag = DragGesture()
             .updating($dragY) { value, state, _ in
                 state = value.translation.height
@@ -2049,11 +2120,11 @@ private struct BottomSheetHost<Content: View>: View {
             case .collapsed:
                 // allow only upward drag (negative), increase height up to expanded
                 let allowed = min(0, dragY)
-                return -allowed * 0.6 // soften tracking
+                return -allowed * 0.9 // soften tracking
             case .expanded:
                 // allow only downward drag (positive), decrease height down to collapsed
                 let allowed = max(0, dragY)
-                return -allowed * 0.7 // soften tracking
+                return -allowed * 1.0 // soften tracking
             case .hidden:
                 return 0
             }

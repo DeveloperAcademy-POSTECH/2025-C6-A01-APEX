@@ -51,7 +51,9 @@ struct ProfileDetailView: View {
                 client: client,
                 onCancel: { },
                 onSave: { updated in
-                    self.client = updated
+                            let previousEmail = self.client.email
+                            self.client = updated
+                            persistClientUpdate(updated, previousEmail: previousEmail)
                 },
                 onDelete: { deleteClient() }, // 직접 삭제 처리
                 showDeleteButton: true  // ProfileDetailView에서만 삭제 버튼 표시
@@ -265,6 +267,32 @@ struct ProfileDetailView: View {
         ClientsStore.shared.add(newClient, atTop: true)
         chatClientId = newClient.id
         isPushingChat = true
+    }
+
+    private func persistClientUpdate(_ updated: DummyClient, previousEmail: String?) {
+        // Prefer updated email; fallback to previous email
+        let candidates = [updated.email, previousEmail].compactMap { $0 }.filter { !$0.isEmpty }
+        guard let key = candidates.first else { return }
+        guard let existing = ClientsStore.shared.clients.first(where: { ($0.email ?? "") == key }) else { return }
+        let newClient = Client(
+            id: existing.id,
+            profile: updated.profile,
+            nameCardFront: updated.nameCardFront,
+            nameCardBack: updated.nameCardBack,
+            surname: updated.surname,
+            name: updated.name,
+            position: updated.position,
+            company: updated.company,
+            email: updated.email,
+            phoneNumber: updated.phoneNumber,
+            linkedinURL: updated.linkedinURL,
+            memo: updated.memo,
+            action: existing.action,
+            favorite: existing.favorite,
+            pin: existing.pin,
+            notes: existing.notes
+        )
+        ClientsStore.shared.update(newClient)
     }
 }
 
