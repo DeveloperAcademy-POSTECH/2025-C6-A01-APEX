@@ -85,11 +85,7 @@ struct ContactsRow: View {
     }
 
     private var fullName: String {
-        let trimmedName = client.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedSurname = client.surname.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        let components = [trimmedName, trimmedSurname].filter { !$0.isEmpty }
-        return components.joined(separator: " ")
+        return client.autoFormattedName
     }
 
     private var subtitle: String {
