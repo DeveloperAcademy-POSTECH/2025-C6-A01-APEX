@@ -143,7 +143,7 @@ struct MyProfileHeaderView: View {
             Spacer().frame(height: 4)
             
             VStack(alignment: .center, spacing: 0) {
-                Text("\(client.surname)\(client.name)")
+                Text(client.autoFormattedName)
                     .font(.title2)
                     .multilineTextAlignment(.center)
                     .foregroundColor(.black)

@@ -93,12 +93,6 @@ struct NotesView: View {
             clientToDelete: $clientToDelete,
             onConfirmDelete: deleteClient
         )
-        .transition(.asymmetric(
-            insertion: .scale(scale: 0.98).combined(with: .opacity),
-            removal: .opacity
-        ))
-        .zIndex(10)
-        .compositingGroup()
     }
     
     // MARK: - Computed Properties
@@ -134,9 +128,7 @@ struct NotesView: View {
     
     private func showDeleteConfirmation(_ client: Client) {
         clientToDelete = client
-        withAnimation(.easeInOut(duration: 0.2)) {
-            showDeleteDialog = true
-        }
+        showDeleteDialog = true
     }
     
     private func togglePin(_ client: Client) {
@@ -280,40 +272,31 @@ private struct OverlayLayer: View {
     
     var body: some View {
         ZStack {
-            // Dimmed background (탭 시 닫기)
+            // 전체화면 딤 배경
             Color.black.opacity(0.35)
-                .ignoresSafeArea()
+                .ignoresSafeArea(.all)
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isVisible = false
-                        clientToDelete = nil
-                        isChecked = false
-                    }
+                    isVisible = false
+                    clientToDelete = nil
+                    isChecked = false
                 }
             
-            // Card
+            // 삭제 확인 카드
             DeleteConfirmCard(
                 isChecked: $isChecked,
                 onCancel: {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isVisible = false
-                        clientToDelete = nil
-                        isChecked = false
-                    }
+                    isVisible = false
+                    clientToDelete = nil
+                    isChecked = false
                 },
                 onDelete: {
                     guard isChecked, let target = clientToDelete else { return }
                     onConfirmDelete(target)
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isVisible = false
-                    }
+                    isVisible = false
                 }
             )
             .padding(.horizontal, 24)
-            .contentShape(Rectangle())
-            .zIndex(1)
-            .accessibilityAddTraits(.isModal)
         }
     }
 }

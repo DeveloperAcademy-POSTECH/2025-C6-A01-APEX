@@ -54,16 +54,7 @@ struct ContactsView: View {
                     deleteOverlay
                 }
             }
-        }
-        .background(Color("Background"))
-        .safeAreaInset(edge: .top) {
-            if !showMyProfileView && !showProfileDetailView {
-                ContactsTopBarReplica(
-                    title: "Contacts",
-                    onPlus: onPlusTap
-                )
-                .background(Color("Background"))
-            }
+            .toolbar(.hidden, for: .navigationBar)
         }
         .sheet(isPresented: $isProfileAddPresented) {
             ProfileAddView(onComplete: { newClient in
@@ -89,77 +80,85 @@ struct ContactsView: View {
     // MARK: - Main Content
     
     private var mainContent: some View {
-        List {
-            // MARK: - My Profile (TopBar와 0 간격, Favorites와는 8 간격)
-            // My Profile Row (DummyClient -> Client 변환해 표시)
-            ContactsRow(
-                client: convertToClient(myProfileDummy),
-                onToggleFavorite: nil,
-                onDelete: nil,
-                onTap: { navigateToMyProfile() },
-                rowHeight: Metrics.myProfileRowHeight,
-                subtitleOverride: "My Profile"
-            )
-            .applyListRowCleaning()
+        VStack(spacing: 0) {
+            // TopBar를 mainContent 내부로 이동 (NotesView의 NotesNavigationBar처럼)
+            if !showMyProfileView && !showProfileDetailView {
+                ContactsTopBarReplica(
+                    title: "Contacts",
+                    onPlus: onPlusTap
+                )
+            }
+            
+            // List를 VStack 내부로 이동
+            List {
+                // MARK: - My Profile (TopBar와 0 간격, Favorites와는 8 간격)
+                // My Profile Row (DummyClient -> Client 변환해 표시)
+                ContactsRow(
+                    client: convertToClient(myProfileDummy),
+                    onToggleFavorite: nil,
+                    onDelete: nil,
+                    onTap: { navigateToMyProfile() },
+                    rowHeight: Metrics.myProfileRowHeight,
+                    subtitleOverride: "My Profile"
+                )
+                .applyListRowCleaning()
 
-            gapRow() // Favorites와 8 간격
+                gapRow() // Favorites와 8 간격
 
-            // MARK: - Favorites
-            if !favorites.isEmpty {
+                // MARK: - Favorites
+                if !favorites.isEmpty {
+                    ContactsListSection(
+                        title: "Favorites",
+                        count: favorites.count,
+                        isExpanded: $isFavoritesExpanded,
+                        clients: favorites,
+                        onToggleFavorite: { toggleFavorite($0) },
+                        onDelete: { showDeleteConfirmation($0) },
+                        onTapRow: { navigateToProfileDetail($0) },
+                        showsSeparatorBelowHeader: true
+                    )
+                }
+
+                // MARK: - All / Ungrouped
                 ContactsListSection(
-                    title: "Favorites",
-                    count: favorites.count,
-                    isExpanded: $isFavoritesExpanded,
-                    clients: favorites,
+                    title: "All",
+                    count: allUngrouped.count,
+                    isExpanded: $isAllExpanded,
+                    clients: allUngrouped,
+                    groupHeaderTitle: nil,
+                    groupByCompany: true,
                     onToggleFavorite: { toggleFavorite($0) },
                     onDelete: { showDeleteConfirmation($0) },
                     onTapRow: { navigateToProfileDetail($0) },
-                    showsSeparatorBelowHeader: true
+                    showsSeparatorBelowHeader: false
                 )
             }
-
-            // MARK: - All / Ungrouped
-            ContactsListSection(
-                title: "All",
-                count: allUngrouped.count,
-                isExpanded: $isAllExpanded,
-                clients: allUngrouped,
-                groupHeaderTitle: nil,
-                groupByCompany: true,
-                onToggleFavorite: { toggleFavorite($0) },
-                onDelete: { showDeleteConfirmation($0) },
-                onTapRow: { navigateToProfileDetail($0) },
-                showsSeparatorBelowHeader: false
+            .listStyle(.plain)
+            .listRowSpacing(0)
+            .environment(\.defaultMinListRowHeight, 1)
+            .scrollContentBackground(.hidden)
+            .background(
+                NavigationLink(
+                    "",
+                    isActive: $showMyProfileView
+                ) {
+                    MyProfileView(client: $myProfileDummy)
+                }
+                .hidden()
+            )
+            .background(
+                NavigationLink(
+                    "",
+                    isActive: $showProfileDetailView
+                ) {
+                    if let client = selectedClient {
+                        ProfileDetailView(client: .constant(convertToDummyClient(client)))
+                    }
+                }
+                .hidden()
             )
         }
-        .listStyle(.plain)
-        .listRowSpacing(0)
-        .environment(\.defaultMinListRowHeight, 1)
-        .scrollContentBackground(.hidden)
         .background(Color("Background"))
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(Color("Background"), for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
-        .background(
-            NavigationLink(
-                "",
-                isActive: $showMyProfileView
-            ) {
-                MyProfileView(client: $myProfileDummy)
-            }
-            .hidden()
-        )
-        .background(
-            NavigationLink(
-                "",
-                isActive: $showProfileDetailView
-            ) {
-                if let client = selectedClient {
-                    ProfileDetailView(client: .constant(convertToDummyClient(client)))
-                }
-            }
-            .hidden()
-        )
     }
     
     private var deleteOverlay: some View {
@@ -169,12 +168,6 @@ struct ContactsView: View {
             clientToDelete: $clientToDelete,
             onConfirmDelete: deleteClient
         )
-        .transition(.asymmetric(
-            insertion: .scale(scale: 0.98).combined(with: .opacity),
-            removal: .opacity
-        ))
-        .zIndex(10)
-        .compositingGroup()
     }
 
     // MARK: - Actions
@@ -185,9 +178,7 @@ struct ContactsView: View {
     
     private func showDeleteConfirmation(_ client: Client) {
         clientToDelete = client
-        withAnimation(.easeInOut(duration: 0.2)) {
-            showDeleteDialog = true
-        }
+        showDeleteDialog = true
     }
 
     private func toggleFavorite(_ client: Client) {
@@ -435,40 +426,31 @@ private struct ContactsOverlayLayer: View {
     
     var body: some View {
         ZStack {
-            // Dimmed background (탭 시 닫기)
+            // 전체화면 딤 배경 - ignoresSafeArea(.all)로 진짜 전체화면 덮기
             Color.black.opacity(0.35)
-                .ignoresSafeArea()
+                .ignoresSafeArea(.all)
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isVisible = false
-                        clientToDelete = nil
-                        isChecked = false
-                    }
+                    isVisible = false
+                    clientToDelete = nil
+                    isChecked = false
                 }
             
-            // Card
+            // 삭제 확인 카드
             ContactsDeleteConfirmCard(
                 isChecked: $isChecked,
                 onCancel: {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isVisible = false
-                        clientToDelete = nil
-                        isChecked = false
-                    }
+                    isVisible = false
+                    clientToDelete = nil
+                    isChecked = false
                 },
                 onDelete: {
                     guard isChecked, let target = clientToDelete else { return }
                     onConfirmDelete(target)
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isVisible = false
-                    }
+                    isVisible = false
                 }
             )
             .padding(.horizontal, 24)
-            .contentShape(Rectangle())
-            .zIndex(1)
-            .accessibilityAddTraits(.isModal)
         }
     }
 }
@@ -561,10 +543,7 @@ private struct ContactsDeleteConfirmCard: View {
     
     private var confirmCheckSection: some View {
         Button {
-            // 상태 토글은 버튼 액션에서만 애니메이션 처리
-            withAnimation(.easeInOut(duration: 0.2)) {
-                isChecked.toggle()
-            }
+            isChecked.toggle()
         } label: {
             HStack(spacing: Metrics.confirmCheckSpacing) {
                 checkboxView
@@ -614,7 +593,6 @@ private struct ContactsDeleteConfirmCard: View {
         }
         .frame(width: Metrics.checkboxSize, height: Metrics.checkboxSize)
         .contentShape(Circle())
-        .animation(.easeInOut(duration: 0.2), value: isChecked)
     }
     
     private var cancelButton: some View {
