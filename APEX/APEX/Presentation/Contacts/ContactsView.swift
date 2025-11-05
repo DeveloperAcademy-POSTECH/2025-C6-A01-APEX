@@ -599,7 +599,7 @@ private struct ContactsDeleteConfirmCard: View {
         Button(action: onCancel) {
             HStack(alignment: .center, spacing: 10) {
                 Text("취소")
-                    .font(Font.custom("SF Pro", size: 17).weight(.medium))
+                    .font(.title5)
                     .foregroundColor(.black)
                     .frame(maxWidth: .infinity, alignment: .center)
             }
@@ -617,7 +617,7 @@ private struct ContactsDeleteConfirmCard: View {
         Button(action: { if isChecked { onDelete() } }) {
             HStack(alignment: .center, spacing: 10) {
                 Text("삭제")
-                    .font(Font.custom("SF Pro", size: 17).weight(.medium))
+                    .font(.title5)
                     .foregroundColor(isChecked ? deleteActiveRed : disabledGrayText)
                     .frame(maxWidth: .infinity, alignment: .center)
             }
