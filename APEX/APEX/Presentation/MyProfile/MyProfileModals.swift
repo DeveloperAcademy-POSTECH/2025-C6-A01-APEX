@@ -95,15 +95,21 @@ struct MyProfileEditSheet: View {
     // AddItem 관련 상태  
     @State private var isAddItemPresented: Bool = false
     @State private var addItemConfig: AddItemConfig = .default
+    
+    // 삭제 확인 모달 상태
+    @State private var showDeleteDialog: Bool = false
+    @State private var isDeleteConfirmed: Bool = false
 
     var onCancel: () -> Void
     var onSave: (DummyClient) -> Void
+    var onDelete: (() -> Void)? = nil  // 삭제 콜백 추가
     var showDeleteButton: Bool = false  // 삭제 버튼 표시 여부
 
-    init(client: DummyClient, onCancel: @escaping () -> Void, onSave: @escaping (DummyClient) -> Void, showDeleteButton: Bool = false) {
+    init(client: DummyClient, onCancel: @escaping () -> Void, onSave: @escaping (DummyClient) -> Void, onDelete: (() -> Void)? = nil, showDeleteButton: Bool = false) {
         self.client = client
         self.onCancel = onCancel
         self.onSave = onSave
+        self.onDelete = onDelete
         self.showDeleteButton = showDeleteButton
 
         _profileUIImage = State(initialValue: client.profile)
@@ -121,6 +127,18 @@ struct MyProfileEditSheet: View {
     }
 
     var body: some View {
+        ZStack {
+            mainContent
+            if showDeleteDialog {
+                deleteOverlay
+            }
+        }
+        .background(Color("Background"))
+    }
+    
+    // MARK: - Main Content
+    
+    private var mainContent: some View {
         ScrollView {
             VStack {
                 // Image pickers (ProfileAddView 스타일로 변경)
@@ -218,7 +236,7 @@ struct MyProfileEditSheet: View {
                 // 연락처 삭제하기 버튼 (ProfileDetailView에서만)
                 if showDeleteButton {
                     DeleteContactButton {
-                        // TODO: 연락처 삭제 액션
+                        showDeleteConfirmation()
                     }
                     .padding(.bottom, 16)
                 }
@@ -276,7 +294,38 @@ struct MyProfileEditSheet: View {
             )
             .padding(.top, 10)
         }
-        .background(Color("Background"))
+    }
+    
+    // MARK: - Delete Overlay
+    
+    private var deleteOverlay: some View {
+        EditSheetOverlayLayer(
+            isVisible: $showDeleteDialog,
+            isChecked: $isDeleteConfirmed,
+            clientName: NameFormatter.autoFormat(name: name, surname: surname),
+            onConfirmDelete: executeDelete
+        )
+        .transition(.asymmetric(
+            insertion: .scale(scale: 0.98).combined(with: .opacity),
+            removal: .opacity
+        ))
+        .zIndex(10)
+        .compositingGroup()
+    }
+    
+    // MARK: - Delete Actions
+    
+    private func showDeleteConfirmation() {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            showDeleteDialog = true
+        }
+    }
+    
+    private func executeDelete() {
+        onDelete?()
+        showDeleteDialog = false
+        isDeleteConfirmed = false
+        dismiss()
     }
 }
 
