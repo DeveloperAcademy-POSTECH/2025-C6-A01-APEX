@@ -1110,7 +1110,7 @@ private struct ChatMessageView: View {
                         fontSize: 14,
                         textStyle: .body,
                         lineSpacing: 4,
-                        maxLayoutWidth: min(UIScreen.main.bounds.width * 0.78, 420),
+                        maxLayoutWidth: UIScreen.main.bounds.width - 32,
                         highlightQuery: highlightQuery
                     )
                     .fixedSize(horizontal: false, vertical: true)
