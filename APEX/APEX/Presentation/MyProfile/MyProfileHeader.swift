@@ -80,18 +80,19 @@ struct MyProfileHeaderView: View {
     private var pages: [Kind] {
         var arr: [Kind] = []
         
-        if client.nameCardFront != nil || client.nameCardBack != nil {
+        if let img = client.profile {
+            arr.append(.profile(img))
+        } else {
             let initials = Profile.makeInitials(name: client.name, surname: client.surname)
             arr.append(.avatar(initials))
+        }
+        
+        if client.nameCardFront != nil || client.nameCardBack != nil {
             if let f = client.nameCardFront { arr.append(.cardFront(f)) }
             if let b = client.nameCardBack { arr.append(.cardBack(b)) }
         } else {
-            if let img = client.profile {
-                arr.append(.profile(img))
-            } else {
-                let initials = Profile.makeInitials(name: client.name, surname: client.surname)
-                arr.append(.avatar(initials))
-            }
+            arr.append(.cardFront(Image("CardL")))
+            arr.append(.cardBack(Image("CardL")))
         }
         return arr
     }
@@ -143,7 +144,7 @@ struct MyProfileHeaderView: View {
             Spacer().frame(height: 4)
             
             VStack(alignment: .center, spacing: 0) {
-                Text("\(client.surname)\(client.name)")
+                Text(client.autoFormattedName)
                     .font(.title2)
                     .multilineTextAlignment(.center)
                     .foregroundColor(.black)
@@ -178,17 +179,18 @@ struct MyProfileHeaderView: View {
     private func content(for kind: Kind) -> some View {
         switch kind {
         case .profile(let ui):
-            Image(uiImage: ui)
-                .resizable()
-                .scaledToFill()
-                .frame(width: 200, height: 200)
-                .clipShape(Circle())
+            Profile(
+                image: ui,
+                initials: Profile.makeInitials(name: client.name, surname: client.surname),
+                size: .extraLarge,
+                fontSize: 128
+            )
         case .cardFront(let image), .cardBack(let image):
             image
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(maxWidth: .infinity)
-                .frame(height: 232)
+                .frame(height: 214)
                 .background(Color("PrimaryContainer"))
                 .clipShape(RoundedRectangle(cornerRadius: 9.28, style: .continuous))
         case .avatar(let initials):

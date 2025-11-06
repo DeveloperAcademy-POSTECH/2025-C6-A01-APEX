@@ -125,6 +125,7 @@ struct ChatMediaPickerSheet: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8.5)
             }
+            .scrollDisabled(!showLargeHeader) // 시트가 완전히 확장됐을 때만 스크롤 허용
         }
         .overlay(alignment: .bottomTrailing) {
             if showLargeHeader {

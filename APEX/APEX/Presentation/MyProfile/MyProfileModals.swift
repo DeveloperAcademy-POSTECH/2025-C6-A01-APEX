@@ -95,15 +95,21 @@ struct MyProfileEditSheet: View {
     // AddItem 관련 상태  
     @State private var isAddItemPresented: Bool = false
     @State private var addItemConfig: AddItemConfig = .default
+    
+    // 삭제 확인 모달 상태
+    @State private var showDeleteDialog: Bool = false
+    @State private var isDeleteConfirmed: Bool = false
 
     var onCancel: () -> Void
     var onSave: (DummyClient) -> Void
+    var onDelete: (() -> Void)? = nil  // 삭제 콜백 추가
     var showDeleteButton: Bool = false  // 삭제 버튼 표시 여부
 
-    init(client: DummyClient, onCancel: @escaping () -> Void, onSave: @escaping (DummyClient) -> Void, showDeleteButton: Bool = false) {
+    init(client: DummyClient, onCancel: @escaping () -> Void, onSave: @escaping (DummyClient) -> Void, onDelete: (() -> Void)? = nil, showDeleteButton: Bool = false) {
         self.client = client
         self.onCancel = onCancel
         self.onSave = onSave
+        self.onDelete = onDelete
         self.showDeleteButton = showDeleteButton
 
         _profileUIImage = State(initialValue: client.profile)
@@ -121,6 +127,18 @@ struct MyProfileEditSheet: View {
     }
 
     var body: some View {
+        ZStack {
+            mainContent
+            if showDeleteDialog {
+                deleteOverlay
+            }
+        }
+        .background(Color("Background"))
+    }
+    
+    // MARK: - Main Content
+    
+    private var mainContent: some View {
         ScrollView {
             VStack {
                 // Image pickers (ProfileAddView 스타일로 변경)
@@ -131,11 +149,18 @@ struct MyProfileEditSheet: View {
                         VStack(spacing: 10) {
                             let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
                             let trimmedSurname = surname.trimmingCharacters(in: .whitespacesAndNewlines)
-                            if trimmedName.isEmpty && trimmedSurname.isEmpty {
+                            if let image = profileUIImage {
+                                Profile(
+                                    image: image,
+                                    initials: Profile.makeInitials(name: trimmedName, surname: trimmedSurname),
+                                    size: .large,
+                                    fontSize: 64
+                                )
+                            } else if trimmedName.isEmpty && trimmedSurname.isEmpty {
                                 Image("ProfileS")
                             } else {
                                 Profile(
-                                    image: profileUIImage,
+                                    image: nil,
                                     initials: Profile.makeInitials(name: trimmedName, surname: trimmedSurname),
                                     size: .large,
                                     fontSize: 64
@@ -153,8 +178,14 @@ struct MyProfileEditSheet: View {
                         presentedPhotoType = .card
                     } label: {
                         VStack(spacing: 13) {
-                            if let image = cardFrontUIImage {
-                                Image(uiImage: image)
+                            if let ui = cardFrontUIImage {
+                                Image(uiImage: ui)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 154, height: 92)
+                                    .cornerRadius(4)
+                            } else if let existing = client.nameCardFront {
+                                existing
                                     .resizable()
                                     .scaledToFit()
                                     .frame(width: 154, height: 92)
@@ -205,7 +236,7 @@ struct MyProfileEditSheet: View {
                 // 연락처 삭제하기 버튼 (ProfileDetailView에서만)
                 if showDeleteButton {
                     DeleteContactButton {
-                        // TODO: 연락처 삭제 액션
+                        showDeleteConfirmation()
                     }
                     .padding(.bottom, 16)
                 }
@@ -213,9 +244,9 @@ struct MyProfileEditSheet: View {
             .padding(.horizontal, 24)
         }
         .scrollEdgeEffectStyle(.hard, for: .all)
-        .sheet(item: $presentedPhotoType) { t in
+        .sheet(item: $presentedPhotoType) { sheetType in
             PhotoAddView(
-                type: t,
+                type: sheetType,
                 onCroppedProfile: { profileUIImage = $0 },
                 onCroppedCard: { img, isFront in
                     if isFront { cardFrontUIImage = img } else { cardBackUIImage = img }
@@ -238,8 +269,8 @@ struct MyProfileEditSheet: View {
                 onRightTap: {
                     let updated = DummyClient(
                         profile: profileUIImage,
-                        nameCardFront: cardFrontUIImage.map { Image(uiImage: $0) },
-                        nameCardBack: cardBackUIImage.map { Image(uiImage: $0) },
+                        nameCardFront: (cardFrontUIImage.map { Image(uiImage: $0) }) ?? client.nameCardFront,
+                        nameCardBack: (cardBackUIImage.map { Image(uiImage: $0) }) ?? client.nameCardBack,
                         surname: surname,
                         name: name,
                         position: position.isEmpty ? nil : position,
@@ -263,14 +294,56 @@ struct MyProfileEditSheet: View {
             )
             .padding(.top, 10)
         }
-        .background(Color("Background"))
+    }
+    
+    // MARK: - Delete Overlay
+    
+    private var deleteOverlay: some View {
+        EditSheetOverlayLayer(
+            isVisible: $showDeleteDialog,
+            isChecked: $isDeleteConfirmed,
+            clientName: NameFormatter.autoFormat(name: name, surname: surname),
+            onConfirmDelete: executeDelete
+        )
+        .transition(.asymmetric(
+            insertion: .scale(scale: 0.98).combined(with: .opacity),
+            removal: .opacity
+        ))
+        .zIndex(10)
+        .compositingGroup()
+    }
+    
+    // MARK: - Delete Actions
+    
+    private func showDeleteConfirmation() {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            showDeleteDialog = true
+        }
+    }
+    
+    private func executeDelete() {
+        onDelete?()
+        showDeleteDialog = false
+        isDeleteConfirmed = false
+        dismiss()
     }
 }
 
 // MARK: - Helpers
 
 private extension Image {
-    func asUIImage() -> UIImage? { nil }
+    func asUIImage() -> UIImage? {
+        // Render the SwiftUI Image into a UIImage for use in pickers/croppers
+        let targetSize = CGSize(width: 358, height: 214)
+        let rendered = ImageRenderer(
+            content: self
+                .resizable()
+                .scaledToFit()
+                .frame(width: targetSize.width, height: targetSize.height)
+        )
+        rendered.scale = UIScreen.main.scale
+        return rendered.uiImage
+    }
 }
 
 // makeInitials moved to common component: Profile.makeInitials

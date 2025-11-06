@@ -86,30 +86,31 @@ struct PhotoAddView: View {
                                     Image(uiImage: img)
                                         .resizable()
                                         .scaledToFit()
-                                        .frame(width: 308, height: 184)
-                                        .cornerRadius(8)
+                                        .frame(width: 358, height: 214)
+                                        .cornerRadius(9.28)
                                 } else {
                                     Image("CardL")
                                 }
                             }
                             .tag(CardSide.front)
+                            .padding(.vertical, 9)
 
                             Group {
                                 if let img = pickedBackImage {
                                     Image(uiImage: img)
                                         .resizable()
                                         .scaledToFit()
-                                        .frame(width: 308, height: 184)
-                                        .cornerRadius(8)
+                                        .frame(width: 358, height: 214)
+                                        .cornerRadius(9.28)
                                 } else {
                                     Image("CardL")
                                 }
                             }
                             .tag(CardSide.back)
+                            .padding(.vertical, 9)
                         }
                         .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 24)
+                        .frame(maxWidth: .infinity, minHeight: 214, maxHeight: 214)
                     }
                 }
             .frame(maxWidth: .infinity)

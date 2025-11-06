@@ -44,68 +44,18 @@ struct ProfileDetailView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                // 네비게이션 바
-                MyProfileNavigationBar(
-                    title: "\(client.surname)\(client.name)",
-                    onBack: { dismiss() },
-                    onEdit: { isPresentingEdit = true }
-                )
-                .background(Color("Background"))
-                .padding(.top, 16)
-                .padding(.bottom, 8)
-
-                // 상단 헤더
-                MyProfileHeaderView(
-                    client: adaptedClient,
-                    page: $currentPageIndex,
-                    onCardTapped: { isShowingCardViewer = true }
-                )
-                .padding(.top, 4)
-
-                // 프라이머리 액션
-                MyProfilePrimaryActionView(title: "메모하기") {
-                    openChatForClient()
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 0)
-                .accessibilityLabel("메모하기")
-
-                // 연락처 섹션
-                MyProfileContactsSection(
-                    email: client.email,
-                    phone: client.phoneNumber,
-                    linkedin: client.linkedinURL,
-                    openExternal: { url in
-                        openExternal(url)
-                    },
-                    copyToPasteboard: { text in
-                        copyToPasteboard(text)
-                    }
-                )
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.top, 32)
-                
-
-                // 메모 섹션
-                ProfileDetailMemoSection(
-                    memo: client.memo ?? ""
-                )
-                .padding(.horizontal, 24)
-                .padding(.top, 24)
-            
-            }
-        }
+        mainContent
         .background(Color("Background"))
         .sheet(isPresented: $isPresentingEdit) {
             MyProfileEditSheet(
                 client: client,
                 onCancel: { },
                 onSave: { updated in
-                    self.client = updated
+                            let previousEmail = self.client.email
+                            self.client = updated
+                            persistClientUpdate(updated, previousEmail: previousEmail)
                 },
+                onDelete: { deleteClient() }, // 직접 삭제 처리
                 showDeleteButton: true  // ProfileDetailView에서만 삭제 버튼 표시
             )
         }
@@ -161,6 +111,95 @@ struct ProfileDetailView: View {
         )
     }
 
+    // MARK: - Main Content
+    
+    private var mainContent: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                // 네비게이션 바
+                MyProfileNavigationBar(
+                    title: client.autoFormattedName,
+                    onBack: { dismiss() },
+                    onEdit: { isPresentingEdit = true }
+                )
+                .background(Color("Background"))
+                .padding(.top, 16)
+                .padding(.bottom, 8)
+
+                // 상단 헤더
+                MyProfileHeaderView(
+                    client: adaptedClient,
+                    page: $currentPageIndex,
+                    onCardTapped: { isShowingCardViewer = true }
+                )
+                .padding(.top, 4)
+
+                // 프라이머리 액션
+                MyProfilePrimaryActionView(title: "메모하기") {
+                    openChatForClient()
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 0)
+                .accessibilityLabel("메모하기")
+
+                // 연락처 섹션
+                MyProfileContactsSection(
+                    email: client.email,
+                    phone: client.phoneNumber,
+                    linkedin: client.linkedinURL,
+                    openExternal: { url in
+                        openExternal(url)
+                    },
+                    copyToPasteboard: { text in
+                        copyToPasteboard(text)
+                    }
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.top, 32)
+                
+
+                // 메모 섹션
+                ProfileDetailMemoSection(
+                    memo: client.memo ?? ""
+                )
+                .padding(.horizontal, 24)
+                .padding(.top, 24)
+            
+            }
+        }
+        .toolbar(.hidden, for: .navigationBar)
+        .toolbar(.hidden, for: .tabBar)
+    }
+    
+    private func deleteClient() {
+        // 실제 삭제 로직
+        ClientsStore.shared.remove(convertToClient().id)
+        
+        // 화면 닫기
+        dismiss()
+    }
+    
+    private func convertToClient() -> Client {
+        Client(
+            profile: client.profile,
+            nameCardFront: client.nameCardFront,
+            nameCardBack: client.nameCardBack,
+            surname: client.surname,
+            name: client.name,
+            position: client.position,
+            company: client.company,
+            email: client.email,
+            phoneNumber: client.phoneNumber,
+            linkedinURL: client.linkedinURL,
+            memo: client.memo,
+            action: client.action,
+            favorite: client.favorite,
+            pin: client.pin,
+            notes: []
+        )
+    }
+
     // MARK: - Helpers
 
     private var contactDialogTitle: String {
@@ -202,7 +241,7 @@ struct ProfileDetailView: View {
 
     private func openChatForClient() {
         let emailKey = client.email ?? ""
-        chatTitle = "\(client.name) \(client.surname)"
+        chatTitle = client.autoFormattedName
         if let existing = ClientsStore.shared.clients.first(where: { ($0.email ?? "") == emailKey }) {
             chatClientId = existing.id
             isPushingChat = true
@@ -229,6 +268,32 @@ struct ProfileDetailView: View {
         chatClientId = newClient.id
         isPushingChat = true
     }
+
+    private func persistClientUpdate(_ updated: DummyClient, previousEmail: String?) {
+        // Prefer updated email; fallback to previous email
+        let candidates = [updated.email, previousEmail].compactMap { $0 }.filter { !$0.isEmpty }
+        guard let key = candidates.first else { return }
+        guard let existing = ClientsStore.shared.clients.first(where: { ($0.email ?? "") == key }) else { return }
+        let newClient = Client(
+            id: existing.id,
+            profile: updated.profile,
+            nameCardFront: updated.nameCardFront,
+            nameCardBack: updated.nameCardBack,
+            surname: updated.surname,
+            name: updated.name,
+            position: updated.position,
+            company: updated.company,
+            email: updated.email,
+            phoneNumber: updated.phoneNumber,
+            linkedinURL: updated.linkedinURL,
+            memo: updated.memo,
+            action: existing.action,
+            favorite: existing.favorite,
+            pin: existing.pin,
+            notes: existing.notes
+        )
+        ClientsStore.shared.update(newClient)
+    }
 }
 
 // MARK: - Models
@@ -241,6 +306,5 @@ private enum ContactType: Equatable {
 
 #Preview {
     @Previewable @State var client: DummyClient = sampleMyProfileClient
-
     ProfileDetailView(client: $client)
 }
