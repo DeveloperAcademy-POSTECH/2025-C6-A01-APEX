@@ -392,30 +392,38 @@ struct ChattingView: View {
         
         .scrollEdgeEffectStyle(.soft, for: .all)
         .toolbar(.hidden, for: .navigationBar)
-        .overlay(alignment: .trailing) {
-            Color.clear
-                .frame(width: 44)
-                .contentShape(Rectangle())
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 10)
-                        .onChanged { value in
-                            let dx = value.translation.width
-                            let dy = value.translation.height
-                            guard abs(dx) > abs(dy) else { return }
-                            if dx < 0 {
-                                let progress = min(1, max(0, -dx / 80))
-                                timestampRevealProgress = progress
-                            } else {
-                                timestampRevealProgress = 0
-                            }
-                        }
-                        .onEnded { _ in
-                            withAnimation(.easeInOut(duration: 0.15)) {
-                                timestampRevealProgress = 0
-                            }
-                        }
-                )
-        }
+        // Full-screen left-swipe to reveal timestamps (non-intrusive)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 10)
+                .onChanged { value in
+                    let dx = value.translation.width
+                    let dy = value.translation.height
+                    guard abs(dx) > abs(dy) else { return }
+                    if dx < 0 {
+                        let progress = min(1, max(0, -dx / 80))
+                        timestampRevealProgress = progress
+                    } else {
+                        timestampRevealProgress = 0
+                    }
+                }
+                .onEnded { _ in
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        timestampRevealProgress = 0
+                    }
+                }
+        )
+        // Full-screen right-swipe to dismiss (non-intrusive)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 20)
+                .onEnded { value in
+                    let dx = value.translation.width
+                    let dy = value.translation.height
+                    guard abs(dx) > abs(dy) else { return }
+                    if dx > 80, sheetMode == .hidden, !isSearchActive {
+                        dismiss()
+                    }
+                }
+        )
         .onPreferenceChange(DateHeaderPositionsKey.self) { positions in
             if !didReceiveInitialPositions {
                 didReceiveInitialPositions = true
