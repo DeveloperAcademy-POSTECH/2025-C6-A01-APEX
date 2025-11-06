@@ -1,6 +1,19 @@
 import SwiftUI
 import UIKit
 
+// MARK: - Custom Button Style
+struct PressableButtonStyle: ButtonStyle {
+    let normalColor: Color
+    let pressedColor: Color
+    let cornerRadius: CGFloat
+    
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(configuration.isPressed ? pressedColor : normalColor)
+            .cornerRadius(cornerRadius)
+    }
+}
+
 // MARK: - Top Bar
 struct DMTopBar: View {
     var onClose: () -> Void
@@ -44,9 +57,13 @@ struct DMTopBar: View {
                 .frame(height: Metrics.height)
                 .padding(.horizontal, Metrics.hPadding)
                 .allowsHitTesting(false)
+                
         }
+        .border(.red)
     }
+    
 }
+
 
 // MARK: - Toggle Section
 struct DMToggleSection: View {
@@ -56,28 +73,42 @@ struct DMToggleSection: View {
     var onToggle: (Bool) -> Void
 
     private enum Metrics {
-        static let hPadding: CGFloat = 10
-        static let vSpacing: CGFloat = 8
+        static let hPadding: CGFloat = 8
+        static let vPadding: CGFloat = 10
+        static let titleToHelperSpacing: CGFloat = 4
+        static let helperToToggleSpacing: CGFloat = 10
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Metrics.vSpacing) {
-            Toggle(isOn: Binding(get: { isOn }, set: { new in
-                isOn = new
-                onToggle(new)
-            })) {
-                Text(title)
-                    .font(.body2)
-                    .foregroundColor(.primary)
+        VStack(alignment: .leading, spacing: 0) {
+            // Title
+            Text(title)
+                .font(.body1)
+                .foregroundColor(.primary)
+            
+            Spacer().frame(height: Metrics.titleToHelperSpacing)
+            
+            // Helper text와 Toggle을 나란히 배치
+            HStack(alignment: .center, spacing: 0) {
+                Text(helper)
+                    .font(.caption2)
+                    .foregroundColor(.gray)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: 345, alignment: .leading)
+                
+                Spacer()
+                
+                Toggle("", isOn: Binding(get: { isOn }, set: { new in
+                    isOn = new
+                    onToggle(new)
+                }))
+                .toggleStyle(SwitchToggleStyle(tint: Color("Primary")))
+                .labelsHidden()
             }
-            .toggleStyle(SwitchToggleStyle(tint: Color("Primary")))
-
-            Text(helper)
-                .font(.body6)
-                .foregroundColor(.gray)
-                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, Metrics.hPadding)
+        .padding(.vertical, Metrics.vPadding)
+        .border(.red)
     }
 }
 
@@ -90,39 +121,48 @@ struct DMRefreshSection: View {
     var onRefresh: () -> Void
 
     private enum Metrics {
-        static let hPadding: CGFloat = 16
-        static let vSpacing: CGFloat = 8
-        static let tappable: CGFloat = 44
+        static let hPadding: CGFloat = 8
+        static let vPadding: CGFloat = 10
+        static let titleToHelperSpacing: CGFloat = 4
+        static let helperToButtonSpacing: CGFloat = 10
         static let iconSize: CGFloat = 18
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Metrics.vSpacing) {
-            HStack {
-                Text(title)
-                    .font(.body2)
-                    .foregroundColor(.primary)
+        VStack(alignment: .leading, spacing: 0) {
+            // Title
+            Text(title)
+                .font(.body1)
+                .foregroundColor(.primary)
+            
+            Spacer().frame(height: Metrics.titleToHelperSpacing)
+            
+            // Helper text와 Refresh Button을 나란히 배치
+            HStack(alignment: .center, spacing: 0) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(helperPrefix)
+                    Text("최종 동기화 시간: \(lastSyncText)")
+                }
+                .font(.caption2)
+                .foregroundColor(.gray)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: 345, alignment: .leading)
+                
                 Spacer()
+                
                 Button(action: { if !isRefreshing { onRefresh() } }) {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: Metrics.iconSize, weight: .semibold))
-                        .rotationEffect(isRefreshing ? .degrees(360) : .degrees(0))
+                    Image(systemName: "arrow.trianglehead.2.counterclockwise.rotate.90")
+                        .font(.system(size: Metrics.iconSize, weight: .medium))
                         .foregroundColor(isRefreshing ? Color("BackgroundDisabled") : .gray)
-                        .frame(width: Metrics.tappable, height: Metrics.tappable)
+                        .rotationEffect(isRefreshing ? .degrees(360) : .degrees(0))
                 }
                 .buttonStyle(.plain)
                 .disabled(isRefreshing)
                 .animation(isRefreshing ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: isRefreshing)
             }
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(helperPrefix)
-                Text("최종 동기화 시간: \(lastSyncText)")
-            }
-            .font(.body6)
-            .foregroundColor(.gray)
         }
         .padding(.horizontal, Metrics.hPadding)
+        .padding(.vertical, Metrics.vPadding)
     }
 }
 
@@ -133,31 +173,74 @@ struct DMDeleteAllBlock: View {
     var onTap: () -> Void
 
     private enum Metrics {
-        static let hPadding: CGFloat = 16
+        static let hPadding: CGFloat = 8
+        static let vPadding: CGFloat = 8
         static let height: CGFloat = 44
         static let corner: CGFloat = 10
+        static let buttonToDescriptionSpacing: CGFloat = 8
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Metrics.buttonToDescriptionSpacing) {
             Button(action: { if isEnabled { onTap() } }) {
                 Text("미디어 데이터 모두 삭제 (\(totalSizeText))")
                     .font(.body2)
                     .foregroundColor(isEnabled ? .primary : Color("BackgroundDisabled"))
                     .frame(maxWidth: .infinity)
                     .frame(height: Metrics.height)
-                    .background(Color("BackgroundSecondary"))
-                    .clipShape(RoundedRectangle(cornerRadius: Metrics.corner, style: .continuous))
                     .contentShape(RoundedRectangle(cornerRadius: Metrics.corner, style: .continuous))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressableButtonStyle(
+                normalColor: Color("BackgroundSecondary"),
+                pressedColor: Color("BackgroundHover"),
+                cornerRadius: Metrics.corner
+            ))
             .disabled(!isEnabled)
 
-            Text("미디어 데이터를 모두 삭제 시 I-Cloud에 백업되지 않는 데이터는 복원 할 수 없습니다.")
-                .font(.body6)
+            Text("미디어 데이터를 모두 삭제 시 i-Cloud에 백업되지 않는 데이터는 복원 할 수 없습니다.")
+                .font(.caption2)
                 .foregroundColor(.gray)
         }
         .padding(.horizontal, Metrics.hPadding)
+        .padding(.vertical, Metrics.vPadding)
+    }
+}
+
+// MARK: - Contact List Section
+struct DMContactListSection: View {
+    let title: String = "연락처 노트 데이터 관리"
+    let contacts: [DMContactUsage]
+    var onContactDeleteTap: (DMContactUsage) -> Void
+
+    private enum Metrics {
+        static let titleHeight: CGFloat = 40
+        static let titlePadding: CGFloat = 8
+        static let titleToListSpacing: CGFloat = 4
+        static let listVPadding: CGFloat = 10
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.titleToListSpacing) {
+            // Title
+            HStack {
+                Text(title)
+                    .font(.body1)
+                    .foregroundColor(.black)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(height: Metrics.titleHeight)
+            .padding(.all, Metrics.titlePadding)
+            
+            // Contact List
+            VStack(spacing: 0) {
+                ForEach(contacts) { contact in
+                    DMContactRow(contact: contact) {
+                        onContactDeleteTap(contact)
+                    }
+                }
+            }
+            .padding(.vertical, Metrics.listVPadding)
+        }
     }
 }
 
@@ -167,32 +250,30 @@ struct DMContactRow: View {
     var onDeleteTap: () -> Void
 
     private enum Metrics {
-        static let rowHeight: CGFloat = 52
+        static let rowHeight: CGFloat = 64
         static let sizeTextColor = Color.gray
     }
 
     var body: some View {
-        HStack(spacing: 12) {
-            Profile(image: contact.image, initials: contact.initials, size: .extraSmall, fontSize: 18)
-            Text(contact.name)
-                .font(.body2)
-                .foregroundColor(.primary)
-                .lineLimit(1)
-            Spacer()
-            Text(contact.sizeText)
-                .font(.body5)
-                .foregroundColor(Metrics.sizeTextColor)
-        }
-        .frame(height: Metrics.rowHeight)
-        .frame(maxWidth: .infinity)
-        .background(Color("BackgroundSecondary").opacity(0.0))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .contentShape(Rectangle())
-        .contextMenu {
-            Button(role: .destructive, action: onDeleteTap) {
-                Label("미디어 데이터 삭제", systemImage: "trash")
+        Button(action: onDeleteTap) {
+            HStack(spacing: 12) {
+                Profile(image: contact.image, initials: contact.initials, size: .small, fontSize: 30.72)
+                Text(contact.name)
+                    .font(.body2)
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
+                Spacer()
+                Text(contact.sizeText)
+                    .font(.body6)
+                    .foregroundColor(Metrics.sizeTextColor)
             }
+            .frame(height: Metrics.rowHeight)
+            .frame(maxWidth: .infinity)
+            .background(Color("BackgroundSecondary").opacity(0.0))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
     }
 }
 
@@ -290,7 +371,7 @@ struct DMConfirmDialog: View {
                                 } label: {
                                     HStack(spacing: 10) {
                                         Text(cancelTitle)
-                                            .font(Font.custom("SF Pro", size: 17).weight(.medium))
+                                            .font(.title5)
                                             .foregroundColor(.black)
                                             .frame(maxWidth: .infinity)
                                     }
@@ -309,7 +390,7 @@ struct DMConfirmDialog: View {
                                 } label: {
                                     HStack(spacing: 10) {
                                         Text(confirmTitle)
-                                            .font(Font.custom("SF Pro", size: 17).weight(.medium))
+                                            .font(.title5)
                                             .foregroundColor(isChecked ? Color(red: 0xCC/255.0, green: 0x41/255.0, blue: 0x41/255.0) : Color(red: 0.55, green: 0.55, blue: 0.55))
                                             .frame(maxWidth: .infinity)
                                     }
@@ -396,6 +477,15 @@ struct DMConfirmDialog: View {
         .padding(.horizontal, 16)
 }
 
+#Preview("ContactListSection") {
+    let samples = [
+        DMContactUsage(id: UUID(), name: "Gyeong", initials: "G", sizeText: "816.45 MB", image: nil),
+        DMContactUsage(id: UUID(), name: "Daisy", initials: "D", sizeText: "816.45 MB", image: nil)
+    ]
+    return DMContactListSection(contacts: samples, onContactDeleteTap: { _ in })
+        .background(Color("Background"))
+}
+
 #Preview("ConfirmDialog (All delete)") {
     @Previewable @State var visible = true
     @Previewable @State var checked = false
@@ -403,7 +493,7 @@ struct DMConfirmDialog: View {
         isVisible: $visible,
         isChecked: $checked,
         title: "모든 미디어 데이터를 삭제하겠습니까?",
-        bodyText: "모든 미디어 데이터를 삭제합니다.\nI-Cloud에 백업되지 않은 데이터는 복원 할 수 없습니다.",
+        bodyText: "모든 미디어 데이터를 삭제합니다.\ni-Cloud에 백업되지 않은 데이터는 복원 할 수 없습니다.",
         confirmTitle: "삭제",
         cancelTitle: "취소",
         onConfirm: {},

@@ -23,7 +23,7 @@ enum DMDialogKind: Equatable {
     var body: String {
         switch self {
         case .deleteAll:
-            return "모든 미디어 데이터를 삭제합니다.\nI-Cloud에 백업되지 않은 데이터는\n복원 할 수 없습니다."
+            return "모든 미디어 데이터를 삭제합니다.\ni-Cloud에 백업되지 않은 데이터는\n복원 할 수 없습니다."
         case .deleteContact:
             return "노트를 제외한 모든 미디어 데이터\n(사진, 동영상, 음성, 파일)이 삭제됩니다.\n이 작업은 되돌릴 수 없습니다."
         }
@@ -150,50 +150,43 @@ struct DataManagementView: View {
 
     var body: some View {
         ZStack {
-            VStack(spacing: 0) {
-                DMTopBar { dismiss() }
+            // Main Content (DMContactsView equivalent)
+            ScrollView {
+                VStack(spacing: 16) {
+                    DMToggleSection(
+                        title: "iCloud 자동 동기화",
+                        helper: "노트에 저장한 미디어는 iCloud에 자동으로 백업하고 기기에서는 삭제하여 스토리지 여유를 가질 수 있어요.",
+                        isOn: $vm.isAutoSyncOn,
+                        onToggle: { vm.toggleAutoSync($0) }
+                    )
 
-                ScrollView {
-                    VStack(spacing: 16) {
-                        DMToggleSection(
-                            title: "iCloud 자동 동기화",
-                            helper: "노트에 저장한 미디어는 iCloud에 자동으로 백업하고 기기에서는 삭제하여 스토리지 여유를 가질 수 있어요.",
-                            isOn: $vm.isAutoSyncOn,
-                            onToggle: { vm.toggleAutoSync($0) }
-                        )
+                    DMRefreshSection(
+                        title: "iCloud 동기화 새로고침",
+                        helperPrefix: "노트에 저장한 미디어를 iCloud에 즉시 동기화 합니다.",
+                        lastSyncText: vm.lastSyncText,
+                        isRefreshing: vm.isRefreshing,
+                        onRefresh: { vm.refreshSync() }
+                    )
 
-                        DMRefreshSection(
-                            title: "iCloud 동기화 새로고침",
-                            helperPrefix: "노트에 저장한 미디어를 iCloud에 즉시 동기화 합니다.",
-                            lastSyncText: vm.lastSyncText,
-                            isRefreshing: vm.isRefreshing,
-                            onRefresh: { vm.refreshSync() }
-                        )
-
-                        DMDeleteAllBlock(totalSizeText: vm.totalSizeText) {
-                            vm.requestDeleteAll()
-                        }
-
-                        Divider().padding(.horizontal, 16)
-
-                        Text("연락처 노트 데이터 관리")
-                            .font(.body4)
-                            .foregroundColor(.gray)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 16)
-
-                        VStack(spacing: 8) {
-                            ForEach(vm.contacts) { c in
-                                DMContactRow(contact: c) {
-                                    vm.requestDeleteContact(c.id)
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 16)
+                    DMDeleteAllBlock(totalSizeText: vm.totalSizeText) {
+                        vm.requestDeleteAll()
                     }
-                    .padding(.vertical, 16)
+
+                    Divider()
+
+                    DMContactListSection(
+                        contacts: vm.contacts,
+                        onContactDeleteTap: { contact in
+                            vm.requestDeleteContact(contact.id)
+                        }
+                    )
                 }
-                .background(Color("Background"))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 16)
+            }
+            .background(Color("Background"))
+            .safeAreaInset(edge: .top) {
+                DMTopBar { dismiss() }
             }
 
             DMConfirmDialog(
