@@ -29,9 +29,11 @@ struct MediaHeaderBar: View {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 17, weight: .medium))
                         .frame(width: 44, height: 44)
-                        .glassEffect()
+                        .contentShape(Rectangle())
+                        
                 })
                 .buttonStyle(.plain)
+                .glassEffect()
 
                 Spacer()
                 
@@ -59,9 +61,9 @@ struct MediaHeaderBar: View {
                     Image(systemName: "square.grid.2x2")
                         .font(.system(size: 18, weight: .semibold))
                         .frame(width: 44, height: 44)
-                        .glassEffect()
+                        .contentShape(Rectangle())
                 })
-                .buttonStyle(.plain)
+                .buttonStyle(.plain).glassEffect()
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)

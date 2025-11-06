@@ -57,7 +57,32 @@ struct NotesView: View {
                         .toolbar(.hidden, for: .tabBar)
                 }
             }
-            .onReceive(NotificationCenter.default.publisher(for: .apexChatNotesUpdated)) { _ in
+            .onReceive(NotificationCenter.default.publisher(for: .apexChatNotesUpdated)) { notif in
+                guard let clientId = notif.userInfo?["clientId"] as? UUID,
+                      let idx = clientsStore.clients.firstIndex(where: { $0.id == clientId }) else { return }
+
+                let old = clientsStore.clients[idx]
+                let latestNotes = ChatStore.shared.notes(for: clientId)
+
+                // Replace whole element to trigger @Published update
+                clientsStore.clients[idx] = Client(
+                    id: old.id,
+                    profile: old.profile,
+                    nameCardFront: old.nameCardFront,
+                    nameCardBack: old.nameCardBack,
+                    surname: old.surname,
+                    name: old.name,
+                    position: old.position,
+                    company: old.company,
+                    email: old.email,
+                    phoneNumber: old.phoneNumber,
+                    linkedinURL: old.linkedinURL,
+                    memo: old.memo,
+                    action: old.action,
+                    favorite: old.favorite,
+                    pin: old.pin,
+                    notes: latestNotes
+                )
             }
 
         }

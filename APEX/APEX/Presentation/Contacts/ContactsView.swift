@@ -72,7 +72,7 @@ struct ContactsView: View {
             image: Image(systemName: "star"),
             text: toastText,
             buttonTitle: "되돌리기",
-            duration: 1.6
+            duration: 3.0
         ) {
             undoFavoriteAction()
         }
