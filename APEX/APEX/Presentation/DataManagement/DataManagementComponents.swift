@@ -31,7 +31,7 @@ struct DMTopBar: View {
             HStack(spacing: 0) {
                 Button(action: onClose) {
                     Image(systemName: "xmark")
-                        .font(Font.custom("SF Pro", size: Metrics.iconSize).weight(.medium))
+                        .font(.system(size: Metrics.iconSize, weight: .medium))
                         .foregroundColor(.black)
                         .frame(width: Metrics.tappable, height: Metrics.tappable)
                         .contentShape(Rectangle())
@@ -59,7 +59,6 @@ struct DMTopBar: View {
                 .allowsHitTesting(false)
                 
         }
-        .border(.red)
     }
     
 }
@@ -108,7 +107,6 @@ struct DMToggleSection: View {
         }
         .padding(.horizontal, Metrics.hPadding)
         .padding(.vertical, Metrics.vPadding)
-        .border(.red)
     }
 }
 
@@ -166,6 +164,71 @@ struct DMRefreshSection: View {
     }
 }
 
+// MARK: - Media Data Delete Section (통합 섹션)
+struct DMMediaDataSection: View {
+    let title: String = "미디어 데이터 삭제"
+    let description: String = "미디어 데이터를 모두 제거 시 사진, 동영상, 음성, 파일이 삭제됩니다.\n미디어 데이터 삭제 시 iCloud에 백업되지 않는 데이터는 복원 할 수 없습니다."
+    let totalSizeText: String
+    let contacts: [DMContactUsage]
+    var onDeleteAllTap: () -> Void
+    var onContactDeleteTap: (DMContactUsage) -> Void
+
+    private enum Metrics {
+        static let titlePadding: CGFloat = 8
+        static let descriptionPadding: CGFloat = 8
+        static let buttonPadding: CGFloat = 8
+        static let contactListPadding: CGFloat = 8
+        static let sectionSpacing: CGFloat = 12
+        static let buttonHeight: CGFloat = 44
+        static let buttonCorner: CGFloat = 10
+        static let contactRowHeight: CGFloat = 64
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.sectionSpacing) {
+            // Title
+            Text(title)
+                .font(.body1)
+                .foregroundColor(.black)
+                .padding(.horizontal, Metrics.titlePadding)
+            
+            // Description
+            Text(description)
+                .font(.caption2)
+                .foregroundColor(.gray)
+                .padding(.horizontal, Metrics.descriptionPadding)
+            
+            // Delete All Button
+            Button(action: onDeleteAllTap) {
+                Text("전체 미디어 데이터 삭제 (\(totalSizeText))")
+                    .font(.body2)
+                    .foregroundColor(.black)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: Metrics.buttonHeight)
+                    .background(Color("BackgroundSecondary"))
+                    .cornerRadius(Metrics.buttonCorner)
+                    .contentShape(RoundedRectangle(cornerRadius: Metrics.buttonCorner))
+            }
+            .buttonStyle(PressableButtonStyle(
+                normalColor: Color("BackgroundSecondary"),
+                pressedColor: Color("BackgroundHover"),
+                cornerRadius: Metrics.buttonCorner
+            ))
+            .padding(.horizontal, Metrics.buttonPadding)
+            
+            // Contact List (통합됨)
+            VStack(spacing: 0) {
+                ForEach(contacts) { contact in
+                    DMContactRow(contact: contact) {
+                        onContactDeleteTap(contact)
+                    }
+                }
+            }
+            .padding(.horizontal, Metrics.contactListPadding)
+        }
+    }
+}
+
 // MARK: - Delete All Block
 struct DMDeleteAllBlock: View {
     let totalSizeText: String
@@ -208,7 +271,7 @@ struct DMDeleteAllBlock: View {
 
 // MARK: - Contact List Section
 struct DMContactListSection: View {
-    let title: String = "연락처 노트 데이터 관리"
+    let title: String = "연락처별 데이터 관리"
     let contacts: [DMContactUsage]
     var onContactDeleteTap: (DMContactUsage) -> Void
 
@@ -456,6 +519,21 @@ struct DMConfirmDialog: View {
         onRefresh: {}
     )
     .background(Color("Background"))
+}
+
+#Preview("MediaDataSection") {
+    let samples = [
+        DMContactUsage(id: UUID(), name: "Gyeong", initials: "G", sizeText: "816.45 MB", image: nil),
+        DMContactUsage(id: UUID(), name: "Daisy", initials: "D", sizeText: "816.45 MB", image: nil)
+    ]
+    return DMMediaDataSection(
+        totalSizeText: "5.70 GB",
+        contacts: samples,
+        onDeleteAllTap: {},
+        onContactDeleteTap: { _ in }
+    )
+    .background(Color("Background"))
+    .padding(.vertical, 8)
 }
 
 #Preview("DeleteAllBlock - enabled") {

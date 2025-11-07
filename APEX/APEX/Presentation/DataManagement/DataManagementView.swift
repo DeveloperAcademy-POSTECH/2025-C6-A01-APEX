@@ -168,14 +168,12 @@ struct DataManagementView: View {
                         onRefresh: { vm.refreshSync() }
                     )
 
-                    DMDeleteAllBlock(totalSizeText: vm.totalSizeText) {
-                        vm.requestDeleteAll()
-                    }
-
                     Divider()
 
-                    DMContactListSection(
+                    DMMediaDataSection(
+                        totalSizeText: vm.totalSizeText,
                         contacts: vm.contacts,
+                        onDeleteAllTap: { vm.requestDeleteAll() },
                         onContactDeleteTap: { contact in
                             vm.requestDeleteContact(contact.id)
                         }
