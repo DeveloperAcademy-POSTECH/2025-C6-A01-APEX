@@ -37,7 +37,7 @@ struct NotesFilterTabs: View {
                 VStack {
                     Spacer()
                     Rectangle()
-                        .fill(Color("BackgroundHover"))
+                        .fill(Color("PrimaryContainer"))
                         .frame(height: 2)
                 }
             )
@@ -78,7 +78,7 @@ private struct FilterTab: View {
         if isSelected {
             return Color("Primary")
         } else {
-            return Color("BackgroundHover")
+            return Color("BackgroundDisabled")
         }
     }
     
