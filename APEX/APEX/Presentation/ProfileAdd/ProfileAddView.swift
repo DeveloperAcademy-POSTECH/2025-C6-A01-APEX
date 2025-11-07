@@ -154,7 +154,7 @@ struct ProfileAddView: View {
             }
             .padding(.horizontal, 24)
         }
-        .scrollEdgeEffectStyle(.hard, for: .all)
+        .scrollEdgeEffectStyle(.soft, for: .all)
         .sheet(item: $presentedPhotoType) { sheetType in
             PhotoAddView(
                 type: sheetType,
@@ -174,7 +174,7 @@ struct ProfileAddView: View {
             AddItemView(config: $addItemConfig)
                 .padding(.top, 30)
         }
-        .safeAreaInset(edge: .top) {
+        .safeAreaBar(edge: .top) {
             APEXSheetTopBar(
                 title: "연락처 추가",
                 rightTitle: "완료",

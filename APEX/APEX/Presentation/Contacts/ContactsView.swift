@@ -55,6 +55,15 @@ struct ContactsView: View {
                     deleteOverlay
                 }
             }
+            .scrollEdgeEffectStyle(.soft, for: .top)
+            .safeAreaBar(edge: .top) {
+                if !showMyProfileView && !showProfileDetailView {
+                    ContactsTopBarReplica(
+                        title: "Contacts",
+                        onPlus: onPlusTap
+                    )
+                }
+            }
             .toolbar(.hidden, for: .navigationBar)
         }
         .sheet(isPresented: $isProfileAddPresented) {
@@ -82,14 +91,6 @@ struct ContactsView: View {
     
     private var mainContent: some View {
         VStack(spacing: 0) {
-            // TopBar를 mainContent 내부로 이동 (NotesView의 NotesNavigationBar처럼)
-            if !showMyProfileView && !showProfileDetailView {
-                ContactsTopBarReplica(
-                    title: "Contacts",
-                    onPlus: onPlusTap
-                )
-            }
-            
             // List를 VStack 내부로 이동
             List {
                 // MARK: - My Profile (TopBar와 0 간격, Favorites와는 8 간격)

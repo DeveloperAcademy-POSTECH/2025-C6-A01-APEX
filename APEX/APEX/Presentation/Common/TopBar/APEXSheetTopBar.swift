@@ -52,7 +52,6 @@ struct APEXSheetTopBar: View {
                 }
                 .frame(height: height)
                 .padding(.horizontal, 12)
-                .background(background)
 
             // Center title overlay with optional subtitle
                 VStack(spacing: 2) {
