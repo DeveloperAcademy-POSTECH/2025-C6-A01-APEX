@@ -81,16 +81,8 @@ struct ContactsView: View {
     // MARK: - Main Content
     
     private var mainContent: some View {
-        VStack(spacing: 0) {
-            // TopBar를 mainContent 내부로 이동 (NotesView의 NotesNavigationBar처럼)
-            if !showMyProfileView && !showProfileDetailView {
-                ContactsTopBarReplica(
-                    title: "Contacts",
-                    onPlus: onPlusTap
-                )
-            }
-            
-            // List를 VStack 내부로 이동
+        ZStack(alignment: .top) {
+            // List를 ZStack의 배경으로 이동
             List {
                 // MARK: - My Profile (TopBar와 0 간격, Favorites와는 8 간격)
                 // My Profile Row (DummyClient -> Client 변환해 표시)
@@ -138,27 +130,42 @@ struct ContactsView: View {
             .listRowSpacing(0)
             .environment(\.defaultMinListRowHeight, 1)
             .scrollContentBackground(.hidden)
-            .background(
-                NavigationLink(
-                    "",
-                    isActive: $showMyProfileView
-                ) {
-                    MyProfileView(client: $myProfileDummy)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                // TopBar 높이만큼 투명한 영역 확보
+                Color.clear.frame(height: 68)
+            }
+            
+            // TopBar를 ZStack 상단에 오버레이로 배치
+            if !showMyProfileView && !showProfileDetailView {
+                VStack {
+                    ContactsTopBarReplica(
+                        title: "Contacts",
+                        onPlus: onPlusTap
+                    )
+                    Spacer()
                 }
-                .hidden()
-            )
-            .background(
-                NavigationLink(
-                    "",
-                    isActive: $showProfileDetailView
-                ) {
-                    if let client = selectedClient {
-                        ProfileDetailView(client: .constant(convertToDummyClient(client)))
-                    }
-                }
-                .hidden()
-            )
+            }
         }
+        .background(
+            NavigationLink(
+                "",
+                isActive: $showMyProfileView
+            ) {
+                MyProfileView(client: $myProfileDummy)
+            }
+            .hidden()
+        )
+        .background(
+            NavigationLink(
+                "",
+                isActive: $showProfileDetailView
+            ) {
+                if let client = selectedClient {
+                    ProfileDetailView(client: .constant(convertToDummyClient(client)))
+                }
+            }
+            .hidden()
+        )
         .background(Color("Background"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(Color("Background"), for: .navigationBar)
