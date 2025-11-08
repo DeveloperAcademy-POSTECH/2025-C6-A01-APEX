@@ -45,6 +45,11 @@ struct NotesView: View {
                 duration: 1.6,
 				        onButtonTap: undoPinAction
             )
+            .scrollEdgeEffectStyle(.soft, for: .top)
+            .safeAreaBar(edge: .top) {
+                NotesNavigationBar { print("Notes menu tapped") }
+                    .background(Color("Background"))
+            }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: UUID.self) { id in
                 if let client = clientsStore.clients.first(where: { $0.id == id }) {
@@ -92,8 +97,6 @@ struct NotesView: View {
     
     private var mainContent: some View {
         VStack(spacing: 0) {
-            NotesNavigationBar { print("Notes menu tapped") }
-            
             NotesFilterTabs(
                 selectedFilter: $selectedFilter,
                 availableFilters: availableFilters

@@ -243,7 +243,7 @@ struct MyProfileEditSheet: View {
             }
             .padding(.horizontal, 24)
         }
-        .scrollEdgeEffectStyle(.hard, for: .all)
+        .scrollEdgeEffectStyle(.soft, for: .all)
         .sheet(item: $presentedPhotoType) { sheetType in
             PhotoAddView(
                 type: sheetType,
@@ -261,7 +261,7 @@ struct MyProfileEditSheet: View {
             AddItemView(config: $addItemConfig)
                 .padding(.top, 30)
         }
-        .safeAreaInset(edge: .top) {
+        .safeAreaBar(edge: .top) {
             APEXSheetTopBar(
                 title: "프로필 편집",
                 rightTitle: "완료",
