@@ -171,14 +171,13 @@ struct RecordView: View {
                 guard let oldURL = workingURL ?? audioURL else { return }
                 // Stop playback
                 teardown()
-                // Preserve existing shares by copying to app-managed storage and notifying rename
-                let preservedURL = ensureSharedAudioCopy(of: oldURL)
+                // Notify deletion so all views remove this audio from notes
                 NotificationCenter.default.post(
-                    name: .apexAudioRenamed,
+                    name: .apexAudioDeleted,
                     object: nil,
-                    userInfo: ["oldURL": oldURL, "newURL": preservedURL]
+                    userInfo: ["url": oldURL]
                 )
-                // Remove original file
+                // Remove original file from disk
                 try? FileManager.default.removeItem(at: oldURL)
                 dismiss()
             }

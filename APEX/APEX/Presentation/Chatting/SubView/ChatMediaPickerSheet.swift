@@ -26,6 +26,7 @@ struct ChatMediaPickerSheet: View {
     @State private var assets: [PHAsset] = []
     @State private var thumbnails: [String: UIImage] = [:]
     @State private var selectedIds: Set<String> = []
+    @State private var videoDurations: [String: TimeInterval] = [:]
 
     private let gridColumns: [GridItem] = [
         GridItem(.flexible(), spacing: 2),
@@ -96,7 +97,8 @@ struct ChatMediaPickerSheet: View {
                                     }
 
                                     if asset.mediaType == .video {
-                                        Text(formatClock(asset.duration))
+                                        let duration = videoDurations[asset.localIdentifier]
+                                        Text(formatClock(duration ?? 0))
                                             .font(.caption2)
                                             .foregroundStyle(.white)
                                             .padding(8)
@@ -217,21 +219,21 @@ struct ChatMediaPickerSheet: View {
     }
 
     private func fetchVideoURL(for asset: PHAsset, completion: @escaping (URL?) -> Void) {
-        let resources = PHAssetResource.assetResources(for: asset).filter { res in
-            return res.type == .video || res.type == .pairedVideo
-        }
-        guard let resource = resources.first else {
-            completion(nil)
-            return
-        }
-        let tmp = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathExtension("mov")
-        PHAssetResourceManager.default().writeData(for: resource, toFile: tmp, options: nil) { error in
-            if error != nil {
-                completion(nil)
-            } else {
-                completion(tmp)
+        DispatchQueue.global(qos: .userInitiated).async {
+            let resources = PHAssetResource.assetResources(for: asset).filter { res in
+                return res.type == .video || res.type == .pairedVideo
+            }
+            guard let resource = resources.first else {
+                DispatchQueue.main.async { completion(nil) }
+                return
+            }
+            let tmp = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString)
+                .appendingPathExtension("mov")
+            PHAssetResourceManager.default().writeData(for: resource, toFile: tmp, options: nil) { error in
+                DispatchQueue.main.async {
+                    completion(error == nil ? tmp : nil)
+                }
             }
         }
     }
@@ -365,6 +367,16 @@ struct ChatMediaPickerSheet: View {
         var list: [PHAsset] = []
         result.enumerateObjects { asset, _, _ in list.append(asset) }
         assets = list
+        // Precompute video durations off-main to avoid on-demand fetch on main queue
+        DispatchQueue.global(qos: .userInitiated).async {
+            var map: [String: TimeInterval] = [:]
+            for assetItem in list where assetItem.mediaType == .video {
+                map[assetItem.localIdentifier] = assetItem.duration
+            }
+            DispatchQueue.main.async {
+                videoDurations = map
+            }
+        }
     }
 
     private func loadThumbnail(
@@ -376,6 +388,7 @@ struct ChatMediaPickerSheet: View {
         options.deliveryMode = .opportunistic
         options.isSynchronous = false
         options.resizeMode = .fast
+        options.isNetworkAccessAllowed = true
         manager.requestImage(
             for: asset,
             targetSize: targetSize,
