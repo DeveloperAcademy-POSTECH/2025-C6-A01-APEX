@@ -10,6 +10,7 @@ import SwiftUI
 @main
 struct APEXApp: App {
     @Environment(\.scenePhase) private var scenePhase
+    @StateObject private var router = NavigationRouter()
     
     private var isPreviewEnv: Bool {
         let env = ProcessInfo.processInfo.environment
@@ -33,6 +34,7 @@ struct APEXApp: App {
 //                    }
 //                }
             RootView()
+                .environmentObject(router)
         }
     }
 }

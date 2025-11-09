@@ -8,12 +8,12 @@
 import SwiftUI
 
 struct NotesView: View {
+    @EnvironmentObject private var router: NavigationRouter
     @State private var selectedFilter: NotesFilter = .all
     @ObservedObject private var clientsStore = ClientsStore.shared
     @State private var showToast: Bool = false
     @State private var toastText: String = ""
     @State private var clientToDelete: Client?
-    @State private var path: [UUID] = []
     
     // 되돌리기 기능을 위한 상태
     @State private var lastToggledClientId: UUID?
@@ -30,66 +30,52 @@ struct NotesView: View {
     }
     
     var body: some View {
-        NavigationStack(path: $path) {
-            ZStack {
-                mainContent
-                if showDeleteDialog {
-                    deleteOverlay
-                }
+        ZStack {
+            mainContent
+            if showDeleteDialog {
+                deleteOverlay
             }
-            .apexToast(
-                isPresented: $showToast,
-                image: Image(systemName: "pin"),
-                text: toastText,
-                buttonTitle: "되돌리기",
-                duration: 1.6,
-				        onButtonTap: undoPinAction
+        }
+        .apexToast(
+            isPresented: $showToast,
+            image: Image(systemName: "pin"),
+            text: toastText,
+            buttonTitle: "되돌리기",
+            duration: 1.6,
+            onButtonTap: undoPinAction
+        )
+        .scrollEdgeEffectStyle(.soft, for: .top)
+        .safeAreaBar(edge: .top) {
+            NotesNavigationBar { print("Notes menu tapped") }
+                .background(Color("Background"))
+        }
+        .toolbar(.hidden, for: .navigationBar)
+        .onReceive(NotificationCenter.default.publisher(for: .apexChatNotesUpdated)) { notif in
+            guard let clientId = notif.userInfo?["clientId"] as? UUID,
+                  let idx = clientsStore.clients.firstIndex(where: { $0.id == clientId }) else { return }
+
+            let old = clientsStore.clients[idx]
+            let latestNotes = ChatStore.shared.notes(for: clientId)
+
+            // Replace whole element to trigger @Published update
+            clientsStore.clients[idx] = Client(
+                id: old.id,
+                profile: old.profile,
+                nameCardFront: old.nameCardFront,
+                nameCardBack: old.nameCardBack,
+                surname: old.surname,
+                name: old.name,
+                position: old.position,
+                company: old.company,
+                email: old.email,
+                phoneNumber: old.phoneNumber,
+                linkedinURL: old.linkedinURL,
+                memo: old.memo,
+                action: old.action,
+                favorite: old.favorite,
+                pin: old.pin,
+                notes: latestNotes
             )
-            .scrollEdgeEffectStyle(.soft, for: .top)
-            .safeAreaBar(edge: .top) {
-                NotesNavigationBar { print("Notes menu tapped") }
-                    .background(Color("Background"))
-            }
-            .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(for: UUID.self) { id in
-                if let client = clientsStore.clients.first(where: { $0.id == id }) {
-                    ChattingView(clientId: id, chatTitle: "\(client.name) \(client.surname)", initialNotes: client.notes)
-                        .toolbar(.hidden, for: .navigationBar)
-                        .toolbar(.hidden, for: .tabBar)
-                } else {
-                    ChattingView(clientId: id, chatTitle: "채팅", initialNotes: [])
-                        .toolbar(.hidden, for: .navigationBar)
-                        .toolbar(.hidden, for: .tabBar)
-                }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .apexChatNotesUpdated)) { notif in
-                guard let clientId = notif.userInfo?["clientId"] as? UUID,
-                      let idx = clientsStore.clients.firstIndex(where: { $0.id == clientId }) else { return }
-
-                let old = clientsStore.clients[idx]
-                let latestNotes = ChatStore.shared.notes(for: clientId)
-
-                // Replace whole element to trigger @Published update
-                clientsStore.clients[idx] = Client(
-                    id: old.id,
-                    profile: old.profile,
-                    nameCardFront: old.nameCardFront,
-                    nameCardBack: old.nameCardBack,
-                    surname: old.surname,
-                    name: old.name,
-                    position: old.position,
-                    company: old.company,
-                    email: old.email,
-                    phoneNumber: old.phoneNumber,
-                    linkedinURL: old.linkedinURL,
-                    memo: old.memo,
-                    action: old.action,
-                    favorite: old.favorite,
-                    pin: old.pin,
-                    notes: latestNotes
-                )
-            }
-
         }
     }
     
@@ -107,7 +93,7 @@ struct NotesView: View {
                 selectedFilter: $selectedFilter,
                 onTogglePin: togglePin,
                 onDelete: showDeleteConfirmation,
-                onTapRow: { path.append($0.id) }
+                onTapRow: { router.push(.chat($0.id)) }
             )
         }
         .background(Color("Background"))

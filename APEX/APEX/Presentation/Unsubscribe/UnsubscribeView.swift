@@ -9,6 +9,7 @@ import SwiftUI
 
 struct UnsubscribeView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var router: NavigationRouter
     @State private var agreed = false
 
     var body: some View {
@@ -79,7 +80,7 @@ struct UnsubscribeView: View {
 
     private var topBar: some View {
         HStack {
-            Button { dismiss() } label: {
+            Button { router.pop() } label: {
                 Image(systemName: "chevron.left")
                     .font(.title4)
                     .foregroundColor(.black)

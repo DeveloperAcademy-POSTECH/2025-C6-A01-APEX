@@ -143,6 +143,7 @@ final class DataManagementViewModel: ObservableObject {
 
 struct DataManagementView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var router: NavigationRouter
     @StateObject private var vm = DataManagementViewModel(
         sync: MockStorageSyncService(),
         usage: MockDataUsageService()
@@ -189,7 +190,7 @@ struct DataManagementView: View {
             }
             .background(Color("Background"))
             .safeAreaInset(edge: .top) {
-                DMTopBar { dismiss() }
+                DMTopBar { router.pop() }
             }
 
             DMConfirmDialog(

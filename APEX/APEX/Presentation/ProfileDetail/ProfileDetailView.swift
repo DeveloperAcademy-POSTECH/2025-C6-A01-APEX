@@ -9,15 +9,14 @@ import SwiftUI
 
 struct ProfileDetailView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var router: NavigationRouter
     @Binding var client: DummyClient
     @State private var isPresentingEdit = false
     @State private var showingContactAction: ContactType?   // 복구: 섹션 콜백 시 사용
     @State private var isShowingCardViewer = false
     @State private var alertMessage: String?
     @State private var currentPageIndex: Int = 0
-    @State private var isPushingChat: Bool = false
-    @State private var chatClientId: UUID?
-    @State private var chatTitle: String = ""
+    // Removed local NavigationLink push states
 
     // 임시 어댑터: DummyClient를 Client로 변환 (헤더뷰 연결용)
     private var adaptedClient: Client {
@@ -92,23 +91,7 @@ struct ProfileDetailView: View {
                 onClose: { isShowingCardViewer = false }
             )
         }
-        .background(
-            NavigationLink(
-                isActive: $isPushingChat,
-                destination: {
-                    if let id = chatClientId {
-                        let initial = ClientsStore.shared.clients.first(where: { $0.id == id })?.notes ?? []
-                        ChattingView(clientId: id, chatTitle: chatTitle, initialNotes: initial)
-                            .toolbar(.hidden, for: .navigationBar)
-                            .toolbar(.hidden, for: .tabBar)
-                    } else {
-                        EmptyView()
-                    }
-                },
-                label: { EmptyView() }
-            )
-            .hidden()
-        )
+        // Hidden NavigationLink removed; Router handles navigation
     }
 
     // MARK: - Main Content
@@ -119,7 +102,7 @@ struct ProfileDetailView: View {
                 // 네비게이션 바
                 MyProfileNavigationBar(
                     title: client.autoFormattedName,
-                    onBack: { dismiss() },
+                    onBack: { router.pop() },
                     onEdit: { isPresentingEdit = true }
                 )
                 .background(Color("Background"))
@@ -177,7 +160,7 @@ struct ProfileDetailView: View {
         ClientsStore.shared.remove(convertToClient().id)
         
         // 화면 닫기
-        dismiss()
+        router.pop()
     }
     
     private func convertToClient() -> Client {
@@ -241,10 +224,8 @@ struct ProfileDetailView: View {
 
     private func openChatForClient() {
         let emailKey = client.email ?? ""
-        chatTitle = client.autoFormattedName
         if let existing = ClientsStore.shared.clients.first(where: { ($0.email ?? "") == emailKey }) {
-            chatClientId = existing.id
-            isPushingChat = true
+            router.push(.chat(existing.id))
             return
         }
         let newClient = Client(
@@ -265,8 +246,7 @@ struct ProfileDetailView: View {
             notes: []
         )
         ClientsStore.shared.add(newClient, atTop: true)
-        chatClientId = newClient.id
-        isPushingChat = true
+        router.push(.chat(newClient.id))
     }
 
     private func persistClientUpdate(_ updated: DummyClient, previousEmail: String?) {
