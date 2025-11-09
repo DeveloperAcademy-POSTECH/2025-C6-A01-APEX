@@ -772,7 +772,15 @@ private extension ChattingView {
         guard let idx = notes.firstIndex(where: { $0.id == noteId }) else { return }
         guard case var .audio(audios) = notes[idx].bundle else { return }
         audios.removeAll { $0.url == url }
-        notes[idx].bundle = audios.isEmpty ? nil : .audio(audios)
+        if audios.isEmpty {
+            if notes[idx].text == nil {
+                notes.remove(at: idx)
+            } else {
+                notes[idx].bundle = nil
+            }
+        } else {
+            notes[idx].bundle = .audio(audios)
+        }
         ChatStore.shared.setNotes(notes, for: clientId)
     }
     func buildGlobalViewerPayload(startingFrom anchor: ChatMessageView.ChatAnchor) -> (items: [MediaSource], anchors: [ChatMessageView.ChatAnchor], index: Int) {
@@ -1224,6 +1232,17 @@ private extension ChattingView {
             videos.remove(at: anchor.localIndex)
         }
 
+        // If nothing remains in this media bundle, remove bundle or note entirely
+        if images.isEmpty && videos.isEmpty {
+            if notes[noteIndex].text == nil {
+                notes.remove(at: noteIndex)
+            } else {
+                notes[noteIndex].bundle = nil
+            }
+            ChatStore.shared.setNotes(notes, for: clientId)
+            return
+        }
+
         // Recompute contiguous orderIndex across all remaining media (images + videos)
         struct Combined { let isImage: Bool; let idx: Int; let order: Int }
         var merged: [Combined] = []
@@ -1249,7 +1268,15 @@ private extension ChattingView {
         guard case var .files(files) = notes[noteIndex].bundle else { return }
         guard files.indices.contains(fileIndex) else { return }
         files.remove(at: fileIndex)
-        notes[noteIndex].bundle = .files(files)
+        if files.isEmpty {
+            if notes[noteIndex].text == nil {
+                notes.remove(at: noteIndex)
+            } else {
+                notes[noteIndex].bundle = nil
+            }
+        } else {
+            notes[noteIndex].bundle = .files(files)
+        }
         ChatStore.shared.setNotes(notes, for: clientId)
     }
 
