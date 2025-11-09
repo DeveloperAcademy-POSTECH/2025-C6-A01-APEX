@@ -16,6 +16,8 @@ struct APEXSheetTopBar: View {
     private let onClose: () -> Void
     private let isRightEnabled: Bool
     private let rightIconSystemName: String?
+    private let showsRightButton: Bool
+    private let leftIconSystemName: String
 
     // Theme
     private var background: Color = Color("Background")
@@ -30,7 +32,9 @@ struct APEXSheetTopBar: View {
         isRightEnabled: Bool = true,
         onRightTap: @escaping () -> Void,
         onClose: @escaping () -> Void,
-        rightIconSystemName: String? = nil
+        rightIconSystemName: String? = nil,
+        showsRightButton: Bool = true,
+        leftIconSystemName: String = "xmark"
     ) {
         self.title = title
         self.subtitle = subtitle
@@ -39,6 +43,8 @@ struct APEXSheetTopBar: View {
         self.onRightTap = onRightTap
         self.onClose = onClose
         self.rightIconSystemName = rightIconSystemName
+        self.showsRightButton = showsRightButton
+        self.leftIconSystemName = leftIconSystemName
     }
 
     var body: some View {
@@ -48,7 +54,9 @@ struct APEXSheetTopBar: View {
                 HStack(spacing: 0) {
                     leftButton
                     Spacer(minLength: 0)
-                    rightButton
+                    if showsRightButton {
+                        rightButton
+                    }
                 }
                 .frame(height: height)
                 .padding(.horizontal, 12)
@@ -80,7 +88,7 @@ struct APEXSheetTopBar: View {
 
     private var leftButton: some View {
         Button(action: onClose) {
-            Image(systemName: "xmark")
+            Image(systemName: leftIconSystemName)
                 .font(.title4)
                 .foregroundColor(foreground)
                 .frame(width: 44, height: 44)
