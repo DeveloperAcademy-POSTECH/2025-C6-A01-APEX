@@ -47,25 +47,24 @@ struct ContactsView: View {
         case removed
     }
 
+    @EnvironmentObject private var router: NavigationRouter
     var body: some View {
-        NavigationStack {
-            ZStack {
-                mainContent
-                if showDeleteDialog {
-                    deleteOverlay
-                }
+        ZStack {
+            mainContent
+            if showDeleteDialog {
+                deleteOverlay
             }
-            .scrollEdgeEffectStyle(.soft, for: .top)
-            .safeAreaBar(edge: .top) {
-                if !showMyProfileView && !showProfileDetailView {
-                    ContactsTopBarReplica(
-                        title: "Contacts",
-                        onPlus: onPlusTap
-                    )
-                }
-            }
-            .toolbar(.hidden, for: .navigationBar)
         }
+        .scrollEdgeEffectStyle(.soft, for: .top)
+        .safeAreaBar(edge: .top) {
+            if !showMyProfileView && !showProfileDetailView {
+                ContactsTopBarReplica(
+                    title: "Contacts",
+                    onPlus: onPlusTap
+                )
+            }
+        }
+        .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $isProfileAddPresented) {
             ProfileAddView(onComplete: { newClient in
                 allUngrouped.insert(newClient, at: 0)
@@ -155,54 +154,12 @@ struct ContactsView: View {
                 }
             }
         }
-        .background(
-            NavigationLink(
-                "",
-                isActive: $showMyProfileView
-            ) {
-                MyProfileView(client: $myProfileDummy)
-            }
-            .hidden()
-        )
-        .background(
-            NavigationLink(
-                "",
-                isActive: $showProfileDetailView
-            ) {
-                if let client = selectedClient {
-                    ProfileDetailView(client: .constant(convertToDummyClient(client)))
-                }
-            }
-            .hidden()
-        )
+        // Removed hidden NavigationLinks; Router handles navigation
         .background(Color("Background"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(Color("Background"), for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
-        .background(
-            NavigationLink(
-                "",
-                isActive: $showMyProfileView
-            ) {
-                MyProfileView(client: $myProfileDummy)
-            }
-            .hidden()
-        )
-        .background(
-            NavigationLink(
-                "",
-                isActive: $showProfileDetailView
-            ) {
-                if let _ = selectedDummy {
-                    let binding = Binding<DummyClient>(
-                        get: { self.selectedDummy! },
-                        set: { self.selectedDummy = $0 }
-                    )
-                    ProfileDetailView(client: binding)
-                }
-            }
-            .hidden()
-        )
+        // Removed duplicate hidden links
         .onChange(of: selectedDummy) { newValue in
             guard let base = selectedClient, let updated = newValue else { return }
             let updatedClient = Client(
@@ -287,13 +244,11 @@ struct ContactsView: View {
     }
 
     private func navigateToMyProfile() {
-        showMyProfileView = true
+        router.push(.myProfile)
     }
     
     private func navigateToProfileDetail(_ client: Client) {
-        selectedClient = client
-        selectedDummy = convertToDummyClient(client)
-        showProfileDetailView = true
+        router.push(.profileDetail(client.id))
     }
 
     private func convertToClient(_ dummy: DummyClient) -> Client {

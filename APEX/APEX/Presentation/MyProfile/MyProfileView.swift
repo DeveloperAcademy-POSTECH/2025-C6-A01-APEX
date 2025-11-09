@@ -9,15 +9,14 @@ import SwiftUI
 
 struct MyProfileView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var router: NavigationRouter
     @Binding var client: DummyClient
     @State private var isPresentingEdit = false
     @State private var showingContactAction: ContactType?   // 복구: 섹션 콜백 시 사용
     @State private var isShowingCardViewer = false
     @State private var alertMessage: String?
     @State private var currentPageIndex: Int = 0
-    @State private var isPushingChat: Bool = false
-    @State private var chatClientId: UUID?
-    @State private var chatTitle: String = ""
+    // Removed local NavigationLink push states
 
     // 임시 어댑터: DummyClient -> Client (헤더뷰 연결용)
     private var adaptedClient: Client {
@@ -157,23 +156,7 @@ struct MyProfileView: View {
                 onClose: { isShowingCardViewer = false }
             )
         }
-        .background(
-            NavigationLink(
-                isActive: $isPushingChat,
-                destination: {
-                    if let id = chatClientId {
-                        let initial = ClientsStore.shared.clients.first(where: { $0.id == id })?.notes ?? []
-                        ChattingView(clientId: id, chatTitle: chatTitle, initialNotes: initial)
-                            .toolbar(.hidden, for: .navigationBar)
-                            .toolbar(.hidden, for: .tabBar)
-                    } else {
-                        EmptyView()
-                    }
-                },
-                label: { EmptyView() }
-            )
-            .hidden()
-        )
+        // Hidden NavigationLink removed; Router handles navigation
     }
 
     // MARK: - Helpers
@@ -217,10 +200,8 @@ struct MyProfileView: View {
 
     private func openMyChat() {
         let emailKey = client.email ?? ""
-        chatTitle = "\(client.name) \(client.surname)"
         if let me = ClientsStore.shared.clients.first(where: { ($0.email ?? "") == emailKey }) {
-            chatClientId = me.id
-            isPushingChat = true
+            router.push(.chat(me.id))
             return
         }
         // Insert myself if missing, then open
@@ -242,8 +223,7 @@ struct MyProfileView: View {
             notes: []
         )
         ClientsStore.shared.add(newClient, atTop: true)
-        chatClientId = newClient.id
-        isPushingChat = true
+        router.push(.chat(newClient.id))
     }
 }
 

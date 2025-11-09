@@ -28,6 +28,7 @@ struct ChattingArchiveView: View {
     var client: Client? = sampleClients.first
     // Callback to allow parent to control navigation after destructive actions (e.g., pop parent too)
     var onDeletedContact: (() -> Void)? = nil
+    @EnvironmentObject private var router: NavigationRouter
 
     @State private var isMuted: Bool = false
     @State private var isFavorite: Bool = false
@@ -37,10 +38,7 @@ struct ChattingArchiveView: View {
     @State private var audioItems: [FlattenedAudioItem] = []
     @State private var linkItems: [FlattenedLinkItem] = []
     @Environment(\.dismiss) private var dismiss
-    // Archive navigation
-    @State private var showArchive: Bool = false
-    @State private var archiveSection: ArchiveSection?
-    @State private var isPushingArchive: Bool = false
+    // Archive navigation handled by NavigationRouter
     // Record viewer
     private struct DetailRecordPayload: Identifiable { let id = UUID(); let url: URL }
     @State private var recordPayload: DetailRecordPayload?
@@ -122,31 +120,7 @@ struct ChattingArchiveView: View {
         .fullScreenCover(item: $recordPayload) { payload in
             RecordView(audioURL: payload.url)
         }
-        .background(
-            NavigationLink(
-                isActive: $isPushingArchive,
-                destination: {
-                    if let section = archiveSection {
-                        ArchiveListView(
-                            section: section,
-                            media: mediaItems,
-                            files: fileItems,
-                            links: linkItems,
-                            audios: audioItems,
-                            viewerTitle: client.map { "\($0.name) \($0.surname)"} ?? "Shared Media",
-                            excludedClientIds: client.map { [$0.id] } ?? [],
-                            onClose: { isPushingArchive = false }
-                        )
-                        .toolbar(.hidden, for: .navigationBar)
-                        .toolbar(.hidden, for: .tabBar)
-                    } else {
-                        EmptyView()
-                    }
-                },
-                label: { EmptyView() }
-            )
-            .hidden()
-        )
+        // Hidden NavigationLink for archive push removed; Router handles navigation
     }
 
     // MARK: - Sections
@@ -168,8 +142,9 @@ struct ChattingArchiveView: View {
     private var sharedMediaSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             sectionHeader(title: "사진/동영상", iconName: "photo", iconColor: Color("Primary"), action: {
-                archiveSection = .media
-                isPushingArchive = true
+                if let id = client?.id {
+                    router.push(.archiveSection(id, .media))
+                }
             })
             let items = mediaItems
             let rows = [
@@ -234,8 +209,9 @@ struct ChattingArchiveView: View {
     private var sharedLinksSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             sectionHeader(title: "링크", iconName: "link", iconColor: .red, action: {
-                archiveSection = .links
-                isPushingArchive = true
+                if let id = client?.id {
+                    router.push(.archiveSection(id, .links))
+                }
             })
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -251,8 +227,9 @@ struct ChattingArchiveView: View {
     private var sharedFilesSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             sectionHeader(title: "파일", iconName: "document", iconColor: .green, action: {
-                archiveSection = .files
-                isPushingArchive = true
+                if let id = client?.id {
+                    router.push(.archiveSection(id, .files))
+                }
             })
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -274,8 +251,9 @@ struct ChattingArchiveView: View {
     private var sharedAudioSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             sectionHeader(title: "음성메모", iconName: "waveform", iconColor: .orange, action: {
-                archiveSection = .audio
-                isPushingArchive = true
+                if let id = client?.id {
+                    router.push(.archiveSection(id, .audio))
+                }
             })
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {

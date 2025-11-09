@@ -14,6 +14,7 @@ import UIKit
 
 struct ChattingView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var router: NavigationRouter
     let clientId: UUID
     let chatTitle: String
     let initialNotes: [Note]
@@ -69,14 +70,8 @@ struct ChattingView: View {
     private struct RecordPayload: Identifiable { let id = UUID(); let url: URL }
     @State private var recordPayload: RecordPayload?
     @State private var apexMediaPayload: APEXOpenMediaViewerPayload?
-    // Profile navigation state
-    @State private var isPushingProfile: Bool = false
-    @State private var pushToMyProfile: Bool = false
-    @State private var profileDummy: DummyClient?
     // Chat detail sheet
     @State private var showChatDetail: Bool = false
-    // Chat detail push
-    @State private var isPushingChatDetail: Bool = false
 
     private enum Metrics {
         static let timeWidth: CGFloat = 66
@@ -539,7 +534,7 @@ struct ChattingView: View {
                             onTapTitleNavigate()
                         },
                         onSearch: { withAnimation { isSearchActive = true } },
-                        onMenu: { isPushingChatDetail = true }
+                        onMenu: { router.push(.chatArchive(clientId)) }
                     )
                 )
             }
@@ -755,52 +750,7 @@ struct ChattingView: View {
             )
         }
         
-        .background(
-            NavigationLink(
-                isActive: $isPushingProfile,
-                destination: {
-                    if let _ = profileDummy {
-                        let binding = Binding<DummyClient>(
-                            get: { self.profileDummy! },
-                            set: { self.profileDummy = $0 }
-                        )
-                        if pushToMyProfile {
-                            MyProfileView(client: binding)
-                                .toolbar(.hidden, for: .navigationBar)
-                                .toolbar(.hidden, for: .tabBar)
-                        } else {
-                            ProfileDetailView(client: binding)
-                                .toolbar(.hidden, for: .navigationBar)
-                                .toolbar(.hidden, for: .tabBar)
-                        }
-                    } else {
-                        EmptyView()
-                    }
-                },
-                label: { EmptyView() }
-            )
-            .hidden()
-        )
-        // Hidden navigation link for profile push
-        .background(
-            NavigationLink(
-                isActive: $isPushingChatDetail,
-                destination: {
-                    let client = ClientsStore.shared.clients.first(where: { $0.id == clientId })
-                    ChattingArchiveView(
-                        client: client,
-                        onDeletedContact: {
-                            // Pop ChattingView back to its origin (NotesView/ProfileDetailView/etc.)
-                            dismiss()
-                        }
-                    )
-                        .toolbar(.hidden, for: .navigationBar)
-                        .toolbar(.hidden, for: .tabBar)
-                },
-                label: { EmptyView() }
-            )
-            .hidden()
-        )
+        // Hidden NavigationLinks removed; Router handles navigation
     }
 }
 
@@ -810,30 +760,14 @@ private extension ChattingView {
     func onTapTitleNavigate() {
         guard let client = ClientsStore.shared.clients.first(where: { $0.id == clientId }) else { return }
         let isMe = (client.email ?? "") == sampleMyProfileClient.email
-        self.profileDummy = convertToDummy(client)
-        self.pushToMyProfile = isMe
-        self.isPushingProfile = true
+        if isMe {
+            router.push(.myProfile)
+        } else {
+            router.push(.profileDetail(clientId))
+        }
     }
 
-    func convertToDummy(_ client: Client) -> DummyClient {
-        DummyClient(
-            profile: client.profile,
-            nameCardFront: client.nameCardFront ?? Image("CardL"),
-            nameCardBack: client.nameCardBack ?? Image("CardL"),
-            surname: client.surname,
-            name: client.name,
-            position: client.position,
-            company: client.company,
-            email: client.email,
-            phoneNumber: client.phoneNumber,
-            linkedinURL: client.linkedinURL,
-            memo: client.memo,
-            action: client.action,
-            favorite: client.favorite,
-            pin: client.pin,
-            notes: []
-        )
-    }
+    // convertToDummy moved to RootView wrapper; not needed here
     func deleteAudio(noteId: UUID, url: URL) {
         guard let idx = notes.firstIndex(where: { $0.id == noteId }) else { return }
         guard case var .audio(audios) = notes[idx].bundle else { return }
