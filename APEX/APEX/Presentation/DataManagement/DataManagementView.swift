@@ -124,8 +124,13 @@ final class DataManagementViewModel: ObservableObject {
             case .deleteAll:
                 do {
                     try await usage.deleteAllMedia()
-                    let total = try await usage.totalMediaSizeText()
-                    await MainActor.run { self.totalSizeText = total }
+                    async let total = try usage.totalMediaSizeText()
+                    async let list = try usage.contactUsages()
+                    let (totalText, contacts) = try await (total, list)
+                    await MainActor.run {
+                        self.totalSizeText = totalText
+                        self.contacts = contacts
+                    }
                 } catch { }
             case .deleteContact(_, _, let id):
                 do {
@@ -146,7 +151,7 @@ struct DataManagementView: View {
     @EnvironmentObject private var router: NavigationRouter
     @StateObject private var vm = DataManagementViewModel(
         sync: MockStorageSyncService(),
-        usage: MockDataUsageService()
+        usage: RealDataUsageService()
     )
 
     var body: some View {
