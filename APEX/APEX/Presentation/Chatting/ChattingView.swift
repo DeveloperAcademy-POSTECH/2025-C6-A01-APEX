@@ -787,7 +787,7 @@ struct ChattingView: View {
                 isActive: $isPushingChatDetail,
                 destination: {
                     let client = ClientsStore.shared.clients.first(where: { $0.id == clientId })
-                    ChattingDetailView(
+                    ChattingArchiveView(
                         client: client,
                         onDeletedContact: {
                             // Pop ChattingView back to its origin (NotesView/ProfileDetailView/etc.)

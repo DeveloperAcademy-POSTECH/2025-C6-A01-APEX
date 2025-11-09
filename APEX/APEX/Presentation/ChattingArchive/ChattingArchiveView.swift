@@ -23,7 +23,7 @@ struct FlattenedMediaItem: Identifiable, Equatable {
 }
 
 // swiftlint:disable type_body_length
-struct ChattingDetailView: View {
+struct ChattingArchiveView: View {
     // In real usage, pass the actual conversation/client data
     var client: Client? = sampleClients.first
     // Callback to allow parent to control navigation after destructive actions (e.g., pop parent too)
@@ -607,7 +607,7 @@ private struct ContactDeleteConfirmCard: View {
 }
 // MARK: - Private helpers
 
-private extension ChattingDetailView {
+private extension ChattingArchiveView {
     func reloadMediaPreview() {
         guard let clientId = client?.id else {
             mediaItems = []; fileItems = []; audioItems = []; linkItems = []
@@ -929,5 +929,5 @@ private func parseFlattenedMediaId(_ id: String) -> (noteId: UUID, isImage: Bool
 }
 
 #Preview {
-    ChattingDetailView()
+    ChattingArchiveView()
 }
