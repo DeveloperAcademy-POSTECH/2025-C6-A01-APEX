@@ -14,6 +14,47 @@ struct PressableButtonStyle: ButtonStyle {
     }
 }
 
+// MARK: - Background Hover Button Style (ContactsView 참고)
+struct BackgroundHoverButtonStyle: ButtonStyle {
+    private let normal = Color("BackgroundSecondary")
+    private let pressed = Color("BackgroundHover")
+    private let cornerRadius: CGFloat
+    
+    init(cornerRadius: CGFloat = 10) {
+        self.cornerRadius = cornerRadius
+    }
+    
+    func makeBody(configuration: Configuration) -> some View {
+        let isPressed = configuration.isPressed
+        
+        return configuration.label
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(isPressed ? pressed : normal)
+            )
+            .scaleEffect(isPressed ? 0.997 : 1.0)
+            .animation(.easeInOut(duration: 0.12), value: isPressed)
+    }
+}
+
+// MARK: - Contact Row Hover Style (ContactsView 참고)
+struct ContactRowHoverStyle: ButtonStyle {
+    private let normal = Color("BackgroundSecondary").opacity(0.0)
+    private let pressed = Color("BackgroundHover")
+    
+    func makeBody(configuration: Configuration) -> some View {
+        let isPressed = configuration.isPressed
+        
+        return configuration.label
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(isPressed ? pressed : normal)
+            )
+            .scaleEffect(isPressed ? 0.997 : 1.0)
+            .animation(.easeInOut(duration: 0.12), value: isPressed)
+    }
+}
+
 // MARK: - Top Bar
 struct DMTopBar: View {
     var onClose: () -> Void
@@ -167,7 +208,7 @@ struct DMRefreshSection: View {
 // MARK: - Media Data Delete Section (통합 섹션)
 struct DMMediaDataSection: View {
     let title: String = "미디어 데이터 삭제"
-    let description: String = "미디어 데이터를 모두 제거 시 사진, 동영상, 음성, 파일이 삭제됩니다.\n미디어 데이터 삭제 시 iCloud에 백업되지 않는 데이터는 복원 할 수 없습니다."
+    let description: String = "미디어 데이터는 글 메모를 제외한 사진, 동영상, 음성, 파일을 의미합니다.\n미디어 데이터 삭제 시 iCloud에 백업되지 않는 데이터는 복원 불가합니다."
     let totalSizeText: String
     let contacts: [DMContactUsage]
     var onDeleteAllTap: () -> Void
@@ -205,15 +246,9 @@ struct DMMediaDataSection: View {
                     .foregroundColor(.black)
                     .frame(maxWidth: .infinity)
                     .frame(height: Metrics.buttonHeight)
-                    .background(Color("BackgroundSecondary"))
-                    .cornerRadius(Metrics.buttonCorner)
                     .contentShape(RoundedRectangle(cornerRadius: Metrics.buttonCorner))
             }
-            .buttonStyle(PressableButtonStyle(
-                normalColor: Color("BackgroundSecondary"),
-                pressedColor: Color("BackgroundHover"),
-                cornerRadius: Metrics.buttonCorner
-            ))
+            .buttonStyle(BackgroundHoverButtonStyle(cornerRadius: Metrics.buttonCorner))
             .padding(.horizontal, Metrics.buttonPadding)
             
             // Contact List (통합됨)
@@ -260,7 +295,7 @@ struct DMDeleteAllBlock: View {
             ))
             .disabled(!isEnabled)
 
-            Text("미디어 데이터를 모두 삭제 시 i-Cloud에 백업되지 않는 데이터는 복원 할 수 없습니다.")
+            Text("미디어 데이터를 모두 삭제 시 iCloud에 백업되지 않는 데이터는 복원 할 수 없습니다.")
                 .font(.caption2)
                 .foregroundColor(.gray)
         }
@@ -314,6 +349,8 @@ struct DMContactRow: View {
 
     private enum Metrics {
         static let rowHeight: CGFloat = 64
+        static let hPadding: CGFloat = 8
+        static let vPadding: CGFloat = 8
         static let sizeTextColor = Color.gray
     }
 
@@ -330,13 +367,13 @@ struct DMContactRow: View {
                     .font(.body6)
                     .foregroundColor(Metrics.sizeTextColor)
             }
+            .padding(.horizontal, Metrics.hPadding)
+            .padding(.vertical, Metrics.vPadding)
             .frame(height: Metrics.rowHeight)
             .frame(maxWidth: .infinity)
-            .background(Color("BackgroundSecondary").opacity(0.0))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ContactRowHoverStyle())
     }
 }
 
@@ -503,7 +540,7 @@ struct DMConfirmDialog: View {
     @Previewable @State var on: Bool = false
     return DMToggleSection(
         title: "iCloud 자동 동기화",
-        helper: "노트에 저장한 미디어를 i-Cloud에 자동으로 백업하고 기기에서는 삭제하여 스토리지 용량을 가볍게 쓸 수 있어요.",
+        helper: "노트에 저장한 미디어를 iCloud에 자동으로 백업하고 기기에서는 삭제하여 스토리지 용량을 가볍게 쓸 수 있어요.",
         isOn: $on,
         onToggle: { _ in }
     )
@@ -513,7 +550,7 @@ struct DMConfirmDialog: View {
 #Preview("RefreshSection") {
     DMRefreshSection(
         title: "iCloud 동기화 새로고침",
-        helperPrefix: "노트에 저장한 미디어를 i-cloud에 즉시 동기화 합니다.",
+        helperPrefix: "노트에 저장한 미디어를 iCloud에 즉시 동기화 합니다.",
         lastSyncText: "2025년 10월 15일 오후 8:30",
         isRefreshing: false,
         onRefresh: {}
@@ -558,7 +595,7 @@ struct DMConfirmDialog: View {
 #Preview("ContactListSection") {
     let samples = [
         DMContactUsage(id: UUID(), name: "Gyeong", initials: "G", sizeText: "816.45 MB", image: nil),
-        DMContactUsage(id: UUID(), name: "Daisy", initials: "D", sizeText: "816.45 MB", image: nil)
+        DMContactUsage(id: UUID(), name: "Daisy", initials: "D", sizeText: "846.43 MB", image: nil)
     ]
     return DMContactListSection(contacts: samples, onContactDeleteTap: { _ in })
         .background(Color("Background"))

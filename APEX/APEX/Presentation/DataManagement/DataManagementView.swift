@@ -153,22 +153,27 @@ struct DataManagementView: View {
             // Main Content (DMContactsView equivalent)
             ScrollView {
                 VStack(spacing: 16) {
-                    DMToggleSection(
-                        title: "iCloud 자동 동기화",
-                        helper: "노트에 저장한 미디어는 iCloud에 자동으로 백업하고 기기에서는 삭제하여 스토리지 여유를 가질 수 있어요.",
-                        isOn: $vm.isAutoSyncOn,
-                        onToggle: { vm.toggleAutoSync($0) }
-                    )
+                    VStack(spacing: 0) {
+                        DMToggleSection(
+                            title: "iCloud 자동 동기화",
+                            helper: "노트에 저장한 미디어는 iCloud에 자동으로 백업하고 기기에서는 삭제하여 스토리지 여유를 가질 수 있어요.",
+                            isOn: $vm.isAutoSyncOn,
+                            onToggle: { vm.toggleAutoSync($0) }
+                        )
 
-                    DMRefreshSection(
-                        title: "iCloud 동기화 새로고침",
-                        helperPrefix: "노트에 저장한 미디어를 iCloud에 즉시 동기화 합니다.",
-                        lastSyncText: vm.lastSyncText,
-                        isRefreshing: vm.isRefreshing,
-                        onRefresh: { vm.refreshSync() }
-                    )
+                        DMRefreshSection(
+                            title: "iCloud 동기화 새로고침",
+                            helperPrefix: "노트에 저장한 미디어를 iCloud에 즉시 동기화 합니다.",
+                            lastSyncText: vm.lastSyncText,
+                            isRefreshing: vm.isRefreshing,
+                            onRefresh: { vm.refreshSync() }
+                        )
+                    }
+                    .padding(.bottom, 16)
 
-                    Divider()
+                    Rectangle()
+                        .fill(Color("BackgroundSecondary"))
+                        .frame(width: 361, height: 2)
 
                     DMMediaDataSection(
                         totalSizeText: vm.totalSizeText,
