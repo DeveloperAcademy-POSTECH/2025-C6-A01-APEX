@@ -47,7 +47,6 @@ struct NotesNavigationBar: View {
             .padding(.vertical, Metrics.barVerticalPadding)
         }
         .frame(maxWidth: .infinity)
-        .background(Color("Background"))
     }
 }
 

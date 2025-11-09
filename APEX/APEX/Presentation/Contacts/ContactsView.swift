@@ -55,6 +55,15 @@ struct ContactsView: View {
                     deleteOverlay
                 }
             }
+            .scrollEdgeEffectStyle(.soft, for: .top)
+            .safeAreaBar(edge: .top) {
+                if !showMyProfileView && !showProfileDetailView {
+                    ContactsTopBarReplica(
+                        title: "Contacts",
+                        onPlus: onPlusTap
+                    )
+                }
+            }
             .toolbar(.hidden, for: .navigationBar)
         }
         .sheet(isPresented: $isProfileAddPresented) {
@@ -72,7 +81,7 @@ struct ContactsView: View {
             image: Image(systemName: "star"),
             text: toastText,
             buttonTitle: "되돌리기",
-            duration: 1.6
+            duration: 3.0
         ) {
             undoFavoriteAction()
         }

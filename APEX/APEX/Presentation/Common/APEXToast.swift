@@ -17,7 +17,7 @@ struct APEXToast: View {
 
         return ZStack {
             // Base layout keeps sizing consistent
-            HStack {
+            HStack(alignment: .center) {
                 // Show leading icon only when button exists; otherwise, we'll render it in the centered overlay
                 if let image, hasButton {
                     image
@@ -60,7 +60,7 @@ struct APEXToast: View {
         }
         .padding(.leading, 20)
         .padding(.trailing, 16)
-        .padding(.vertical, 12)
+        .padding(.vertical, 16)
         .background(background)
         .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
         .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 3)
@@ -175,5 +175,9 @@ extension View {
 }
 
 #Preview("Toast") {
+    APEXToast(image: Image(systemName: "star.fill"), text: "즐겨찾기를 해제했습니다.", buttonTitle: "되돌리기", onButtonTap: { })
+}
+
+#Preview("Toast(only text)") {
     APEXToast(text: "테스트용 토스트")
 }

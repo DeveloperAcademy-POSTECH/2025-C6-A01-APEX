@@ -41,7 +41,7 @@ struct ContactsTopBar: View {
             .background(backgroundColor)
         }
         // 분리감 방지를 위해 하단 구분선/그림자 없음
-        .background(backgroundColor)
+        //.background(backgroundColor)
     }
 }
 

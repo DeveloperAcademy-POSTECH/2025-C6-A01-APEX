@@ -30,6 +30,7 @@ struct RootView: View {
                 Text("")
             }
         }
+        .tint(Color("Primary"))
     }
 }
 

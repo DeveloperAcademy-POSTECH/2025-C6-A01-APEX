@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		0DE5B9AD2EB490430061AB06 /* Stash logo.icon in Resources */ = {isa = PBXBuildFile; fileRef = 0DE5B9AC2EB490430061AB06 /* Stash logo.icon */; };
+		0D0B4FC72EBDB8310035C372 /* Stash logo.icon in Resources */ = {isa = PBXBuildFile; fileRef = 0D0B4FC62EBDB8310035C372 /* Stash logo.icon */; };
 		1D0F00012E80000000000001 /* PhoneNumberKit in Frameworks */ = {isa = PBXBuildFile; productRef = 1D0F00022E80000000000002 /* PhoneNumberKit */; };
 /* End PBXBuildFile section */
 
@@ -29,10 +29,10 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		0D0B4FC62EBDB8310035C372 /* Stash logo.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = "Stash logo.icon"; sourceTree = "<group>"; };
 		0DCB62292E7EC7C20065DA6C /* APEX.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = APEX.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0DCB62362E7EC7C40065DA6C /* APEXTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = APEXTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0DCB62402E7EC7C40065DA6C /* APEXUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = APEXUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		0DE5B9AC2EB490430061AB06 /* Stash logo.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = "Stash logo.icon"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -98,7 +98,7 @@
 				0DCB622B2E7EC7C20065DA6C /* APEX */,
 				0DCB62392E7EC7C40065DA6C /* APEXTests */,
 				0DCB62432E7EC7C40065DA6C /* APEXUITests */,
-				0DE5B9AC2EB490430061AB06 /* Stash logo.icon */,
+				0D0B4FC62EBDB8310035C372 /* Stash logo.icon */,
 				0DCB622A2E7EC7C20065DA6C /* Products */,
 			);
 			sourceTree = "<group>";
@@ -237,7 +237,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				0DE5B9AD2EB490430061AB06 /* Stash logo.icon in Resources */,
+				0D0B4FC72EBDB8310035C372 /* Stash logo.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

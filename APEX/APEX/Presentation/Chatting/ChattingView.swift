@@ -65,21 +65,18 @@ struct ChattingView: View {
         var audios: [URL]
     }
     @State private var shareSeed: ShareSeed?
-    // Lifted media viewer state to parent to avoid cell re-creation closing the cover
-    private struct ViewerPayload: Identifiable {
-        let id = UUID()
-        let items: [MediaSource]
-        let anchors: [ChatMessageView.ChatAnchor]
-        let index: Int
-    }
-    @State private var viewer: ViewerPayload?
     // Parent-scoped record viewer state
     private struct RecordPayload: Identifiable { let id = UUID(); let url: URL }
     @State private var recordPayload: RecordPayload?
+    @State private var apexMediaPayload: APEXOpenMediaViewerPayload?
     // Profile navigation state
     @State private var isPushingProfile: Bool = false
     @State private var pushToMyProfile: Bool = false
     @State private var profileDummy: DummyClient?
+    // Chat detail sheet
+    @State private var showChatDetail: Bool = false
+    // Chat detail push
+    @State private var isPushingChatDetail: Bool = false
 
     private enum Metrics {
         static let timeWidth: CGFloat = 66
@@ -392,30 +389,38 @@ struct ChattingView: View {
         
         .scrollEdgeEffectStyle(.soft, for: .all)
         .toolbar(.hidden, for: .navigationBar)
-        .overlay(alignment: .trailing) {
-            Color.clear
-                .frame(width: 44)
-                .contentShape(Rectangle())
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 10)
-                        .onChanged { value in
-                            let dx = value.translation.width
-                            let dy = value.translation.height
-                            guard abs(dx) > abs(dy) else { return }
-                            if dx < 0 {
-                                let progress = min(1, max(0, -dx / 80))
-                                timestampRevealProgress = progress
-                            } else {
-                                timestampRevealProgress = 0
-                            }
-                        }
-                        .onEnded { _ in
-                            withAnimation(.easeInOut(duration: 0.15)) {
-                                timestampRevealProgress = 0
-                            }
-                        }
-                )
-        }
+        // Full-screen left-swipe to reveal timestamps (non-intrusive)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 10)
+                .onChanged { value in
+                    let dx = value.translation.width
+                    let dy = value.translation.height
+                    guard abs(dx) > abs(dy) else { return }
+                    if dx < 0 {
+                        let progress = min(1, max(0, -dx / 80))
+                        timestampRevealProgress = progress
+                    } else {
+                        timestampRevealProgress = 0
+                    }
+                }
+                .onEnded { _ in
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        timestampRevealProgress = 0
+                    }
+                }
+        )
+        // Full-screen right-swipe to dismiss (non-intrusive)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 20)
+                .onEnded { value in
+                    let dx = value.translation.width
+                    let dy = value.translation.height
+                    guard abs(dx) > abs(dy) else { return }
+                    if dx > 80, sheetMode == .hidden, !isSearchActive {
+                        dismiss()
+                    }
+                }
+        )
         .onPreferenceChange(DateHeaderPositionsKey.self) { positions in
             if !didReceiveInitialPositions {
                 didReceiveInitialPositions = true
@@ -534,7 +539,7 @@ struct ChattingView: View {
                             onTapTitleNavigate()
                         },
                         onSearch: { withAnimation { isSearchActive = true } },
-                        onMenu: { }
+                        onMenu: { isPushingChatDetail = true }
                     )
                 )
             }
@@ -721,34 +726,7 @@ struct ChattingView: View {
                 excludedClientIds: [clientId]
             )
         }
-        // Centralized media viewer presentation to prevent dismissal due to cell re-render
-        .fullScreenCover(item: $viewer) { payload in
-            let currentAnchor = payload.anchors.indices.contains(payload.index) ? payload.anchors[payload.index] : nil
-            let initialUploadedAt = currentAnchor.flatMap { anchor in
-                notes.first(where: { $0.id == anchor.noteId })?.uploadedAt
-            }
-            MediaView(
-                items: payload.items,
-                selectedIndex: payload.index,
-                title: chatTitle,
-                uploadedAt: initialUploadedAt,
-                excludedClientIds: [clientId],
-                onDelete: { removedIndex, _ in
-                    guard payload.anchors.indices.contains(removedIndex) else { return }
-                    let anchor = payload.anchors[removedIndex]
-                    deleteMedia(anchor: anchor)
-                },
-                onTitleTap: { currentIndex in
-                    guard payload.anchors.indices.contains(currentIndex) else { return }
-                    let anchor = payload.anchors[currentIndex]
-                    NotificationCenter.default.post(
-                        name: .apexNavigateToNote,
-                        object: nil,
-                        userInfo: ["noteId": anchor.noteId]
-                    )
-                }
-            )
-        }
+        // Centralized media viewer now provided by APEXMediaViewerHost via environment presenter
         .fullScreenCover(item: $recordPayload) { payload in
             RecordView(audioURL: payload.url)
         }
@@ -763,8 +741,20 @@ struct ChattingView: View {
                 NotificationCenter.default.post(name: .apexNavigateToDate, object: nil, userInfo: ["date": selected])
             })
         }
-
-        // Hidden navigation link for profile push
+        // Attach centralized media viewer cover
+        .fullScreenCover(item: $apexMediaPayload) { payload in
+            MediaView(
+                items: payload.items,
+                selectedIndex: payload.index,
+                title: payload.title,
+                uploadedAt: payload.uploadedAt,
+                excludedClientIds: payload.excludedClientIds,
+                onSave: payload.onSave,
+                onDelete: payload.onDelete,
+                onTitleTap: payload.onTitleTap
+            )
+        }
+        
         .background(
             NavigationLink(
                 isActive: $isPushingProfile,
@@ -786,6 +776,26 @@ struct ChattingView: View {
                     } else {
                         EmptyView()
                     }
+                },
+                label: { EmptyView() }
+            )
+            .hidden()
+        )
+        // Hidden navigation link for profile push
+        .background(
+            NavigationLink(
+                isActive: $isPushingChatDetail,
+                destination: {
+                    let client = ClientsStore.shared.clients.first(where: { $0.id == clientId })
+                    ChattingArchiveView(
+                        client: client,
+                        onDeletedContact: {
+                            // Pop ChattingView back to its origin (NotesView/ProfileDetailView/etc.)
+                            dismiss()
+                        }
+                    )
+                        .toolbar(.hidden, for: .navigationBar)
+                        .toolbar(.hidden, for: .tabBar)
                 },
                 label: { EmptyView() }
             )
@@ -1000,7 +1010,31 @@ private extension ChattingView {
 
     private func openViewer(anchor: ChatMessageView.ChatAnchor) {
         let payload = buildGlobalViewerPayload(startingFrom: anchor)
-        viewer = ViewerPayload(items: payload.items, anchors: payload.anchors, index: payload.index)
+        let currentAnchor = payload.anchors.indices.contains(payload.index) ? payload.anchors[payload.index] : nil
+        let initialUploadedAt = currentAnchor.flatMap { anchor in
+            notes.first(where: { $0.id == anchor.noteId })?.uploadedAt
+        }
+        apexMediaPayload = APEXOpenMediaViewerPayload(
+            items: payload.items,
+            index: payload.index,
+            title: chatTitle,
+            uploadedAt: initialUploadedAt,
+            excludedClientIds: [clientId],
+            onDelete: { removedIndex, _ in
+                guard payload.anchors.indices.contains(removedIndex) else { return }
+                let anchor = payload.anchors[removedIndex]
+                deleteMedia(anchor: anchor)
+            },
+            onTitleTap: { currentIndex in
+                guard payload.anchors.indices.contains(currentIndex) else { return }
+                let anchor = payload.anchors[currentIndex]
+                NotificationCenter.default.post(
+                    name: .apexNavigateToNote,
+                    object: nil,
+                    userInfo: ["noteId": anchor.noteId]
+                )
+            }
+        )
     }
 }
 
@@ -1033,11 +1067,25 @@ private struct ChatMessageView: View {
         VStack(alignment: .trailing, spacing: 8) {
             if case let .media(images, videos) = note.bundle {
                 if videos.count == 1, images.isEmpty {
-                    SingleVideoCard(url: videos[0].url) {
+                    APEXMediaSingleCard(
+                        source: .video(videos[0].url),
+                        baseTileWidth: 121.67,
+                        columnsSpanned: 2,
+                        spacing: 2,
+                        cornerRadius: 10
+                    )
+                    .onTapGesture {
                         onOpenViewer(ChatAnchor(noteId: note.id, isImage: false, localIndex: 0))
                     }
                 } else if images.count == 1, videos.isEmpty {
-                    SingleImageCard(imageData: images[0].data) {
+                    APEXMediaSingleCard(
+                        source: .image(images[0].data),
+                        baseTileWidth: 121.67,
+                        columnsSpanned: 2,
+                        spacing: 2,
+                        cornerRadius: 10
+                    )
+                    .onTapGesture {
                         onOpenViewer(ChatAnchor(noteId: note.id, isImage: true, localIndex: 0))
                     }
                 } else {
@@ -1102,7 +1150,7 @@ private struct ChatMessageView: View {
                         fontSize: 14,
                         textStyle: .body,
                         lineSpacing: 4,
-                        maxLayoutWidth: min(UIScreen.main.bounds.width * 0.78, 420),
+                        maxLayoutWidth: UIScreen.main.bounds.width - 32,
                         highlightQuery: highlightQuery
                     )
                     .fixedSize(horizontal: false, vertical: true)
@@ -1296,77 +1344,7 @@ private func clientName(from note: Note) -> String {
     return "Gyeong"
 }
 
-// Single video: center play button, duration below
-private struct SingleVideoCard: View {
-    let url: URL
-    @State private var thumb: UIImage?
-    @State private var duration: String = "00:00"
-    var onTap: (() -> Void)?
-
-    var body: some View {
-        VStack(spacing: 8) {
-            ZStack {
-                Rectangle()
-                    .foregroundStyle(Color.gray.opacity(0.15))
-                    .aspectRatio(16/9, contentMode: .fit)
-                    .overlay {
-                        if let thumb {
-                            Image(uiImage: thumb)
-                                .resizable()
-                                .scaledToFill()
-                        }
-                    }
-                    .overlay(Color.black.opacity(0.4))
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-
-                VStack(spacing: 2) {
-                    Image(systemName: "play.circle.fill")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(Color("Background"))
-                        .shadow(radius: 4)
-
-                    Text(duration)
-                        .font(.caption1)
-                        .foregroundStyle(Color("Background"))
-                }
-            }
-            .frame(width: 240)
-            .contentShape(Rectangle())
-            .onTapGesture { onTap?() }
-        }
-        .task {
-            if thumb == nil { thumb = generateThumbnail(for: url) }
-            duration = format(durationOf: url)
-        }
-    }
-}
-
-// Single image: fixed width 240, height fits content
-private struct SingleImageCard: View {
-    let imageData: Data
-    var onTap: (() -> Void)?
-
-    var body: some View {
-        Group {
-            if let uiImage = UIImage(data: imageData) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 240)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .contentShape(Rectangle())
-                    .onTapGesture { onTap?() }
-            } else {
-                Rectangle()
-                    .fill(Color.gray.opacity(0.15))
-                    .frame(width: 240, height: 160)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .contentShape(Rectangle())
-                    .onTapGesture { onTap?() }
-            }
-        }
-    }
-}
+// Removed: SingleVideoCard, SingleImageCard (use APEXMediaSingleCard instead)
 
 // Grid for mixed media; videos show duration badge bottom-left
 private struct MediaGrid: View {
@@ -1410,40 +1388,42 @@ private struct MediaGrid: View {
                     let item = merged[mergedIndex]
                     if item.isImage {
                         let img = images[item.index]
-                        ZStack {
-                            if let uiImage = UIImage(data: img.data) {
-                                Image(uiImage: uiImage)
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(width: 116.33, height: 124)
-                                    .clipped()
-                                    .cornerRadius(10)
-                            } else {
-                                Rectangle().fill(Color.gray.opacity(0.15))
-                                    .frame(width: 121, height: 124)
+                        APEXMediaTile(source: .image(img.data))
+                            .frame(width: 121.67, height: 121.67)
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .overlay {
+                                if let progress = img.progress {
+                                    ProgressOverlay(progress: progress)
+                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                }
                             }
-                            if let progress = img.progress {
-                                ProgressOverlay(progress: progress)
-                            }
-                        }
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                         .contentShape(Rectangle())
                         .onTapGesture { onOpen(true, item.index) }
                     } else {
                         let video = videos[item.index]
-                        ZStack {
-                            VideoThumbTile(url: video.url)
-                            if let progress = video.progress {
-                                ProgressOverlay(progress: progress)
+                        APEXMediaTile(source: .video(video.url), showVideoIcon: true, variant: .grid, showsDuration: false)
+                            .frame(width: 121.67, height: 121.67)
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .overlay {
+                                if let progress = video.progress {
+                                    ProgressOverlay(progress: progress)
+                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                }
                             }
-                        }
+                            // Always show duration above any overlays to prevent hide after upload completes
+                            .overlay(alignment: .bottomLeading) {
+                                Text(format(durationOf: video.url))
+                                    .font(.caption1)
+                                    .foregroundStyle(.white)
+                                    .padding(12)
+                            }
                         .contentShape(Rectangle())
                         .onTapGesture { onOpen(false, item.index) }
                     }
                 } else {
                     // Invisible placeholder to push the last row to the right
                     Color.clear
-                        .frame(height: 124)
+                        .frame(height: 121.67)
                 }
             }
         }
@@ -1702,10 +1682,7 @@ private func normalizedURL(from raw: String) -> URL? {
     return URL(string: s)
 }
 
-private func normalizeURL(_ url: URL) -> URL {
-    if let scheme = url.scheme, !scheme.isEmpty { return url }
-    return URL(string: "https://" + url.absoluteString) ?? url
-}
+// normalizeURL is provided by Presentation/Common/LinkPreviewSupport.swift
 
 private func attributedMessage(_ text: String) -> AttributedString {
     let mas = NSMutableAttributedString(string: text)
@@ -1864,28 +1841,7 @@ private struct SelectCopySheet: View {
     }
 }
 
-private final class LinkPreviewLoader: ObservableObject {
-    @Published var metadata: LPLinkMetadata?
-    private static let cache = NSCache<NSURL, LPLinkMetadata>()
-    private let provider = LPMetadataProvider()
-    private let url: URL
-
-    init(url: URL) {
-        self.url = url
-        if let cached = Self.cache.object(forKey: url as NSURL) {
-            self.metadata = cached
-        } else {
-            provider.startFetchingMetadata(for: url) { [weak self] meta, _ in
-                DispatchQueue.main.async {
-                    if let meta {
-                        Self.cache.setObject(meta, forKey: self?.url as NSURL? ?? NSURL())
-                    }
-                    self?.metadata = meta
-                }
-            }
-        }
-    }
-}
+// LinkPreviewLoader moved to Presentation/Common/LinkPreviewSupport.swift
 
 private struct LinkPreviewViewRepresentable: UIViewRepresentable {
     let metadata: LPLinkMetadata
@@ -1902,33 +1858,7 @@ private struct LinkPreviewViewRepresentable: UIViewRepresentable {
     }
 }
 
-// Helper: Load UIImage from NSItemProvider (for LPLinkMetadata image/icon)
-private struct LPImageFromProvider: View {
-    let provider: NSItemProvider?
-    @State private var image: UIImage?
-
-    var body: some View {
-        Group {
-            if let image {
-                Image(uiImage: image)
-                    .resizable()
-                    .interpolation(.high)
-                    .antialiased(true)
-                    .renderingMode(.original)
-            } else {
-                Color.gray.opacity(0.08)
-            }
-        }
-        .task {
-            guard image == nil, let provider else { return }
-            _ = provider.loadObject(ofClass: UIImage.self) { obj, _ in
-                if let img = obj as? UIImage {
-                    DispatchQueue.main.async { self.image = img }
-                }
-            }
-        }
-    }
-}
+// LPImageFromProvider moved to Presentation/Common/LinkPreviewSupport.swift
 
 // Helper: Host text from metadata or fallback URL
 private func hostText(from meta: LPLinkMetadata?, fallback: URL) -> String {
@@ -1936,75 +1866,11 @@ private func hostText(from meta: LPLinkMetadata?, fallback: URL) -> String {
     return urlToShow.host ?? urlToShow.absoluteString
 }
 
-// Helper: Subtitle text from URL path and query (fallback to absoluteString when empty)
-private func subtitleText(from meta: LPLinkMetadata?, fallback: URL) -> String {
-    let resolvedURL = meta?.url ?? meta?.originalURL ?? fallback
-    var path = resolvedURL.path
-    if path.hasPrefix("/") { path.removeFirst() }
-    let query = resolvedURL.query.map { "?\($0)" } ?? ""
-    let subtitle = path + query
-    return subtitle.isEmpty ? resolvedURL.absoluteString : subtitle
-}
+// subtitleText is provided by Presentation/Common/LinkPreviewSupport.swift
 
 // (reverted) removed openURL scheme correction helper
 
-private struct LinkPreviewCard: View {
-    let url: URL
-    @StateObject private var loader: LinkPreviewLoader
-    @Environment(\.openURL) private var openURL
-
-    init(url: URL) {
-        self.url = url
-        _loader = StateObject(wrappedValue: LinkPreviewLoader(url: normalizeURL(url)))
-    }
-
-    var body: some View {
-        Button {
-            let target = normalizeURL(url)
-            UIApplication.shared.open(target, options: [:], completionHandler: nil)
-        } label: {
-            VStack(spacing: 0) {
-                // Top image area: fixed height 180, cropped fill
-                Group {
-                    if let meta = loader.metadata, meta.imageProvider != nil {
-                        LPImageFromProvider(provider: meta.imageProvider)
-                            .scaledToFill()
-                    } else {
-                        Color.gray.opacity(0.08)
-                    }
-                }
-                .frame(width: 246, height: 180)
-                .clipped()
-
-                // Bottom info area: icon + host, title, subtitle
-                VStack(alignment: .leading, spacing: 0) {
-                    Image(systemName: "link")
-                        .font(.system(size: 13, weight: .medium))
-                        .padding(.bottom, 2)
-
-                    Text(loader.metadata?.title ?? url.host ?? url.absoluteString)
-                        .font(.caption2)
-                        .lineLimit(2)
-                        .padding(.bottom, 4)
-
-                    Text(subtitleText(from: loader.metadata, fallback: url))
-                        .font(.caption2)
-                        .foregroundColor(.gray)
-                        .lineLimit(2)
-                }
-                .padding(.horizontal, 12)
-                .padding(.bottom, 12)
-                .padding(.top, 4)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .frame(width: 246, height: 246, alignment: .top)
-            .background(Color("BackgroundSecondary"))
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        }
-        .buttonStyle(.plain)
-    }
-}
+// LinkPreviewCard is provided by Presentation/Common/LinkPreviewSupport.swift
 
 // Square audio tile (single)
 // (moved) AudioSquareTile, ScrollingWaveformFill, PlaybackSineShape to SubView/AudioTile.swift
