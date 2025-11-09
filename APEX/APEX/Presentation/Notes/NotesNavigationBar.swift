@@ -108,8 +108,8 @@ private struct MenuToolbarButton: View {
             .frame(width: size, height: size)
             .contentShape(Circle())
         }
+        .menuStyle(.borderlessButton)
         .buttonStyle(.plain)
-        .glassEffect()
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in

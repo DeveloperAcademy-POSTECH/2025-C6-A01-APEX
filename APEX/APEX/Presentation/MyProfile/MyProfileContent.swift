@@ -174,8 +174,7 @@ struct MyProfileContactsSection: View {
     private var topSeparator: some View {
         Rectangle()
             .fill(Color("BackgroundSecondary"))
-            .frame(height: 2)
-            .frame(maxWidth: .infinity)
+            .frame(width: 361, height: 2)
     }
 }
 
@@ -354,8 +353,7 @@ struct MyProfileStorageSection: View {
     private var topSeparator: some View {
         Rectangle()
             .fill(Color("BackgroundSecondary"))
-            .frame(height: 2)
-            .frame(maxWidth: .infinity)
+            .frame(width: 361, height: 2)
     }
 }
 
@@ -450,8 +448,7 @@ struct MyProfileAppInfoSection: View {
     private var topSeparator: some View {
         Rectangle()
             .fill(Color("BackgroundSecondary"))
-            .frame(height: 2)
-            .frame(maxWidth: .infinity)
+            .frame(width: 361, height: 2)
     }
 }
 
@@ -495,8 +492,7 @@ struct MyProfileDangerZoneSection: View {
     private var topSeparator: some View {
         Rectangle()
             .fill(Color("BackgroundSecondary"))
-            .frame(height: 2)
-            .frame(maxWidth: .infinity)
+            .frame(width: 361, height: 2)
     }
 }
 
@@ -538,7 +534,7 @@ struct PressableRowButtonStyle: ButtonStyle {
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(configuration.isPressed ? pressedBackground : .clear)
-                    .padding(.horizontal, -16) // 좌우 패딩을 음수로 설정하여 화면 꽉 찬 효과
+                    .frame(width: 361) // 디바이더와 동일한 길이로 제한
             )
             .animation(.easeInOut(duration: duration), value: configuration.isPressed)
     }

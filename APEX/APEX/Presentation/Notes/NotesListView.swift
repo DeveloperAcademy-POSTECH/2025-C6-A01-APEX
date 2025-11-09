@@ -40,6 +40,9 @@ struct NotesListView: View {
                 .listRowSpacing(0)
                 .environment(\.defaultMinListRowHeight, 1)
                 .scrollContentBackground(.hidden)
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    Color.clear.frame(height: 24)
+                }
             }
         }
         .background(Color("Background"))
