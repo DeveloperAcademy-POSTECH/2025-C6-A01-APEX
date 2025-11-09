@@ -103,7 +103,7 @@ struct ContactsListSection: View {
 
     private func groupHeaderRow(title: String) -> some View {
         Text(title)
-            .font(.body1)
+            .font(.body2)
             .foregroundColor(.primary)
             .frame(height: Metrics.groupTitleHeight)
             .frame(maxWidth: .infinity, alignment: .leading)

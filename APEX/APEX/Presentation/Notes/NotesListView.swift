@@ -108,7 +108,7 @@ private struct NotesRow: View {
 
             }
             .padding(.horizontal, 16)
-            .frame(height: 64)
+            .frame(height: 72)
         }
         .buttonStyle(BackgroundHoverRowStyle())
         .frame(maxWidth: .infinity, alignment: .leading)
