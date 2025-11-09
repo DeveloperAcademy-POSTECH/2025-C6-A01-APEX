@@ -48,7 +48,7 @@ struct MyProfileView: View {
                 // 네비게이션 바
                 MyProfileNavigationBar(
                     title: "\(client.surname)\(client.name)",
-                    onBack: { dismiss() },
+                    onBack: { router.pop() },
                     onEdit: { isPresentingEdit = true }
                 )
                 .background(Color("Background"))

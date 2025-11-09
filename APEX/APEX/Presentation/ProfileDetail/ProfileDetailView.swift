@@ -102,7 +102,7 @@ struct ProfileDetailView: View {
                 // 네비게이션 바
                 MyProfileNavigationBar(
                     title: client.autoFormattedName,
-                    onBack: { dismiss() },
+                    onBack: { router.pop() },
                     onEdit: { isPresentingEdit = true }
                 )
                 .background(Color("Background"))
@@ -160,7 +160,7 @@ struct ProfileDetailView: View {
         ClientsStore.shared.remove(convertToClient().id)
         
         // 화면 닫기
-        dismiss()
+        router.pop()
     }
     
     private func convertToClient() -> Client {

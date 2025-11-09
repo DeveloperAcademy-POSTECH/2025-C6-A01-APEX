@@ -404,7 +404,7 @@ struct ChattingView: View {
                     }
                 }
         )
-        // Full-screen right-swipe to dismiss (non-intrusive)
+        // Full-screen right-swipe to navigate back (non-intrusive)
         .simultaneousGesture(
             DragGesture(minimumDistance: 20)
                 .onEnded { value in
@@ -412,7 +412,7 @@ struct ChattingView: View {
                     let dy = value.translation.height
                     guard abs(dx) > abs(dy) else { return }
                     if dx > 80, sheetMode == .hidden, !isSearchActive {
-                        dismiss()
+                        router.pop()
                     }
                 }
         )
@@ -529,7 +529,7 @@ struct ChattingView: View {
                 APEXNavigationBar(
                     .memo(
                         title: chatTitle,
-                        onBack: { dismiss() },
+                        onBack: { router.pop() },
                         onTitleTap: {
                             onTapTitleNavigate()
                         },

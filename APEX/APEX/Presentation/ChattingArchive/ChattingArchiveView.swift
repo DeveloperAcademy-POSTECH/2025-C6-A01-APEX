@@ -281,7 +281,7 @@ struct ChattingArchiveView: View {
     private var topBar: some View {
         ZStack(alignment: .center) {
             HStack(spacing: 0) {
-                Button(action: { dismiss() }) {
+                Button(action: { router.pop() }) {
                     Image(systemName: "chevron.left")
                         .font(.title4)
                         .foregroundColor(.black)
@@ -772,11 +772,8 @@ private extension ChattingArchiveView {
         ClientsStore.shared.remove(id)
         // Clear chat notes
         ChatStore.shared.setNotes([], for: id)
-        // Close this view, then ask parent to navigate back if needed (e.g., pop ChattingView)
-        dismiss()
-        DispatchQueue.main.async {
-            onDeletedContact?()
-        }
+        // Let parent decide whether to pop further; this view does not pop itself here
+        DispatchQueue.main.async { onDeletedContact?() }
     }
 }
 
