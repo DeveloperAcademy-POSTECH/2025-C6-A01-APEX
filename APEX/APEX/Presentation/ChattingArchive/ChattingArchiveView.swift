@@ -115,7 +115,11 @@ struct ChattingArchiveView: View {
                     }
                 }
             }
-            if changed { ChatStore.shared.setNotes(notes, for: clientId) }
+            if changed {
+                // Remove notes that became completely empty (no text and no bundle)
+                notes.removeAll { $0.text == nil && $0.bundle == nil }
+                ChatStore.shared.setNotes(notes, for: clientId)
+            }
         }
         .fullScreenCover(item: $recordPayload) { payload in
             RecordView(audioURL: payload.url)
@@ -754,6 +758,8 @@ private extension ChattingArchiveView {
             }
         }
         if changed {
+            // Drop notes that now have no text and no bundle
+            notes.removeAll { $0.text == nil && $0.bundle == nil }
             ChatStore.shared.setNotes(notes, for: clientId)
             reloadMediaPreview()
         }
@@ -883,7 +889,15 @@ private func deleteFlattenedMedia(item: FlattenedMediaItem, clientId: UUID) {
     for (newOrder, entry) in merged.enumerated() {
         if entry.isImage { images[entry.idx].orderIndex = newOrder } else { videos[entry.idx].orderIndex = newOrder }
     }
-    notes[noteIndex].bundle = (images.isEmpty && videos.isEmpty) ? nil : .media(images: images, videos: videos)
+    if images.isEmpty && videos.isEmpty {
+        if notes[noteIndex].text == nil {
+            notes.remove(at: noteIndex)
+        } else {
+            notes[noteIndex].bundle = nil
+        }
+    } else {
+        notes[noteIndex].bundle = .media(images: images, videos: videos)
+    }
     ChatStore.shared.setNotes(notes, for: clientId)
 }
 

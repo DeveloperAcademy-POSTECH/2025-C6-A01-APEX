@@ -16,6 +16,7 @@ struct MyProfileView: View {
     @State private var isShowingCardViewer = false
     @State private var alertMessage: String?
     @State private var currentPageIndex: Int = 0
+    @State private var usedSizeText: String = "—"
     // Removed local NavigationLink push states
 
     // 임시 어댑터: DummyClient -> Client (헤더뷰 연결용)
@@ -88,9 +89,9 @@ struct MyProfileView: View {
 
                 // 저장공간 섹션
                 MyProfileStorageSection(
-                    usedText: "5.62GB",
+                    usedText: usedSizeText,
                     isPurgeEnabled: false,
-                    onManageTapped: { /* TODO: DataManagementView 시트 띄우기 */ },
+                    onManageTapped: { router.push(.dataManagement) },
                     onPurgeTapped: { /* TODO */ }
                 )
                 .padding(.horizontal, 16)
@@ -157,6 +158,9 @@ struct MyProfileView: View {
             )
         }
         // Hidden NavigationLink removed; Router handles navigation
+        .task {
+            await updateUsedSize()
+        }
     }
 
     // MARK: - Helpers
@@ -196,6 +200,13 @@ struct MyProfileView: View {
 
     private func copyToPasteboard(_ text: String) {
         UIPasteboard.general.string = text
+    }
+
+    private func updateUsedSize() async {
+        do {
+            let text = try await RealDataUsageService().totalMediaSizeText()
+            await MainActor.run { usedSizeText = text }
+        } catch { }
     }
 
     private func openMyChat() {

@@ -56,14 +56,6 @@ struct ContactsView: View {
             }
         }
         .scrollEdgeEffectStyle(.soft, for: .top)
-        .safeAreaBar(edge: .top) {
-            if !showMyProfileView && !showProfileDetailView {
-                ContactsTopBarReplica(
-                    title: "Contacts",
-                    onPlus: onPlusTap
-                )
-            }
-        }
         .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $isProfileAddPresented) {
             ProfileAddView(onComplete: { newClient in
