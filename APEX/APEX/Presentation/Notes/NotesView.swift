@@ -109,7 +109,6 @@ struct NotesView: View {
                 onDelete: showDeleteConfirmation,
                 onTapRow: { path.append($0.id) }
             )
-            .padding(.vertical, 24)
         }
         .background(Color("Background"))
     }

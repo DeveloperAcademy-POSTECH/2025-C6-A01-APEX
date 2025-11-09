@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 연락처 리스트의 한 행(공통) - 플랫 스타일
+/// 연락처 리스트의 한 행(공통) - 플랫 스타
 /// 기본 배경: Background, 눌림 시: BackgroundHover로 자연스럽게 전환
 struct ContactsRow: View {
     let client: Client
@@ -14,7 +14,7 @@ struct ContactsRow: View {
 
     // Style tokens
     private enum Metrics {
-        static let cellHeight: CGFloat = 64
+        static let cellHeight: CGFloat = 72
         static let avatarSize: CGFloat = 48
         static let textBoxHeight: CGFloat = 38
         static let hStackSpacing: CGFloat = 12

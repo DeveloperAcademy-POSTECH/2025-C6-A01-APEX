@@ -32,13 +32,12 @@ struct NotesFilterTabs: View {
                 }
                 .padding(.horizontal, 16)  // 전체 탭들에 좌우 패딩 16씩 추가
             }
-            .padding(.top, 12)
             .background(
                 // 구분선을 배경으로 넣어서 뒤쪽에 배치
                 VStack {
                     Spacer()
                     Rectangle()
-                        .fill(Color("BackgroundHover"))
+                        .fill(Color("PrimaryContainer"))
                         .frame(height: 2)
                 }
             )
@@ -79,7 +78,7 @@ private struct FilterTab: View {
         if isSelected {
             return Color("Primary")
         } else {
-            return Color("BackgroundHover")
+            return Color("BackgroundDisabled")
         }
     }
     

@@ -40,6 +40,9 @@ struct NotesListView: View {
                 .listRowSpacing(0)
                 .environment(\.defaultMinListRowHeight, 1)
                 .scrollContentBackground(.hidden)
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    Color.clear.frame(height: 24)
+                }
             }
         }
         .background(Color("Background"))
@@ -108,7 +111,7 @@ private struct NotesRow: View {
 
             }
             .padding(.horizontal, 16)
-            .frame(height: 64)
+            .frame(height: 72)
         }
         .buttonStyle(BackgroundHoverRowStyle())
         .frame(maxWidth: .infinity, alignment: .leading)

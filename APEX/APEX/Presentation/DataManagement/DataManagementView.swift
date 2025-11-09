@@ -6,169 +6,205 @@
 //
 
 import SwiftUI
+import Combine
+
+// MARK: - Dialog Kind (internal로 공개: ViewModel에서 사용 가능)
+enum DMDialogKind: Equatable {
+    case deleteAll(totalText: String)
+    case deleteContact(name: String, sizeText: String, id: UUID)
+
+    var title: String {
+        switch self {
+        case .deleteAll: return "모든 미디어 데이터를 삭제하겠습니까?"
+        case .deleteContact: return "해당 연락처 노트의\n미디어 데이터를 모두 삭제하겠습니까?"
+        }
+    }
+
+    var body: String {
+        switch self {
+        case .deleteAll:
+            return "모든 미디어 데이터를 삭제합니다.\ni-Cloud에 백업되지 않은 데이터는\n복원 할 수 없습니다."
+        case .deleteContact:
+            return "노트를 제외한 모든 미디어 데이터\n(사진, 동영상, 음성, 파일)이 삭제됩니다.\n이 작업은 되돌릴 수 없습니다."
+        }
+    }
+}
+
+// MARK: - ViewModel
+
+@MainActor
+final class DataManagementViewModel: ObservableObject {
+    // Injected services
+    private let sync: StorageSyncService
+    private let usage: DataUsageService
+
+    // UI states
+    @Published var isAutoSyncOn: Bool = false
+    @Published var lastSyncText: String = "—"
+    @Published var totalSizeText: String = "—"
+    @Published var contacts: [DMContactUsage] = []
+    @Published var isRefreshing: Bool = false
+
+    // Dialog
+    @Published var showingDialog: Bool = false
+    @Published var dialogKind: DMDialogKind? = nil
+    @Published var dialogChecked: Bool = false
+
+    init(sync: StorageSyncService, usage: DataUsageService) {
+        self.sync = sync
+        self.usage = usage
+    }
+
+    func load() async {
+        do {
+            async let auto = try sync.isAutoSyncOn()
+            async let last = try sync.lastSyncDate()
+            async let total = try usage.totalMediaSizeText()
+            async let list = try usage.contactUsages()
+
+            let (isOn, lastDate, totalText, contacts) = try await (auto, last, total, list)
+            self.isAutoSyncOn = isOn
+            self.lastSyncText = lastDate.map { $0.formatted(date: .numeric, time: .shortened) } ?? "—"
+            self.totalSizeText = totalText
+            self.contacts = contacts
+        } catch {
+            // 필요시 토스트/로깅
+        }
+    }
+
+    func toggleAutoSync(_ newValue: Bool) {
+        isAutoSyncOn = newValue
+        Task {
+            do { try await sync.setAutoSyncOn(newValue) }
+            catch {
+                await MainActor.run { self.isAutoSyncOn = !newValue }
+            }
+        }
+    }
+
+    func refreshSync() {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        Task {
+            defer { Task { @MainActor in self.isRefreshing = false } }
+            do {
+                let date = try await sync.refreshNow()
+                await MainActor.run {
+                    self.lastSyncText = date.formatted(date: .numeric, time: .shortened)
+                }
+            } catch { }
+        }
+    }
+
+    func requestDeleteAll() {
+        dialogKind = .deleteAll(totalText: totalSizeText)
+        dialogChecked = false
+        showingDialog = true
+    }
+
+    func requestDeleteContact(_ id: UUID) {
+        guard let target = contacts.first(where: { $0.id == id }) else { return }
+        dialogKind = .deleteContact(name: target.name, sizeText: target.sizeText, id: id)
+        dialogChecked = false
+        showingDialog = true
+    }
+
+    func toggleDialogChecked() { dialogChecked.toggle() }
+
+    func cancelDialog() {
+        showingDialog = false
+        dialogKind = nil
+        dialogChecked = false
+    }
+
+    func confirmDelete() {
+        guard let kind = dialogKind, dialogChecked else { return }
+        Task {
+            switch kind {
+            case .deleteAll:
+                do {
+                    try await usage.deleteAllMedia()
+                    let total = try await usage.totalMediaSizeText()
+                    await MainActor.run { self.totalSizeText = total }
+                } catch { }
+            case .deleteContact(_, _, let id):
+                do {
+                    try await usage.deleteMedia(for: id)
+                    let list = try await usage.contactUsages()
+                    await MainActor.run { self.contacts = list }
+                } catch { }
+            }
+            await MainActor.run { self.cancelDialog() }
+        }
+    }
+}
+
+// MARK: - View (조립만)
 
 struct DataManagementView: View {
     @Environment(\.dismiss) private var dismiss
-
-    @State private var autoSync = false
-    @State private var lastSyncText = "2025년 10월 15일 오후 8:30"
-    @State private var confirmAllDelete = false
-    @State private var confirmAllChecked = false
+    @StateObject private var vm = DataManagementViewModel(
+        sync: MockStorageSyncService(),
+        usage: MockDataUsageService()
+    )
 
     var body: some View {
-        VStack(spacing: 0) {
-            topBar
-
+        ZStack {
+            // Main Content (DMContactsView equivalent)
             ScrollView {
                 VStack(spacing: 16) {
-                    sectionToggle(title: "iCloud 자동 동기화", isOn: $autoSync, helper: "노트에 저장한 미디어는 iCloud에 자동으로 백업하고 기기에서는 삭제하여 스토리지 여유를 가질 수 있어요.")
+                    VStack(spacing: 0) {
+                        DMToggleSection(
+                            title: "iCloud 자동 동기화",
+                            helper: "노트에 저장한 미디어는 iCloud에 자동으로 백업하고 기기에서는 삭제하여 스토리지 여유를 가질 수 있어요.",
+                            isOn: $vm.isAutoSyncOn,
+                            onToggle: { vm.toggleAutoSync($0) }
+                        )
 
-                    sectionRowWithRefresh(
-                        title: "iCloud 동기화 새로고침",
-                        helper: "노트에 저장한 미디어를 iCloud에 즉시 동기화 합니다.\n최종 동기화 시간: \(lastSyncText)"
-                    ) {
-                        // 더미
+                        DMRefreshSection(
+                            title: "iCloud 동기화 새로고침",
+                            helperPrefix: "노트에 저장한 미디어를 iCloud에 즉시 동기화 합니다.",
+                            lastSyncText: vm.lastSyncText,
+                            isRefreshing: vm.isRefreshing,
+                            onRefresh: { vm.refreshSync() }
+                        )
                     }
+                    .padding(.bottom, 16)
 
-                    allDeleteBlock
+                    Rectangle()
+                        .fill(Color("BackgroundSecondary"))
+                        .frame(width: 361, height: 2)
 
-                    Divider().padding(.horizontal, 16)
-
-                    Text("연락처 노트 데이터 관리")
-                        .font(.body4)
-                        .foregroundColor(.gray)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 16)
-
-                    // 더미 리스트
-                    VStack(spacing: 8) {
-                        contactRow(name: "Gyeong", size: "816.45MB")
-                        contactRow(name: "Daisy", size: "816.45MB")
-                    }
-                    .padding(.horizontal, 16)
+                    DMMediaDataSection(
+                        totalSizeText: vm.totalSizeText,
+                        contacts: vm.contacts,
+                        onDeleteAllTap: { vm.requestDeleteAll() },
+                        onContactDeleteTap: { contact in
+                            vm.requestDeleteContact(contact.id)
+                        }
+                    )
                 }
+                .padding(.horizontal, 16)
                 .padding(.vertical, 16)
             }
             .background(Color("Background"))
+            .safeAreaInset(edge: .top) {
+                DMTopBar { dismiss() }
+            }
+
+            DMConfirmDialog(
+                isVisible: $vm.showingDialog,
+                isChecked: $vm.dialogChecked,
+                title: vm.dialogKind?.title ?? "",
+                bodyText: vm.dialogKind?.body ?? "",
+                confirmTitle: "삭제",
+                cancelTitle: "취소",
+                onConfirm: { vm.confirmDelete() },
+                onCancel: { vm.cancelDialog() }
+            )
         }
-        .confirmationDialog(
-            "모든 미디어 데이터를 삭제하겠습니까?",
-            isPresented: $confirmAllDelete,
-            titleVisibility: .visible
-        ) {
-            Button("삭제", role: .destructive) { /* 더미 */ }
-            Button("취소", role: .cancel) { }
-        } message: {
-            Text("모든 미디어 데이터를 삭제합니다.\nI-Cloud에 백업되지 않은 데이터는 복원 할 수 없습니다.\n\n\(confirmAllChecked ? "✔︎ " : "○ ") 위 내용을 모두 확인했습니다.")
-        }
+        .task { await vm.load() }
         .background(Color("Background"))
-    }
-
-    private var topBar: some View {
-        HStack {
-            Button { dismiss() } label: {
-                Image(systemName: "xmark")
-                    .font(.title4)
-                    .foregroundColor(.black)
-                    .frame(width: 44, height: 44)
-            }
-            .buttonStyle(.plain)
-            Spacer()
-            Text("노트 저장공간 관리")
-                .font(.title3)
-                .foregroundColor(.black)
-            Spacer()
-            Color.clear.frame(width: 44, height: 44)
-        }
-        .padding(.horizontal, 12)
-        .frame(height: 52)
-        .background(Color("Background"))
-    }
-
-    private func sectionToggle(title: String, isOn: Binding<Bool>, helper: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Toggle(title, isOn: isOn)
-                .toggleStyle(SwitchToggleStyle(tint: Color("Primary")))
-                .font(.body2)
-            Text(helper)
-                .font(.body6)
-                .foregroundColor(.gray)
-        }
-        .padding(.horizontal, 16)
-    }
-
-    private func sectionRowWithRefresh(title: String, helper: String, onRefresh: @escaping () -> Void) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(title)
-                    .font(.body2)
-                Spacer()
-                Button {
-                    onRefresh()
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                        .foregroundColor(.gray)
-                        .frame(width: 28, height: 28)
-                }
-                .buttonStyle(.plain)
-            }
-            Text(helper)
-                .font(.body6)
-                .foregroundColor(.gray)
-        }
-        .padding(.horizontal, 16)
-    }
-
-    private var allDeleteBlock: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Button {
-                confirmAllDelete = true
-            } label: {
-                Text("미디어 데이터 모두 삭제 (5.70 GB)")
-                    .font(.body2)
-                    .foregroundColor(.primary)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 44)
-                    .background(Color("BackgroundSecondary"))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-            }
-            .buttonStyle(.plain)
-
-            Text("미디어 데이터를 모두 삭제 시 I-Cloud에 백업되지 않는 데이터는 복원 할 수 없습니다.")
-                .font(.body6)
-                .foregroundColor(.gray)
-
-            // 확인 체크(간단 토글)
-            HStack {
-                Button {
-                    confirmAllChecked.toggle()
-                } label: {
-                    Image(systemName: confirmAllChecked ? "checkmark.circle.fill" : "circle")
-                        .foregroundColor(confirmAllChecked ? Color("Primary") : .gray)
-                }
-                .buttonStyle(.plain)
-                Text("위 내용을 모두 확인했습니다.")
-                    .font(.body5)
-                    .foregroundColor(.primary)
-            }
-        }
-        .padding(.horizontal, 16)
-    }
-
-    private func contactRow(name: String, size: String) -> some View {
-        HStack {
-            Profile(image: nil, initials: String(name.prefix(1)), size: .extraSmall, fontSize: 18)
-            Text(name)
-                .font(.body2)
-            Spacer()
-            Text(size)
-                .font(.body5)
-                .foregroundColor(.gray)
-        }
-        .frame(height: 44)
-        .frame(maxWidth: .infinity)
-        .background(Color("BackgroundSecondary").opacity(0.0))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
 
