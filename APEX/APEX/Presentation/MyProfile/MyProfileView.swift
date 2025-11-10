@@ -108,7 +108,7 @@ struct MyProfileView: View {
                 // 위험 구역 섹션
                 MyProfileDangerZoneSection(
                     onLogout: { /* TODO */ },
-                    onDeleteAccount: { /* TODO */ }
+                    onDeleteAccount: { router.push(.unsubscribe) }
                 )
                 .padding(.horizontal, 16)
                 .padding(.top, 32)
