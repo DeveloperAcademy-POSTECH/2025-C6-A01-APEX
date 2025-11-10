@@ -75,7 +75,7 @@ struct ProfileAddView: View {
                         presentedPhotoType = .card
                     } label: {
                         VStack(spacing: 13) {
-                            if let image = cardFrontUIImage {
+                            if let image = (cardFrontUIImage ?? cardBackUIImage) {
                                 Image(uiImage: image)
                                     .resizable()
                                     .scaledToFit()

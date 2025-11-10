@@ -122,7 +122,7 @@ struct PhotoAddView: View {
                 HStack(spacing: 8) {
                     ForEach(CardSide.allCases, id: \.self) { side in
                         Circle()
-                            .fill(side == selectedCardSide ? Color.black : Color(red: 0.85, green: 0.85, blue: 0.85))
+                            .fill(side == selectedCardSide ? Color("Primary") : Color("BackgroundDisabled"))
                             .frame(width: 8, height: 8)
                             .onTapGesture { selectedCardSide = side }
                     }
@@ -386,8 +386,8 @@ private struct RectangularCropperView: View {
     var body: some View {
         GeometryReader { geo in
             let size = geo.size
-            let cropWidth = min(304, size.width * 0.86)
-            let cropHeight = cropWidth / (304.0 / 184.0)
+            let cropWidth = min(358, size.width * 0.86)
+            let cropHeight = cropWidth / (358.0 / 214.0)
             let cropRect = CGRect(x: (size.width - cropWidth) / 2, y: (size.height - cropHeight) / 2, width: cropWidth, height: cropHeight)
             ZStack {
                 Color(.black)
