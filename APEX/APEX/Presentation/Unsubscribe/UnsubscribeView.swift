@@ -79,20 +79,32 @@ struct UnsubscribeView: View {
     }
 
     private var topBar: some View {
-        HStack {
-            Button { router.pop() } label: {
-                Image(systemName: "chevron.left")
-                    .font(.title4)
-                    .foregroundColor(.black)
-                    .frame(width: 44, height: 44)
+        HStack(alignment: .center, spacing: 0) {
+            // 뒤로 버튼 (MyProfile 스타일)
+            Button(action: { router.pop() }) {
+                ZStack {
+                    Circle()
+                        .fill(Color.white)
+                        .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundColor(Color.black)
+                }
+                .frame(width: 44, height: 44)
+                .contentShape(Circle())
+                .accessibilityLabel("뒤로")
             }
             .buttonStyle(.plain)
+            
             Spacer()
-            Color.clear.frame(width: 44, height: 44)
         }
-        .padding(.horizontal, 12)
-        .frame(height: 52)
-        .background(Color("Background"))
+        .padding(.horizontal, 16)
+        .padding(.vertical, 0)
+        .frame(maxWidth: .infinity, alignment: .center)
+        .background(.white)
+        .padding(.top, 16)
+        .padding(.bottom, 8)
     }
 }
 
