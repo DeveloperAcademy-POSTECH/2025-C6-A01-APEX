@@ -62,8 +62,9 @@ struct ContactsView: View {
                 allUngrouped.insert(newClient, at: 0)
                 ClientsStore.shared.add(newClient, atTop: true)
                 isProfileAddPresented = false
-                toastText = "연락처가 추가되었습니다"
-                presentToast()
+                DispatchQueue.main.async {
+                    navigateToProfileDetail(newClient)
+                }
             })
             .padding(.top, 30)
         }
