@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 섹션 제목 + 개수(0이면 숨김) + 접힘/펼침 토글
+/// 섹션 제목 + 개수(0도 표시) + 접힘/펼침 토글
 /// 내부는 좌우 패딩 16, 높이 36 보장. 구분선은 이 컴포넌트에서 그리지 않음.
 struct ContactsSectionHeader: View {
     let title: String
@@ -22,7 +22,7 @@ struct ContactsSectionHeader: View {
             HStack(spacing: Metrics.hStackSpacing) {
                 HStack(spacing: Metrics.titleCountSpacing) {
                     titleView
-                    if count > 0 { countView }
+                    countView
                 }
 
                 Spacer()
@@ -78,7 +78,7 @@ struct ContactsSectionHeader: View {
     // MARK: - Accessibility
     private var accessibilityTitle: String {
         let state = isExpanded ? "expanded" : "collapsed"
-        return count > 0 ? "\(title), \(count), \(state)" : "\(title), \(state)"
+        return "\(title), \(count), \(state)"
     }
 
     private var accessibilityHint: String {
