@@ -571,8 +571,8 @@ struct InputBar: View {
                                         isExpandedEditorPresented = true
                                     } label: {
                                         Image(systemName: "arrow.down.left.and.arrow.up.right")
-                                            .font(.system(size: 12, weight: .semibold))
-                                            .foregroundColor(Color("Primary"))
+                                            .font(.system(size: 20, weight: .medium))
+                                            .foregroundColor(Color("GrayLabel"))
                                             .padding(8)
                                     }
                                     .padding(.top, 8)
@@ -738,14 +738,29 @@ private struct ExpandedEditorSheet: View {
     var body: some View {
         NavigationView {
             ZStack(alignment: .bottomTrailing) {
-                VStack(spacing: 0) {
+                VStack(spacing: 16) {
+                    HStack {
+                        Spacer(minLength: 0)
+                        Button {
+                            dismiss()
+                            onClose()
+                        } label: {
+                            Image(systemName: "arrow.down.right.and.arrow.up.left")
+                                .font(.system(size: 20, weight: .medium))
+                                .foregroundStyle(Color("GrayLabel"))
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.top, 26)
+                    
                     TextEditor(text: $text)
                         .font(.body6)
-                        .padding(.horizontal, 16)
-                        .padding(.top, 12)
                         .focused($isFocused)
                     Spacer(minLength: 0)
                 }
+                .padding(.horizontal, 24)
 
                 Button {
                     onUpload()
@@ -762,20 +777,6 @@ private struct ExpandedEditorSheet: View {
                 .padding(.trailing, 20)
                 .padding(.bottom, 28)
                 .accessibilityLabel(Text("업로드"))
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        dismiss()
-                        onClose()
-                    } label: {
-                        Image(systemName: "arrow.down.right.and.arrow.up.left")
-                            .font(.system(size: 20, weight: .medium))
-                            .foregroundStyle(.gray)
-                    }
-                    .buttonStyle(.plain)
-                }
             }
         }
         .onAppear {

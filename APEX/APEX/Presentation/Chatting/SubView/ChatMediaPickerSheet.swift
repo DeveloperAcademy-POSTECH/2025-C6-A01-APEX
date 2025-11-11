@@ -27,6 +27,7 @@ struct ChatMediaPickerSheet: View {
     @State private var thumbnails: [String: UIImage] = [:]
     @State private var selectedIds: Set<String> = []
     @State private var videoDurations: [String: TimeInterval] = [:]
+    private let maxSelectableCount: Int = 24
 
     private let gridColumns: [GridItem] = [
         GridItem(.flexible(), spacing: 2),
@@ -112,9 +113,15 @@ struct ChatMediaPickerSheet: View {
                                 }
                                 if isSelected {
                                     Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 12, weight: .medium))
-                                        .foregroundColor(Color("Background"))
-                                        .padding(12)
+                                        .font(.system(size: 16, weight: .medium))
+                                        .foregroundColor(Color("Primary"))
+                                        .background(Color.white)
+                                        .clipShape(Circle()) // Clip the image to a circle
+                                        .overlay(
+                                            Circle()
+                                                .stroke(Color.white, lineWidth: 1)
+                                        )
+                                        .padding(4)
                                 }
                             }
                             .aspectRatio(1, contentMode: .fill)
@@ -179,7 +186,12 @@ struct ChatMediaPickerSheet: View {
         if selectedIds.contains(id) {
             selectedIds.remove(id)
         } else {
-            selectedIds.insert(id)
+            if selectedIds.count < maxSelectableCount {
+                selectedIds.insert(id)
+            } else {
+                // Optional: light haptic to indicate limit reached
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            }
         }
         synchronizeSelectedItems()
     }

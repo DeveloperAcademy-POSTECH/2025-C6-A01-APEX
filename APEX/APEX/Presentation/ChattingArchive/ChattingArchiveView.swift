@@ -596,7 +596,11 @@ private extension ChattingArchiveView {
             totalMediaBytes = 0
             return
         }
-        let notes = ChatStore.shared.notes(for: clientId)
+        var notes = ChatStore.shared.notes(for: clientId)
+        if notes.isEmpty {
+            // Fallback to client's persisted notes if ChatStore hasn't been seeded yet
+            notes = client?.notes ?? []
+        }
         mediaItems = computeMediaItems(from: notes)
         fileItems = computeFileItems(from: notes)
         audioItems = computeAudioItems(from: notes)
