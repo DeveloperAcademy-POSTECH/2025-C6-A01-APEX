@@ -18,7 +18,7 @@ struct ContactsListSection: View {
         static let horizontalPadding: CGFloat = 16
         static let gap: CGFloat = 8                 // 기본 간격(헤더 아래, 기타)
         static let groupGapAfterTitle: CGFloat = 4  // Ungrouped 아래 전용 간격
-        static let separatorHeight: CGFloat = 8
+        static let separatorHeight: CGFloat = 2     // 구분선 높이를 8에서 2로 변경
     }
 
     var body: some View {
@@ -78,14 +78,14 @@ struct ContactsListSection: View {
                         )
                         .applyListRowCleaning()
                     }
-
-                    // 3-3) Favorites 전용: 마지막 연락처 셀 ↔ 구분선 간격 8, 그리고 구분선 ↔ 다음 섹션(All 헤더) 간격 8
-                    if showsSeparatorBelowHeader, !clients.isEmpty {
-                        gapRow                  // 마지막 연락처 셀과 구분선 사이 8
-                        separatorBarRow         // 색 있는 구분선(높이 8)
-                        gapRow                  // 구분선과 다음 섹션(=All 헤더) 사이 8
-                    }
                 }
+            }
+            
+            // 4) Favorites 전용: 구분선을 토글 상태와 관계없이 favorites가 있으면 항상 표시
+            if showsSeparatorBelowHeader, !clients.isEmpty {
+                gapRow                  // 구분선 위쪽 간격 8
+                separatorBarRow         // 색 있는 구분선(높이 2)
+                gapRow                  // 구분선 아래쪽 간격 8
             }
         }
     }
@@ -104,7 +104,7 @@ struct ContactsListSection: View {
     private func groupHeaderRow(title: String) -> some View {
         Text(title)
             .font(.body2)
-            .foregroundColor(.primary)
+            .foregroundColor(Color.secondary)  // 시스템 기본 보조 색상으로 변경
             .frame(height: Metrics.groupTitleHeight)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, Metrics.horizontalPadding)
