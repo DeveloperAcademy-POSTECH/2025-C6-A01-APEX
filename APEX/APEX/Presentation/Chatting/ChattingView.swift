@@ -64,6 +64,8 @@ struct ChattingView: View {
         var text: String?
         var files: [URL]
         var audios: [URL]
+        var images: [UIImage] = []
+        var videos: [URL] = []
     }
     @State private var shareSeed: ShareSeed?
     // Parent-scoped record viewer state
@@ -87,276 +89,268 @@ struct ChattingView: View {
     var body: some View {
         ZStack {
             ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .trailing, spacing: 6) {
-                    // Top sentinel to measure content's top Y
-                    Color.clear
-                        .frame(height: 1) // ensure geometry updates while scrolling
-                        .background(
-                            GeometryReader { geo in
-                                Color.clear.preference(
-                                    key: ScrollMetricsKey.self,
-                                    value: ScrollMetrics(topY: geo.frame(in: .named("chatScroll")).minY, bottomY: nil, viewportHeight: nil)
-                                )
-                            }
-                        )
-                    ForEach(Array(notes.enumerated()), id: \.element.id) { idx, note in
-                        if idx == 0 || !Calendar.current.isDate(note.uploadedAt, inSameDayAs: notes[idx - 1].uploadedAt) {
-                            dateHeaderView(note.uploadedAt)
-                        }
-                        ZStack(alignment: .trailing) {
-                            Text(note.uploadedAt.formattedChatTime)
-                                .font(.caption2)
-                                .foregroundStyle(Color.secondary)
-                                .frame(width: Metrics.timeWidth, alignment: .trailing)
-                                .lineLimit(1)
-                                .opacity(Double(timestampRevealProgress))
-                                .offset(x: (1 - timestampRevealProgress) * 8)
-
-                            ChatMessageView(
-                                note: note,
-                                chatTitle: chatTitle,
-                                currentClientId: clientId,
-                                highlightQuery: (
-                                    isSearchActive &&
-                                    !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-                                    !matchedNoteIds.isEmpty &&
-                                    matchedNoteIds.indices.contains(currentMatchIndex) &&
-                                    matchedNoteIds[currentMatchIndex] == note.id
-                                ) ? searchText : nil,
-                                buildViewerPayload: { anchor in
-                                    buildGlobalViewerPayload(startingFrom: anchor)
-                                },
-                                onOpenViewer: { anchor in
-                                    openViewer(anchor: anchor)
-                                },
-                                onOpenShare: { selectedText in
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                        shareSeed = ShareSeed(text: selectedText, files: [], audios: [])
-                                    }
-                                },
-                                onOpenShareFiles: { urls in
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                        shareSeed = ShareSeed(text: nil, files: urls, audios: [])
-                                    }
-                                },
-                                onOpenShareAudio: { url in
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                        shareSeed = ShareSeed(text: nil, files: [], audios: [url])
-                                    }
-                                },
-                                onDeleteFile: { noteId, fileIndex in
-                                    deleteFile(noteId: noteId, fileIndex: fileIndex)
-                                },
-                                onOpenRecord: { url in
-                                    NotificationCenter.default.post(name: .apexStopAllAudioPlayback, object: nil)
-                                    recordPayload = RecordPayload(url: url)
-                                },
-                                onDelete: { anchor in
-                                    deleteMedia(anchor: anchor)
-                                },
-                                onDeleteAudio: { noteId, url in
-                                    deleteAudio(noteId: noteId, url: url)
-                                },
-                                onCopyText: { text in
-                                    UIPasteboard.general.string = text
-                                    withAnimation { showCopyToast = true }
-                                },
-                                onStartEdit: { noteId, currentText in
-                                    editing = EditingPayload(noteId: noteId, text: currentText)
-                                },
-                                onDeleteNote: { noteId in
-                                    if let idx = notes.firstIndex(where: { $0.id == noteId }) {
-                                        notes.remove(at: idx)
-                                    }
-                                    ChatStore.shared.setNotes(notes, for: clientId)
-                                },
-                                onStartSelectCopy: { text in
-                                    selectCopy = SelectCopyPayload(text: text)
+                ScrollView {
+                    LazyVStack(alignment: .trailing, spacing: 6) {
+                        // Top sentinel to measure content's top Y
+                        Color.clear
+                            .frame(height: 1) // ensure geometry updates while scrolling
+                            .background(
+                                GeometryReader { geo in
+                                    Color.clear.preference(
+                                        key: ScrollMetricsKey.self,
+                                        value: ScrollMetrics(topY: geo.frame(in: .named("chatScroll")).minY, bottomY: nil, viewportHeight: nil)
+                                    )
                                 }
                             )
-                            .offset(x: -timestampRevealProgress * (timeTextWidth(for: note.uploadedAt) + Metrics.timeGap))
-                        }
-                        .id(note.id)
-                    }
-                    Color.clear
-                        .id(bottomSentinelId)
-                        .background(
-                            GeometryReader { geo in
-                                Color.clear.preference(
-                                    key: ScrollMetricsKey.self,
-                                    value: ScrollMetrics(topY: nil, bottomY: geo.frame(in: .named("chatScroll")).maxY, viewportHeight: nil)
-                                )
+                        ForEach(Array(notes.enumerated()), id: \.element.id) { idx, note in
+                            if idx == 0 || !Calendar.current.isDate(note.uploadedAt, inSameDayAs: notes[idx - 1].uploadedAt) {
+                                dateHeaderView(note.uploadedAt)
                             }
-                        )
-                }
-                .padding(.horizontal, 12)
-            }
-            .textSelection(.enabled)
-            .padding(.bottom, bottomInsetHeight + max(0, -bottomBarOffsetY))
-            .coordinateSpace(name: "chatScroll")
-            .scrollBounceBehavior(.basedOnSize)
-            .scrollIndicators(.visible)
-            .ignoresSafeArea(.keyboard) // Prevent double lift: we manually pad for the input bar
-            .background(
-                GeometryReader { geo in
-                    Color.clear.preference(
-                        key: ScrollMetricsKey.self,
-                        value: ScrollMetrics(topY: nil, bottomY: nil, viewportHeight: geo.size.height)
-                    )
-                }
-            )
-            .onTapGesture { UIApplication.apexDismissKeyboard() }
-            .onAppear {
-                DispatchQueue.main.async {
-                    if notes.isEmpty {
-                        let persisted = ChatStore.shared.notes(for: clientId)
-                        notes = persisted.isEmpty ? initialNotes : persisted
-                    }
-                    proxy.scrollTo(bottomSentinelId, anchor: .bottom)
-                    // If any incoming notes carry pending progress, kick off simulations
-                    kickOffPendingUploadsIfNeeded()
-                }
-            }
-            .onChange(of: notes.count) { _ in
-                DispatchQueue.main.async {
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        proxy.scrollTo(bottomSentinelId, anchor: .bottom)
-                    }
-                    // 확실히 맨 아래로 이동했을 때 버튼 숨김 (metrics 업데이트 전 선반영)
-                    self.showScrollToBottom = false
-                }
-            }
-            .onChange(of: bottomBarOffsetY) { _ in
-                // 사용자가 위로 올려본 상태면(auto-scroll off) 건드리지 않음
-                guard !showScrollToBottom else { return }
-                // 키보드/레이아웃 반영 직후에 센티널로 스크롤
-                keyboardScrollWork?.cancel()
-                let work = DispatchWorkItem {
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        proxy.scrollTo(bottomSentinelId, anchor: .bottom)
-                    }
-                }
-                keyboardScrollWork = work
-                // 레이아웃 적용 직후 실행하여 위치 튐 방지
-                DispatchQueue.main.async(execute: work)
-            }
-            .onChange(of: bottomInsetHeight) { _ in
-                guard !showScrollToBottom else { return }
-                keyboardScrollWork?.cancel()
-                DispatchQueue.main.async {
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        proxy.scrollTo(bottomSentinelId, anchor: .bottom)
-                    }
-                    self.showScrollToBottom = false
-                }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .apexInputFocused)) { _ in
-                keyboardScrollWork?.cancel()
-                withAnimation(.easeOut(duration: 0.2)) {
-                    proxy.scrollTo(bottomSentinelId, anchor: .bottom)
-                }
-                self.isEditorCurrentlyFocused = true
-                self.showScrollToBottom = false
+                            ZStack(alignment: .trailing) {
+                                Text(note.uploadedAt.formattedChatTime)
+                                    .font(.caption2)
+                                    .foregroundStyle(Color.secondary)
+                                    .frame(width: Metrics.timeWidth, alignment: .trailing)
+                                    .lineLimit(1)
+                                    .opacity(Double(timestampRevealProgress))
+                                    .offset(x: (1 - timestampRevealProgress) * 8)
 
-                let work = DispatchWorkItem {
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        proxy.scrollTo(bottomSentinelId, anchor: .bottom)
-                    }
-                }
-                keyboardScrollWork = work
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.06, execute: work)
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .apexInputBlurred)) { _ in
-                self.isEditorCurrentlyFocused = false
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .apexNavigateToNote)) { notif in
-                if let noteId = notif.userInfo?["noteId"] as? UUID {
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        proxy.scrollTo(noteId, anchor: .center)
-                    }
-                    self.showScrollToBottom = false
-                }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .apexNavigateToDate)) { notif in
-                if let date = notif.userInfo?["date"] as? Date {
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        proxy.scrollTo(dateHeaderId(date), anchor: .top)
-                    }
-                    self.showScrollToBottom = false
-                }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .apexAudioRenamed)) { notif in
-                guard let oldURL = notif.userInfo?["oldURL"] as? URL,
-                      let newURL = notif.userInfo?["newURL"] as? URL else { return }
-                // Update notes in place for audio bundles
-                for idx in notes.indices {
-                    if case var .audio(audios) = notes[idx].bundle {
-                        var changed = false
-                        for i in audios.indices {
-                            if audios[i].url == oldURL {
-                                audios[i] = AudioAttachment(url: newURL, duration: audios[i].duration)
-                                changed = true
+                                ChatMessageView(
+                                    note: note,
+                                    chatTitle: chatTitle,
+                                    currentClientId: clientId,
+                                    highlightQuery: (
+                                        isSearchActive &&
+                                        !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+                                        !matchedNoteIds.isEmpty &&
+                                        matchedNoteIds.indices.contains(currentMatchIndex) &&
+                                        matchedNoteIds[currentMatchIndex] == note.id
+                                    ) ? searchText : nil,
+                                    buildViewerPayload: { anchor in
+                                        buildGlobalViewerPayload(startingFrom: anchor)
+                                    },
+                                    onOpenViewer: { anchor in
+                                        openViewer(anchor: anchor)
+                                    },
+                                    onOpenShare: { selectedText in
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                            shareSeed = ShareSeed(text: selectedText, files: [], audios: [], images: [], videos: [])
+                                        }
+                                    },
+                                    onOpenShareFiles: { urls in
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                            shareSeed = ShareSeed(text: nil, files: urls, audios: [], images: [], videos: [])
+                                        }
+                                    },
+                                    onOpenShareAudio: { url in
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                            shareSeed = ShareSeed(text: nil, files: [], audios: [url], images: [], videos: [])
+                                        }
+                                    },
+                                    onDeleteFile: { noteId, fileIndex in
+                                        deleteFile(noteId: noteId, fileIndex: fileIndex)
+                                    },
+                                    onOpenRecord: { url in
+                                        NotificationCenter.default.post(name: .apexStopAllAudioPlayback, object: nil)
+                                        recordPayload = RecordPayload(url: url)
+                                    },
+                                    onDelete: { anchor in
+                                        deleteMedia(anchor: anchor)
+                                    },
+                                    onDeleteAudio: { noteId, url in
+                                        deleteAudio(noteId: noteId, url: url)
+                                    },
+                                    onCopyText: { text in
+                                        UIPasteboard.general.string = text
+                                        withAnimation { showCopyToast = true }
+                                    },
+                                    onStartEdit: { noteId, currentText in
+                                        editing = EditingPayload(noteId: noteId, text: currentText)
+                                    },
+                                    onDeleteNote: { noteId in
+                                        if let idx = notes.firstIndex(where: { $0.id == noteId }) {
+                                            notes.remove(at: idx)
+                                        }
+                                        ChatStore.shared.setNotes(notes, for: clientId)
+                                    },
+                                    onStartSelectCopy: { text in
+                                        selectCopy = SelectCopyPayload(text: text)
+                                    }
+                                )
+                                .offset(x: -timestampRevealProgress * (timeTextWidth(for: note.uploadedAt) + Metrics.timeGap))
                             }
+                            .id(note.id)
                         }
-                        if changed {
-                            notes[idx].bundle = .audio(audios)
+                        Color.clear
+                            .id(bottomSentinelId)
+                            .background(
+                                GeometryReader { geo in
+                                    Color.clear.preference(
+                                        key: ScrollMetricsKey.self,
+                                        value: ScrollMetrics(topY: nil, bottomY: geo.frame(in: .named("chatScroll")).maxY, viewportHeight: nil)
+                                    )
+                                }
+                            )
+                    }
+                    .padding(.horizontal, 12)
+                }
+                .textSelection(.enabled)
+                .padding(.bottom, bottomInsetHeight + max(0, -bottomBarOffsetY))
+                .coordinateSpace(name: "chatScroll")
+                .scrollBounceBehavior(.basedOnSize)
+                .scrollIndicators(.visible)
+                .ignoresSafeArea(.keyboard) // Prevent double lift: we manually pad for the input bar
+                .background(
+                    GeometryReader { geo in
+                        Color.clear.preference(
+                            key: ScrollMetricsKey.self,
+                            value: ScrollMetrics(topY: nil, bottomY: nil, viewportHeight: geo.size.height)
+                        )
+                    }
+                )
+                .onTapGesture { UIApplication.apexDismissKeyboard() }
+                .onAppear {
+                    DispatchQueue.main.async {
+                        if notes.isEmpty {
+                            let persisted = ChatStore.shared.notes(for: clientId)
+                            notes = persisted.isEmpty ? initialNotes : persisted
                         }
+                        proxy.scrollTo(bottomSentinelId, anchor: .bottom)
+                        // If any incoming notes carry pending progress, kick off simulations
+                        kickOffPendingUploadsIfNeeded()
                     }
                 }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .apexAudioDeleted)) { notif in
-                guard let url = notif.userInfo?["url"] as? URL else { return }
-                var changedAny = false
-                for idx in notes.indices {
-                    if case var .audio(audios) = notes[idx].bundle {
-                        let before = audios.count
-                        audios.removeAll { $0.url == url }
-                        if audios.count != before {
-                            notes[idx].bundle = audios.isEmpty ? nil : .audio(audios)
-                            changedAny = true
-                        }
-                    }
-                }
-                if changedAny {
-                    ChatStore.shared.setNotes(notes, for: clientId)
-                }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .apexChatNotesUpdated)) { notif in
-                // When any chat's notes change, refresh if this view's clientId matches
-                if let changedId = notif.userInfo?["clientId"] as? UUID, changedId == clientId {
-                    let latest = ChatStore.shared.notes(for: clientId)
-                    notes = latest
-                    // Ensure any items with progress resume/complete simulation
-                    kickOffPendingUploadsIfNeeded()
-                }
-            }
-            .overlay(alignment: .bottomTrailing) {
-                if showScrollToBottom, canScroll {
-                    Button {
+                .onChange(of: notes.count) { _ in
+                    DispatchQueue.main.async {
                         withAnimation(.easeOut(duration: 0.2)) {
                             proxy.scrollTo(bottomSentinelId, anchor: .bottom)
                         }
-                    } label: {
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 20, weight: .medium))
-                            .foregroundStyle(Color("Primary"))
-                            .frame(width: 48, height: 48)
-                            .glassEffect()
+                        // 확실히 맨 아래로 이동했을 때 버튼 숨김 (metrics 업데이트 전 선반영)
+                        self.showScrollToBottom = false
                     }
-                    .padding(.trailing, 8)
-                    .padding(.bottom, 8 + bottomInsetHeight + max(0, -bottomBarOffsetY))
-                    .transition(.scale.combined(with: .opacity))
                 }
-            }
-            
-            .apexToast(
-                isPresented: $showCopyToast,
-                image: Image(systemName: "doc.on.doc.fill"),
-                text: "복사되었습니다.",
-                buttonTitle: nil,
-                duration: 1.6
-            )
+                .onChange(of: bottomBarOffsetY) { _ in
+                    // 사용자가 위로 올려본 상태면(auto-scroll off) 건드리지 않음
+                    guard !showScrollToBottom else { return }
+                    // 키보드/레이아웃 반영 직후에 센티널로 스크롤
+                    keyboardScrollWork?.cancel()
+                    let work = DispatchWorkItem {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            proxy.scrollTo(bottomSentinelId, anchor: .bottom)
+                        }
+                    }
+                    keyboardScrollWork = work
+                    // 레이아웃 적용 직후 실행하여 위치 튐 방지
+                    DispatchQueue.main.async(execute: work)
+                }
+                .onChange(of: bottomInsetHeight) { _ in
+                    guard !showScrollToBottom else { return }
+                    keyboardScrollWork?.cancel()
+                    DispatchQueue.main.async {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            proxy.scrollTo(bottomSentinelId, anchor: .bottom)
+                        }
+                        self.showScrollToBottom = false
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .apexInputFocused)) { _ in
+                    keyboardScrollWork?.cancel()
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        proxy.scrollTo(bottomSentinelId, anchor: .bottom)
+                    }
+                    self.isEditorCurrentlyFocused = true
+                    self.showScrollToBottom = false
+
+                    let work = DispatchWorkItem {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            proxy.scrollTo(bottomSentinelId, anchor: .bottom)
+                        }
+                    }
+                    keyboardScrollWork = work
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.06, execute: work)
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .apexInputBlurred)) { _ in
+                    self.isEditorCurrentlyFocused = false
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .apexNavigateToNote)) { notif in
+                    if let noteId = notif.userInfo?["noteId"] as? UUID {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            proxy.scrollTo(noteId, anchor: .center)
+                        }
+                        self.showScrollToBottom = false
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .apexNavigateToDate)) { notif in
+                    if let date = notif.userInfo?["date"] as? Date {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            proxy.scrollTo(dateHeaderId(date), anchor: .top)
+                        }
+                        self.showScrollToBottom = false
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .apexAudioRenamed)) { notif in
+                    guard let oldURL = notif.userInfo?["oldURL"] as? URL,
+                          let newURL = notif.userInfo?["newURL"] as? URL else { return }
+                    // Update notes in place for audio bundles
+                    for idx in notes.indices {
+                        if case var .audio(audios) = notes[idx].bundle {
+                            var changed = false
+                            for i in audios.indices {
+                                if audios[i].url == oldURL {
+                                    audios[i] = AudioAttachment(url: newURL, duration: audios[i].duration)
+                                    changed = true
+                                }
+                            }
+                            if changed {
+                                notes[idx].bundle = .audio(audios)
+                            }
+                        }
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .apexAudioDeleted)) { notif in
+                    guard let url = notif.userInfo?["url"] as? URL else { return }
+                    var changedAny = false
+                    for idx in notes.indices {
+                        if case var .audio(audios) = notes[idx].bundle {
+                            let before = audios.count
+                            audios.removeAll { $0.url == url }
+                            if audios.count != before {
+                                notes[idx].bundle = audios.isEmpty ? nil : .audio(audios)
+                                changedAny = true
+                            }
+                        }
+                    }
+                    if changedAny {
+                        ChatStore.shared.setNotes(notes, for: clientId)
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .apexChatNotesUpdated)) { notif in
+                    // When any chat's notes change, refresh if this view's clientId matches
+                    if let changedId = notif.userInfo?["clientId"] as? UUID, changedId == clientId {
+                        let latest = ChatStore.shared.notes(for: clientId)
+                        notes = latest
+                        // Ensure any items with progress resume/complete simulation
+                        kickOffPendingUploadsIfNeeded()
+                    }
+                }
+                .overlay(alignment: .bottomTrailing) {
+                    if showScrollToBottom, canScroll {
+                        Button {
+                            withAnimation(.easeOut(duration: 0.2)) {
+                                proxy.scrollTo(bottomSentinelId, anchor: .bottom)
+                            }
+                        } label: {
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 20, weight: .medium))
+                                .foregroundStyle(Color("Primary"))
+                                .frame(width: 48, height: 48)
+                                .glassEffect()
+                        }
+                        .padding(.trailing, 8)
+                        .padding(.bottom, 8 + bottomInsetHeight + max(0, -bottomBarOffsetY))
+                        .transition(.scale.combined(with: .opacity))
+                    }
+                }
             }
 
             // Right-side floating date indicator
@@ -708,8 +702,25 @@ struct ChattingView: View {
                 if let text = seed.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
                     items.append(ShareAttachmentItem(id: UUID(), kind: .text(text)))
                 }
+                // Prefer to render file seeds as visual media when possible so AttachBar appears
                 for url in seed.files {
-                    items.append(ShareAttachmentItem(id: UUID(), kind: .file(url)))
+                    let type = UTType(filenameExtension: url.pathExtension)
+                    if let t = type, t.conforms(to: .image), let data = try? Data(contentsOf: url), let ui = UIImage(data: data) {
+                        items.append(ShareAttachmentItem(id: UUID(), kind: .image(ui)))
+                    } else if let t = type, (t.conforms(to: .movie) || t.conforms(to: .audiovisualContent)) {
+                        let thumb = generateThumbnail(for: url)
+                        items.append(ShareAttachmentItem(id: UUID(), kind: .video(url, thumbnail: thumb)))
+                    } else {
+                        items.append(ShareAttachmentItem(id: UUID(), kind: .file(url)))
+                    }
+                }
+                // Also include any explicitly provided images/videos (if present)
+                for ui in seed.images {
+                    items.append(ShareAttachmentItem(id: UUID(), kind: .image(ui)))
+                }
+                for url in seed.videos {
+                    let thumb = generateThumbnail(for: url)
+                    items.append(ShareAttachmentItem(id: UUID(), kind: .video(url, thumbnail: thumb)))
                 }
                 for url in seed.audios {
                     items.append(ShareAttachmentItem(id: UUID(), kind: .audio(url)))
@@ -735,6 +746,8 @@ struct ChattingView: View {
                 triggerDateBounce()
                 NotificationCenter.default.post(name: .apexNavigateToDate, object: nil, userInfo: ["date": selected])
             })
+            .presentationDetents([.height(420)])
+            .presentationDragIndicator(.visible)
         }
         // Attach centralized media viewer cover
         .fullScreenCover(item: $apexMediaPayload) { payload in
@@ -1019,6 +1032,23 @@ private struct ChatMessageView: View {
                     .onTapGesture {
                         onOpenViewer(ChatAnchor(noteId: note.id, isImage: false, localIndex: 0))
                     }
+                    .contentShape(Rectangle())
+                    .contextMenu {
+                        Button {
+                            onOpenShareFiles([videos[0].url])
+                        } label: {
+                            Label("공유", systemImage: "square.and.arrow.up")
+                        }
+                        .tint(.primary)
+                        Button(role: .destructive) {
+                            deleteSubjectText = "영상을"
+                            pendingDelete = { onDelete(ChatAnchor(noteId: note.id, isImage: false, localIndex: 0)) }
+                            showDeleteAlert = true
+                        } label: {
+                            Label("삭제", systemImage: "trash")
+                        }
+                        .tint(.red)
+                    }
                 } else if images.count == 1, videos.isEmpty {
                     APEXMediaSingleCard(
                         source: .image(images[0].data),
@@ -1030,10 +1060,67 @@ private struct ChatMessageView: View {
                     .onTapGesture {
                         onOpenViewer(ChatAnchor(noteId: note.id, isImage: true, localIndex: 0))
                     }
-                } else {
-                    MediaGrid(images: images, videos: videos) { isImage, localIndex in
-                        onOpenViewer(ChatAnchor(noteId: note.id, isImage: isImage, localIndex: localIndex))
+                    .contentShape(Rectangle())
+                    .contextMenu {
+                        Button {
+                            if let url = tempURLForImageData(images[0].data) {
+                                onOpenShareFiles([url])
+                            }
+                        } label: {
+                            Label("공유", systemImage: "square.and.arrow.up")
+                        }
+                        .tint(.primary)
+                        Button(role: .destructive) {
+                            deleteSubjectText = "사진을"
+                            pendingDelete = { onDelete(ChatAnchor(noteId: note.id, isImage: true, localIndex: 0)) }
+                            showDeleteAlert = true
+                        } label: {
+                            Label("삭제", systemImage: "trash")
+                        }
+                        .tint(.red)
                     }
+                } else {
+                    MediaGrid(
+                        images: images,
+                        videos: videos,
+                        onOpen: { isImage, localIndex in
+                        onOpenViewer(ChatAnchor(noteId: note.id, isImage: isImage, localIndex: localIndex))
+                        },
+                        onShareImageAt: { idx in
+                            guard images.indices.contains(idx) else { return }
+                            if let url = tempURLForImageData(images[idx].data) {
+                                onOpenShareFiles([url])
+                            }
+                        },
+                        onShareVideoAt: { idx in
+                            guard videos.indices.contains(idx) else { return }
+                            onOpenShareFiles([videos[idx].url])
+                        },
+                        onDeleteImageAt: { idx in
+                            deleteSubjectText = "사진을"
+                            pendingDelete = { onDelete(ChatAnchor(noteId: note.id, isImage: true, localIndex: idx)) }
+                            showDeleteAlert = true
+                        },
+                        onDeleteVideoAt: { idx in
+                            deleteSubjectText = "영상을"
+                            pendingDelete = { onDelete(ChatAnchor(noteId: note.id, isImage: false, localIndex: idx)) }
+                            showDeleteAlert = true
+                        },
+                        onShareAll: {
+                            var urls: [URL] = []
+                            for img in images {
+                                if let url = tempURLForImageData(img.data) { urls.append(url) }
+                            }
+                            urls.append(contentsOf: videos.map { $0.url })
+                            if !urls.isEmpty { onOpenShareFiles(urls) }
+                        },
+                        onDeleteMemo: {
+                            deleteSubjectText = "메모를"
+                            pendingDelete = { onDeleteNote(note.id) }
+                            showDeleteAlert = true
+                        }
+                    )
+                    // Removed outer context menu for media bundles per request
                 }
             } else if case let .files(files) = note.bundle {
                 FilesGrid(
@@ -1050,13 +1137,15 @@ private struct ChatMessageView: View {
                     } label: {
                         Label("모두 공유", systemImage: "square.and.arrow.up")
                     }
+                    .tint(.primary)
                     Button(role: .destructive) {
-                        deleteSubjectText = "파일 메모를"
+                        deleteSubjectText = "파일 메모"
                         pendingDelete = { onDeleteNote(note.id) }
                         showDeleteAlert = true
                     } label: {
                         Label("메모 삭제", systemImage: "trash")
                     }
+                    .tint(.red)
                 }
             }
             // Audio attachments: always render single tile with anchored menu
@@ -1067,12 +1156,14 @@ private struct ChatMessageView: View {
                             Button { onOpenRecord(first.url) } label: {
                                 Label("더보기", systemImage: "ellipsis.circle")
                             }
+                            .tint(.primary)
                             Button {
                                 NotificationCenter.default.post(name: .apexStopAllAudioPlayback, object: nil)
                                 onOpenShareAudio(first.url)
                             } label: {
                                 Label("공유", systemImage: "square.and.arrow.up")
                             }
+                            .tint(.primary)
                             Button(role: .destructive) {
                                 deleteSubjectText = "음성 녹음을"
                                 pendingDelete = { onDeleteAudio(note.id, first.url) }
@@ -1080,6 +1171,7 @@ private struct ChatMessageView: View {
                             } label: {
                                 Label("삭제", systemImage: "trash")
                             }
+                            .tint(.red)
                         }
                 }
             }
@@ -1110,22 +1202,27 @@ private struct ChatMessageView: View {
                     Button { onCopyText(text) } label: {
                         Label("전체 복사", systemImage: "doc.on.doc")
                     }
+                    .tint(.primary)
                     Button { onStartSelectCopy(text) } label: {
                         Label("선택 복사", systemImage: "text.viewfinder")
                     }
+                    .tint(.primary)
                     Button { onStartEdit(note.id, text) } label: {
                         Label("수정", systemImage: "pencil")
                     }
+                    .tint(.primary)
                     Button { onOpenShare(text) } label: {
                         Label("공유", systemImage: "square.and.arrow.up")
                     }
+                    .tint(.primary)
                     Button(role: .destructive) {
-                        deleteSubjectText = "메모를"
+                        deleteSubjectText = "메모"
                         pendingDelete = { onDeleteNote(note.id) }
                         showDeleteAlert = true
                     } label: {
                         Label("삭제", systemImage: "trash")
                     }
+                    .tint(.red)
                 }
             }
         }
@@ -1134,6 +1231,22 @@ private struct ChatMessageView: View {
             Button("취소", role: .cancel) { }
         }
         // removed per-cell share sheet and record cover; handled at parent level
+    }
+}
+
+private extension ChatMessageView {
+    func tempURLForImageData(_ data: Data) -> URL? {
+        // Simple signature check for PNG header
+        let isPNG: Bool = data.prefix(8) == Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+        let ext = isPNG ? "png" : "jpg"
+        let filename = "apex-image-\(UUID().uuidString).\(ext)"
+        let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(filename)
+        do {
+            try data.write(to: url, options: .atomic)
+            return url
+        } catch {
+            return nil
+        }
     }
 }
 
@@ -1312,6 +1425,12 @@ private struct MediaGrid: View {
     let images: [ImageAttachment]
     let videos: [VideoAttachment]
     var onOpen: (_ isImage: Bool, _ localIndex: Int) -> Void
+    var onShareImageAt: (_ index: Int) -> Void
+    var onShareVideoAt: (_ index: Int) -> Void
+    var onDeleteImageAt: (_ index: Int) -> Void
+    var onDeleteVideoAt: (_ index: Int) -> Void
+    var onShareAll: () -> Void
+    var onDeleteMemo: () -> Void
 
     private let columns: [GridItem] = [
         GridItem(.flexible(), spacing: 2),
@@ -1360,6 +1479,27 @@ private struct MediaGrid: View {
                             }
                         .contentShape(Rectangle())
                         .onTapGesture { onOpen(true, item.index) }
+                        .contextMenu {
+                            Button { onShareImageAt(item.index) } label: {
+                                Label("공유", systemImage: "square.and.arrow.up")
+                            }
+                            .tint(.primary)
+                            Button(role: .destructive) { onDeleteImageAt(item.index) } label: {
+                                Label("삭제", systemImage: "trash")
+                            }
+                            .tint(.red)
+                            if (images.count + videos.count) > 1 {
+                                Divider()
+                                Button { onShareAll() } label: {
+                                    Label("모두 공유", systemImage: "square.and.arrow.up.on.square")
+                                }
+                                .tint(.primary)
+                                Button(role: .destructive) { onDeleteMemo() } label: {
+                                    Label("메모 삭제", systemImage: "trash.fill")
+                                }
+                                .tint(.red)
+                            }
+                        }
                     } else {
                         let video = videos[item.index]
                         APEXMediaTile(source: .video(video.url), showVideoIcon: true, variant: .grid, showsDuration: false)
@@ -1380,6 +1520,27 @@ private struct MediaGrid: View {
                             }
                         .contentShape(Rectangle())
                         .onTapGesture { onOpen(false, item.index) }
+                        .contextMenu {
+                            Button { onShareVideoAt(item.index) } label: {
+                                Label("공유", systemImage: "square.and.arrow.up")
+                            }
+                            .tint(.primary)
+                            Button(role: .destructive) { onDeleteVideoAt(item.index) } label: {
+                                Label("삭제", systemImage: "trash")
+                            }
+                            .tint(.red)
+                            if (images.count + videos.count) > 1 {
+                                Divider()
+                                Button { onShareAll() } label: {
+                                    Label("모두 공유", systemImage: "square.and.arrow.up.on.square")
+                                }
+                                .tint(.primary)
+                                Button(role: .destructive) { onDeleteMemo() } label: {
+                                    Label("메모 삭제", systemImage: "trash.fill")
+                                }
+                                .tint(.red)
+                            }
+                        }
                     }
                 } else {
                     // Invisible placeholder to push the last row to the right
@@ -1411,9 +1572,11 @@ private struct FilesGrid: View {
                         Button { onShareFile(files[idx].url) } label: {
                             Label("공유", systemImage: "square.and.arrow.up")
                         }
+                        .tint(.primary)
                         Button(role: .destructive) { onDeleteFileAt(idx) } label: {
                             Label("삭제", systemImage: "trash")
                         }
+                        .tint(.red)
                     }
             }
         }
@@ -1927,7 +2090,7 @@ private struct BottomSheetHost<Content: View>: View {
             .onEnded { value in
                 switch mode {
                 case .collapsed:
-                    // Upward drag expands; downward drag to hide is disabled (only left button hides)
+                    // Upward drag expands
                     if value.translation.height < -threshold || value.predictedEndTranslation.height < -threshold {
                         mode = .expanded
                     }
@@ -1961,6 +2124,7 @@ private struct BottomSheetHost<Content: View>: View {
         let displayedHeight: CGFloat = {
             switch mode {
             case .collapsed:
+                // Allow interactive growth up to expanded while dragging
                 return min(max(unclampedHeight, collapsedHeight), expandedHeight)
             case .expanded:
                 return min(max(unclampedHeight, collapsedHeight), expandedHeight)
