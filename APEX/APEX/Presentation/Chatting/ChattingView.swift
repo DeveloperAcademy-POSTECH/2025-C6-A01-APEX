@@ -213,7 +213,13 @@ struct ChattingView: View {
                     DispatchQueue.main.async {
                         if notes.isEmpty {
                             let persisted = ChatStore.shared.notes(for: clientId)
-                            notes = persisted.isEmpty ? initialNotes : persisted
+                            if persisted.isEmpty {
+                                // Seed from initialNotes (e.g., persisted in ClientsStore) when ChatStore is empty
+                                notes = initialNotes
+                                ChatStore.shared.setNotes(initialNotes, for: clientId)
+                            } else {
+                                notes = persisted
+                            }
                         }
                         proxy.scrollTo(bottomSentinelId, anchor: .bottom)
                         // If any incoming notes carry pending progress, kick off simulations

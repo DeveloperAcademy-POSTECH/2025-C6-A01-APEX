@@ -76,24 +76,31 @@ private extension RootView {
                 .toolbar(.hidden, for: .navigationBar)
                 .toolbar(.hidden, for: .tabBar)
         case .archiveSection(let clientId, let section):
-            let client = ClientsStore.shared.clients.first(where: { $0.id == clientId })
-            let notes = ChatStore.shared.notes(for: clientId)
-            let media = computeMediaItems(from: notes)
-            let files = computeFileItems(from: notes)
-            let audios = computeAudioItems(from: notes)
-            let links = computeLinkItems(from: notes)
-            ArchiveListView(
-                section: convert(section),
-                media: media,
-                files: files,
-                links: links,
-                audios: audios,
-                viewerTitle: client.map { "\($0.name) \($0.surname)" } ?? "Shared Media",
-                excludedClientIds: [clientId],
-                onClose: { router.pop() }
-            )
-            .toolbar(.hidden, for: .navigationBar)
-            .toolbar(.hidden, for: .tabBar)
+            let builtView: AnyView = {
+                let client = ClientsStore.shared.clients.first(where: { $0.id == clientId })
+                var notes = ChatStore.shared.notes(for: clientId)
+                if notes.isEmpty {
+                    notes = client?.notes ?? []
+                }
+                let media = computeMediaItems(from: notes)
+                let files = computeFileItems(from: notes)
+                let audios = computeAudioItems(from: notes)
+                let links = computeLinkItems(from: notes)
+                let v = ArchiveListView(
+                    section: convert(section),
+                    media: media,
+                    files: files,
+                    links: links,
+                    audios: audios,
+                    viewerTitle: client.map { "\($0.name) \($0.surname)" } ?? "Shared Media",
+                    excludedClientIds: [clientId],
+                    onClose: { router.pop() }
+                )
+                .toolbar(.hidden, for: .navigationBar)
+                .toolbar(.hidden, for: .tabBar)
+                return AnyView(v)
+            }()
+            builtView
         case .unsubscribe:
             UnsubscribeView()
                 .toolbar(.hidden, for: .navigationBar)
