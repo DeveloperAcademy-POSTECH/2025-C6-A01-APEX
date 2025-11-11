@@ -60,13 +60,15 @@ struct ChattingArchiveView: View {
                 sharedLinksSection
 
                 sharedAudioSection
+                
+                bottomActionsBar
             }
-            .padding(.horizontal, 16)
+            .padding(.leading, 16)
             .padding(.vertical, 12)
         }
         .background(Color("Background"))
-        .safeAreaInset(edge: .top) { topBar }
-        .safeAreaInset(edge: .bottom) { bottomActionsBar }
+        .scrollEdgeEffectStyle(.soft, for: .top)
+        .safeAreaBar(edge: .top) { topBar }
         .overlay(alignment: .center) { contactDeleteOverlay }
         .onAppear {
             isFavorite = client?.favorite ?? false
@@ -212,7 +214,7 @@ struct ChattingArchiveView: View {
 
     private var sharedLinksSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader(title: "링크", iconName: "link", iconColor: .red, action: {
+            sectionHeader(title: "링크", iconName: "link", iconColor: Color(hex: "BC0D59"), action: {
                 if let id = client?.id {
                     router.push(.archiveSection(id, .links))
                 }
@@ -230,7 +232,7 @@ struct ChattingArchiveView: View {
 
     private var sharedFilesSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader(title: "파일", iconName: "document", iconColor: .green, action: {
+            sectionHeader(title: "파일", iconName: "document", iconColor: Color(hex: "00B22D"), action: {
                 if let id = client?.id {
                     router.push(.archiveSection(id, .files))
                 }
@@ -254,7 +256,7 @@ struct ChattingArchiveView: View {
 
     private var sharedAudioSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader(title: "음성메모", iconName: "waveform", iconColor: .orange, action: {
+            sectionHeader(title: "음성메모", iconName: "waveform", iconColor: Color(hex: "E28822"), action: {
                 if let id = client?.id {
                     router.push(.archiveSection(id, .audio))
                 }
@@ -309,31 +311,24 @@ struct ChattingArchiveView: View {
             }
             .frame(height: 52)
             .padding(.horizontal, 12)
-            .background(Color("Background"))
         }
     }
 
     private var bottomActionsBar: some View {
         VStack(spacing: 10) {
-            Divider().padding(.top, 4)
             VStack(spacing: 8) {
                 Button(role: .destructive) {
                     showDeleteMediaAlert = true
                 } label: {
-                    HStack {
-                        Image(systemName: "trash")
-                            .font(.system(size: 15, weight: .semibold))
-                        Text("미디어 데이터 모두 삭제하기") +
-                        Text("(\(formatBytes(totalMediaBytes)))")
-                            .foregroundColor(.gray)
-                    }
-                    .font(.body3)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                    Text("미디어 데이터 모두 삭제하기 (\(formatBytes(totalMediaBytes)))")
+                        .font(.body5)
+                        .foregroundColor(Color("BlackLabel"))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 15)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Color("Error"))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .buttonStyle(.plain)
+                .background(Color("BackgroundSecondary"))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .disabled(totalMediaBytes == 0)
                 .opacity(totalMediaBytes == 0 ? 0.5 : 1)
 
@@ -341,19 +336,21 @@ struct ChattingArchiveView: View {
                     showDeleteContactOverlay = true
                 } label: {
                     HStack {
-                        Image(systemName: "person.crop.circle.badge.xmark")
-                            .font(.system(size: 15, weight: .semibold))
+                        Image(systemName: "trash.fill")
+                            .font(.system(size: 16, weight: .bold))
                         Text("연락처 삭제하기")
                     }
-                    .font(.body3)
+                    .font(.body5)
+                    .foregroundColor(Color("Error"))
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                    .padding(.vertical, 15)
                 }
-                .buttonStyle(.bordered)
-                .tint(Color("Error"))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .buttonStyle(.plain)
+                .background(Color("ErrorContainer"))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 24)
+            .padding(.top, 24)
             .padding(.bottom, 8)
         }
         // Confirmations
@@ -375,10 +372,11 @@ struct ChattingArchiveView: View {
                 
                 Text(title)
                     .font(.body2)
-                    .foregroundStyle(.black)
+                    .foregroundStyle(Color("BlackLabel"))
                 
                 Spacer()
             }
+            .padding(.vertical, 10)
         }
         .buttonStyle(SectionHeaderPressedStyle())
     }
@@ -430,15 +428,15 @@ struct ChattingArchiveView: View {
                     image: image,
                     initials: initials,
                     size: .large,
-                    fontSize: 48,
+                    fontSize: 64,
                     backgroundColor: Color("PrimaryContainer"),
                     textColor: .white,
                     fontWeight: .semibold
                 )
 
                 Text(name)
-                    .font(.title3)
-                    .foregroundColor(Color("Dark"))
+                    .font(.title5)
+                    .foregroundColor(Color("BlackLabel"))
                     .multilineTextAlignment(.center)
 
                 Group {
@@ -450,8 +448,8 @@ struct ChattingArchiveView: View {
                         Text(position)
                     }
                 }
-                .font(.caption2)
-                .foregroundColor(.gray)
+                .font(.body5)
+                .foregroundColor(Color("GrayLabel"))
                 .multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity)

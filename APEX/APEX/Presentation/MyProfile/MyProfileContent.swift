@@ -544,28 +544,7 @@ struct PressableRowButtonStyle: ButtonStyle {
 
 private let hex333333 = Color.RGB(0x33, 0x33, 0x33)
 
-private extension Color {
-    static func RGB(_ r: Int, _ g: Int, _ b: Int, opacity: Double = 1.0) -> Color {
-        Color(
-            .sRGB,
-            red: Double(r) / 255.0,
-            green: Double(g) / 255.0,
-            blue: Double(b) / 255.0,
-            opacity: opacity
-        )
-    }
-    
-    // 피그마 스펙: 호버 배경색 RGB(0.952, 0.952, 0.96)
-    static var hoverBackground: Color {
-        Color(
-            .sRGB,
-            red: 0.952,
-            green: 0.952,
-            blue: 0.96,
-            opacity: 1.0
-        )
-    }
-}
+// Color extensions moved to Util/Extension/Color+Ex.swift
 
 // MARK: - Bundle Extension
 
