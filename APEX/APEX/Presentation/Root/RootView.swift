@@ -20,7 +20,7 @@ struct RootView: View {
         NavigationStack(path: $router.path) {
             TabView(selection: $selection) {
                 
-                Tab("Contacts", systemImage: "person.3.fill", value: Tabs.contacts) {
+                Tab("Contacts", systemImage: "person.crop.circle.fill", value: Tabs.contacts) {
                     ContactsView()
                 }
 

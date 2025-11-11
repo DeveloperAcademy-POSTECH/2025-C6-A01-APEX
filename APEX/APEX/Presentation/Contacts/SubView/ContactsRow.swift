@@ -40,7 +40,7 @@ struct ContactsRow: View {
                         .lineLimit(1)
 
                     Text(subtitle)
-                        .font(.body6)
+                        .font(.body5)  // body6에서 body5로 변경
                         .foregroundColor(.gray)
                         .lineLimit(1)
                 }
