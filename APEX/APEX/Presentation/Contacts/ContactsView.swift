@@ -113,7 +113,7 @@ struct ContactsView: View {
                     )
                 }
 
-                // MARK: - All / Ungrouped
+                // MARK: - All / Ungrouped (기존 디자인)
                 ContactsListSection(
                     title: "All",
                     count: allUngrouped.count,
@@ -139,7 +139,7 @@ struct ContactsView: View {
             // TopBar를 ZStack 상단에 오버레이로 배치
             if !showMyProfileView && !showProfileDetailView {
                 VStack {
-                    ContactsTopBarReplica(
+                    ContactsTopBar(
                         title: "Contacts",
                         onPlus: onPlusTap
                     )
@@ -352,91 +352,9 @@ private extension View {
     }
 }
 
-// MARK: - TopBar Replica (툴바 슬롯을 대체하는 안전영역 상단 커스텀 바)
-
-private struct ContactsTopBarReplica: View {
-    let title: String
-    let onPlus: () -> Void
-
-    private enum Metrics {
-        static let barContentHeight: CGFloat = 44
-        static let barHorizontalPadding: CGFloat = 16
-        static let barVerticalPadding: CGFloat = 8
-        static let plusButtonSize: CGFloat = 44
-        static let plusIconSize: CGFloat = 20
-    }
-
-    var body: some View {
-        ZStack {
-            HStack(spacing: 0) {
-                Text(title)
-                    .font(.title1)
-                    .foregroundColor(Color("Dark"))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                PlusToolbarButton(
-                    size: Metrics.plusButtonSize,
-                    iconSize: Metrics.plusIconSize,
-                    normalColor: Color("Primary"),
-                    pressedColor: Color("PrimaryHover"),
-                    action: onPlus
-                )
-                .frame(width: Metrics.plusButtonSize, height: Metrics.plusButtonSize, alignment: .trailing)
-                .accessibilityLabel(Text("추가"))
-            }
-            .frame(height: Metrics.barContentHeight)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, Metrics.barHorizontalPadding)
-            .padding(.vertical, Metrics.barVerticalPadding)
-            .contentShape(Rectangle())
-        }
-        .frame(maxWidth: .infinity)
-    }
-}
-
-// MARK: - Toolbar Plus Button
-
-private struct PlusToolbarButton: View {
-    let size: CGFloat
-    let iconSize: CGFloat
-    let normalColor: Color
-    let pressedColor: Color
-    let action: () -> Void
-
-    @State private var isPressed: Bool = false
-
-    var body: some View {
-        Button(action: action) {
-            ZStack {
-                Circle()
-                    .fill(.ultraThinMaterial)
-                    .frame(width: size, height: size)
-
-                Image(systemName: "plus")
-                    .font(.system(size: iconSize, weight: .semibold))
-                    .foregroundColor(isPressed ? pressedColor : normalColor)
-            }
-            .frame(width: size, height: size)
-            .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .glassEffect()
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in
-                    withAnimation(.easeInOut(duration: 0.12)) { isPressed = true }
-                }
-                .onEnded { _ in
-                    withAnimation(.easeInOut(duration: 0.12)) { isPressed = false }
-                }
-        )
-    }
-}
-
 #Preview { ContactsView() }
 
 // MARK: - Delete Confirmation Components
-
 // MARK: - Overlay Layer (dimmed bg + card)
 
 private struct ContactsOverlayLayer: View {
