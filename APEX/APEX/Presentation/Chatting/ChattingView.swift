@@ -71,7 +71,6 @@ struct ChattingView: View {
     // Parent-scoped record viewer state
     private struct RecordPayload: Identifiable { let id = UUID(); let url: URL }
     @State private var recordPayload: RecordPayload?
-    @State private var apexMediaPayload: APEXOpenMediaViewerPayload?
     // Chat detail sheet
     @State private var showChatDetail: Bool = false
 
@@ -543,7 +542,7 @@ struct ChattingView: View {
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 8) {
                 if isSearchActive {
-                    ChatSearchBar(
+                    APEXSearchBar(
                         text: $searchText,
                         isFocused: _isSearchFieldFocused,
                         onPrev: { navigateToPrevMatch() },
@@ -755,20 +754,6 @@ struct ChattingView: View {
             .presentationDetents([.height(420)])
             .presentationDragIndicator(.visible)
         }
-        // Attach centralized media viewer cover
-        .fullScreenCover(item: $apexMediaPayload) { payload in
-            MediaView(
-                items: payload.items,
-                selectedIndex: payload.index,
-                title: payload.title,
-                uploadedAt: payload.uploadedAt,
-                excludedClientIds: payload.excludedClientIds,
-                onSave: payload.onSave,
-                onDelete: payload.onDelete,
-                onTitleTap: payload.onTitleTap
-            )
-        }
-        
         // Hidden NavigationLinks removed; Router handles navigation
     }
 }
@@ -977,7 +962,7 @@ private extension ChattingView {
         let initialUploadedAt = currentAnchor.flatMap { anchor in
             notes.first(where: { $0.id == anchor.noteId })?.uploadedAt
         }
-        apexMediaPayload = APEXOpenMediaViewerPayload(
+        let viewerPayload = APEXOpenMediaViewerPayload(
             items: payload.items,
             index: payload.index,
             title: chatTitle,
@@ -998,6 +983,8 @@ private extension ChattingView {
                 )
             }
         )
+        APEXMediaViewerStore.shared.put(viewerPayload)
+        router.push(.mediaViewer(viewerPayload.id))
     }
 }
 

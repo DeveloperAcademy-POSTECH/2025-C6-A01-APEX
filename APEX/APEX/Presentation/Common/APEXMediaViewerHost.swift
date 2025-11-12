@@ -52,7 +52,7 @@ extension EnvironmentValues {
 
 struct APEXMediaViewerHost<Content: View>: View {
     let content: () -> Content
-    @State private var presented: APEXOpenMediaViewerPayload?
+    @EnvironmentObject private var router: NavigationRouter
 
     init(@ViewBuilder _ content: @escaping () -> Content) {
         self.content = content
@@ -61,20 +61,9 @@ struct APEXMediaViewerHost<Content: View>: View {
     var body: some View {
         content()
             .environment(\.apexOpenMediaViewer, { payload in
-                presented = payload
+                APEXMediaViewerStore.shared.put(payload)
+                router.push(.mediaViewer(payload.id))
             })
-            .fullScreenCover(item: $presented) { payload in
-                MediaView(
-                    items: payload.items,
-                    selectedIndex: payload.index,
-                    title: payload.title,
-                    uploadedAt: payload.uploadedAt,
-                    excludedClientIds: payload.excludedClientIds,
-                    onSave: payload.onSave,
-                    onDelete: payload.onDelete,
-                    onTitleTap: payload.onTitleTap
-                )
-            }
     }
 }
 

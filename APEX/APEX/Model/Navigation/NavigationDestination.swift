@@ -14,6 +14,7 @@ enum NavigationDestination: Hashable, Codable {
 	case profileDetail(UUID)
 	case myProfile
 	case archiveSection(UUID, NavigationArchiveSection)
+    case mediaViewer(UUID)
 	case unsubscribe
 	case dataManagement
 	case notesManagement
