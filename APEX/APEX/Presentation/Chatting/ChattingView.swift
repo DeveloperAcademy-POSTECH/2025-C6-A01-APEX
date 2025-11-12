@@ -791,6 +791,8 @@ private extension ChattingView {
         guard let idx = notes.firstIndex(where: { $0.id == noteId }) else { return }
         guard case var .audio(audios) = notes[idx].bundle else { return }
         audios.removeAll { $0.url == url }
+        // Remove the underlying file from disk to avoid stale temp files affecting future naming
+        try? FileManager.default.removeItem(at: url)
         if audios.isEmpty {
             if notes[idx].text == nil {
                 notes.remove(at: idx)
@@ -1133,26 +1135,17 @@ private struct ChatMessageView: View {
                     files: files,
                     highlightQuery: highlightQuery,
                     onShareFile: { url in onOpenShareFiles([url]) },
-                    onDeleteFileAt: { idx in onDeleteFile(note.id, idx) }
-                )
-                .contentShape(Rectangle())
-                .contextMenu {
-                    Button {
+                    onDeleteFileAt: { idx in onDeleteFile(note.id, idx) },
+                    onShareAll: {
                         let urls = files.map { $0.url }
                         onOpenShareFiles(urls)
-                    } label: {
-                        Label("모두 공유", systemImage: "square.and.arrow.up")
-                    }
-                    .tint(.primary)
-                    Button(role: .destructive) {
+                    },
+                    onDeleteMemo: {
                         deleteSubjectText = "파일 메모"
                         pendingDelete = { onDeleteNote(note.id) }
                         showDeleteAlert = true
-                    } label: {
-                        Label("메모 삭제", systemImage: "trash")
                     }
-                    .tint(.red)
-                }
+                )
             }
             // Audio attachments: always render single tile with anchored menu
             else if case let .audio(audios) = note.bundle {
@@ -1563,6 +1556,8 @@ private struct FilesGrid: View {
     let highlightQuery: String?
     let onShareFile: (URL) -> Void
     let onDeleteFileAt: (Int) -> Void
+    let onShareAll: () -> Void
+    let onDeleteMemo: () -> Void
 
     private let columns: [GridItem] = [
         GridItem(.flexible(), spacing: 2),
@@ -1573,120 +1568,57 @@ private struct FilesGrid: View {
     var body: some View {
         LazyVGrid(columns: columns, spacing: 2) {
             ForEach(files.indices, id: \.self) { idx in
-                FileGridTile(file: files[idx], highlightQuery: highlightQuery)
-                    .contextMenu {
-                        Button { onShareFile(files[idx].url) } label: {
-                            Label("공유", systemImage: "square.and.arrow.up")
+                ZStack {
+                    APEXFileTile(
+                        url: files[idx].url,
+                        contentType: files[idx].contentType,
+                        highlightQuery: highlightQuery,
+                        size: 119,
+                        onTap: {
+                            guard files[idx].progress == nil else { return }
+                            openFileURL(files[idx].url)
+                        }
+                    )
+
+                    if let progress = files[idx].progress {
+                        ProgressOverlay(progress: progress)
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    }
+                }
+                .allowsHitTesting(files[idx].progress == nil)
+                .contextMenu {
+                    Button { onShareFile(files[idx].url) } label: {
+                        Label("공유", systemImage: "square.and.arrow.up")
+                    }
+                    .tint(.primary)
+                    Button(role: .destructive) { onDeleteFileAt(idx) } label: {
+                        Label("삭제", systemImage: "trash")
+                    }
+                    .tint(.red)
+                    if files.count > 1 {
+                        Divider()
+                        Button { onShareAll() } label: {
+                            Label("모두 공유", systemImage: "square.and.arrow.up.on.square")
                         }
                         .tint(.primary)
-                        Button(role: .destructive) { onDeleteFileAt(idx) } label: {
-                            Label("삭제", systemImage: "trash")
+                        Button(role: .destructive) { onDeleteMemo() } label: {
+                            Label("메모 삭제", systemImage: "trash.fill")
                         }
                         .tint(.red)
                     }
+                }
             }
         }
         .environment(\.layoutDirection, .rightToLeft)
     }
 }
 
-private struct FileGridTile: View {
-    let file: FileAttachment
-    let highlightQuery: String?
-
-    var body: some View {
-        ZStack {
-            Color("BackgroundSecondary")
-
-            VStack(alignment: .leading, spacing: 0) {
-                Image(systemName: fileSystemSymbolName(for: file.contentType, url: file.url))
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.black)
-
-                Spacer()
-
-                if let attr = highlightedName() {
-                    Text(attr)
-                        .font(.caption2)
-                        .lineLimit(4)
-                        .truncationMode(.middle)
-                        .foregroundStyle(.black)
-                        .padding(.bottom, 4)
-                } else {
-                    Text(file.url.lastPathComponent)
-                        .font(.caption2)
-                        .lineLimit(4)
-                        .truncationMode(.middle)
-                        .foregroundStyle(.black)
-                        .padding(.bottom, 4)
-                }
-
-                if let sizeText = fileSizeText(for: file.url) {
-                    Text(sizeText)
-                        .font(.caption2)
-                        .foregroundStyle(.gray)
-                }
-            }
-            .padding(12)
-
-            if let progress = file.progress {
-                ProgressOverlay(progress: progress)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            }
-        }
-        .frame(width: 119, height: 119)
-        .cornerRadius(10)
-        .environment(\.layoutDirection, .leftToRight)
-        .contentShape(Rectangle())
-        .allowsHitTesting(file.progress == nil)
-        .onTapGesture {
-            guard file.progress == nil else { return }
-            openFileURL(file.url)
-        }
-    }
-
-    private func fileSizeText(for url: URL) -> String? {
-        if let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) {
-            return ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file)
-        }
-        return nil
-    }
-}
-
-private extension FileGridTile {
-    func highlightedName() -> AttributedString? {
-        let name = file.url.lastPathComponent
-        guard let query = highlightQuery?.trimmingCharacters(in: .whitespacesAndNewlines), !query.isEmpty else { return nil }
-        let mas = NSMutableAttributedString(string: name)
-        let nameNSString = name as NSString
-        let fullRange = NSRange(location: 0, length: nameNSString.length)
-        let options: NSString.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
-        var searchRange = fullRange
-        while true {
-            let foundRange = nameNSString.range(of: query, options: options, range: searchRange)
-            if foundRange.location == NSNotFound { break }
-            mas.addAttribute(.backgroundColor, value: UIColor.systemYellow.withAlphaComponent(0.45), range: foundRange)
-            let nextLocation = foundRange.location + foundRange.length
-            if nextLocation >= nameNSString.length { break }
-            searchRange = NSRange(location: nextLocation, length: nameNSString.length - nextLocation)
-        }
-        return AttributedString(mas)
-    }
-}
-
-private func fileSystemSymbolName(for type: UTType?, url: URL?) -> String {
-    var resolvedType: UTType? = type
-    if resolvedType == nil, let ext = url?.pathExtension, !ext.isEmpty {
-        resolvedType = UTType(filenameExtension: ext)
-    }
-    guard let resolved = resolvedType else { return "document" }
-    if resolved.conforms(to: .image) { return "photo" }
-    if resolved.conforms(to: .movie) || resolved.conforms(to: .audiovisualContent) { return "video" }
-    return "document"
-}
+// FileGridTile refactored to reusable component APEXFileTile in FilesGrid above.
 
 private func openFileURL(_ url: URL) {
-    UIApplication.shared.open(url, options: [:], completionHandler: nil)
+    if FileManager.default.fileExists(atPath: url.path) {
+        UIApplication.shared.open(url, options: [:], completionHandler: nil)
+    }
 }
 
 // removed: local dismissKeyboard() in favor of UIApplication.apexDismissKeyboard()

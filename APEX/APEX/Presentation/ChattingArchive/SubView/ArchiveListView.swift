@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 import AVFoundation
 import LinkPresentation
 
@@ -51,7 +52,7 @@ struct ArchiveListView: View {
 			.background(Color("Background"))
 
 			content
-				.padding(.horizontal, 16)
+				.padding(.horizontal, 12)
 				.padding(.bottom, 16)
 				.background(Color("Background"))
 				.ignoresSafeArea(edges: .bottom)
@@ -111,7 +112,7 @@ struct ArchiveListView: View {
 					let groups = groupByMonth(media, date: { $0.uploadedAt })
 					ForEach(groups.indices, id: \.self) { gIdx in
 						let group = groups[gIdx]
-                        VStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: 2) {
                             sectionHeader(group.keyDate)
                         let columns = [GridItem(.flexible(minimum: 121.67), spacing: 2),
                                        GridItem(.flexible(minimum: 121.67), spacing: 2),
@@ -178,7 +179,11 @@ struct ArchiveListView: View {
                                         contentType: item.contentType,
                                         highlightQuery: nil,
                                         size: 119,
-                                        onTap: nil
+                                        onTap: {
+                                            if FileManager.default.fileExists(atPath: item.url.path) {
+                                                UIApplication.shared.open(item.url, options: [:], completionHandler: nil)
+                                            }
+                                        }
                                     )
                                 }
                             }
