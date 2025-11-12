@@ -458,7 +458,7 @@ struct ChattingArchiveView: View {
                 Profile(
                     image: image,
                     initials: initials,
-                    size: .large,
+                    size: .small,
                     fontSize: 64,
                     backgroundColor: Color("PrimaryContainer"),
                     textColor: .white,

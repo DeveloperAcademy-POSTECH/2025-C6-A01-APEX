@@ -369,7 +369,7 @@ private extension SearchView {
 									Profile(
 										image: client.profile,
 										initials: Profile.makeInitials(name: client.name, surname: client.surname),
-										size: .small,
+										size: .extraSmall,
 										fontSize: 16,
 										backgroundColor: Color("PrimaryContainer"),
 										textColor: .white,

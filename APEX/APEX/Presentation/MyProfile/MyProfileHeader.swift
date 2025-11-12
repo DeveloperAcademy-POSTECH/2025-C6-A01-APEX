@@ -182,7 +182,7 @@ struct MyProfileHeaderView: View {
             Profile(
                 image: ui,
                 initials: Profile.makeInitials(name: client.name, surname: client.surname),
-                size: .extraLarge,
+                size: .large,
                 fontSize: 128
             )
         case .cardFront(let image), .cardBack(let image):
@@ -194,7 +194,7 @@ struct MyProfileHeaderView: View {
                 .background(Color("PrimaryContainer"))
                 .clipShape(RoundedRectangle(cornerRadius: 9.28, style: .continuous))
         case .avatar(let initials):
-            Profile(image: nil, initials: initials, size: .extraLarge, fontSize: 128)
+            Profile(image: nil, initials: initials, size: .large, fontSize: 128)
         }
     }
 }
