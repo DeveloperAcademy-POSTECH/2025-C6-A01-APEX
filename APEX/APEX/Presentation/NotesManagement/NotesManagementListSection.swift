@@ -51,6 +51,8 @@ struct NotesManagementListSection: View {
                     )
                 }
             }
+            .padding(.horizontal, 16) // 리스트 섹션 내부 좌우 패딩 16
+            .padding(.vertical, 8)    // 리스트 섹션 내부 상하 패딩 8
         }
     }
     
@@ -78,16 +80,28 @@ struct NotesManagementListSection: View {
                 onDeleteTap()
             }
         } label: {
-            Text("\(selectedNoteIds.count) 삭제하기")
-                .font(.body2)
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 50)
-                .background(Color.red)
-                .cornerRadius(8)
+            HStack(spacing: 4) {
+                Text("\(selectedNoteIds.count)")
+                    .font(.body1)
+                    .foregroundColor(Color("Error"))
+                
+                Text("삭제하기")
+                    .font(.body2)
+                    .foregroundColor(Color("Error"))
+            }
+            .padding(.horizontal, 40)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity)
+            .frame(height: 56)
         }
+        .buttonStyle(DeleteButtonStyle())
         .padding(.horizontal, Metrics.horizontalPadding)
         .padding(.bottom, 16)
+        .transition(.asymmetric(
+            insertion: .move(edge: .bottom).combined(with: .opacity),
+            removal: .move(edge: .bottom).combined(with: .opacity)
+        ))
+        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: selectedNoteIds.count)
     }
     
     private func toggleSelection(for noteId: UUID) {
@@ -109,39 +123,40 @@ struct NotesManagementRowView: View {
     let onTapRow: () -> Void
     
     private enum Metrics {
-        static let horizontalPadding: CGFloat = 16
         static let rowHeight: CGFloat = 72
-        static let checkboxSize: CGFloat = 24
+        static let checkboxSize: CGFloat = 32
         static let profileSize: CGFloat = 48
     }
     
     var body: some View {
         HStack(spacing: 12) {
-            // 선택 체크박스
+            // 선택 체크박스 - 32px × 32px
             Button(action: onToggleSelection) {
                 Circle()
-                    .stroke(isSelected ? Color.blue : Color.gray.opacity(0.5), lineWidth: 1)
+                    .strokeBorder(
+                        isSelected ? Color("Primary") : Color("BackgroundDisabled"), 
+                        lineWidth: 2
+                    )
                     .frame(width: Metrics.checkboxSize, height: Metrics.checkboxSize)
-                    .overlay(
+                    .background(
                         Circle()
-                            .fill(isSelected ? Color.blue : Color.clear)
-                            .frame(width: Metrics.checkboxSize, height: Metrics.checkboxSize)
-                            .overlay(
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundColor(.white)
-                                    .opacity(isSelected ? 1 : 0)
-                            )
+                            .fill(isSelected ? Color("Primary") : Color.clear)
+                    )
+                    .overlay(
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.white)
+                            .opacity(isSelected ? 1 : 0)
                     )
             }
             .buttonStyle(.plain)
             
-            // 프로필 이미지 - ContactsView와 동일한 디자인
+            // 프로필 이미지 - 48px × 48px
             Profile(
                 image: nil,
                 initials: Profile.makeInitials(name: note.author, surname: ""),
                 size: .small,
-                fontSize: 30.72,
+                fontSize: nil, // 기본 크기 사용
                 backgroundColor: Color("PrimaryContainer"),
                 textColor: .white,
                 fontWeight: .semibold
@@ -149,15 +164,15 @@ struct NotesManagementRowView: View {
             
             // 노트 정보
             VStack(alignment: .leading, spacing: 2) {
-                HStack {
+                HStack(spacing: 4) {
                     Text(note.author)
                         .font(.body2)
-                        .foregroundColor(.primary)
+                        .foregroundColor(Color("BlackLabel"))
                     
                     if note.isPinned {
-                        Image(systemName: "star.fill")
-                            .font(.system(size: 12))
-                            .foregroundColor(.blue)
+                        Image(systemName: "pin.fill")
+                            .font(.system(size: 10))
+                            .foregroundColor(Color("Primary"))
                     }
                     
                     Spacer()
@@ -165,35 +180,47 @@ struct NotesManagementRowView: View {
                 
                 Text(note.content)
                     .font(.body6)
-                    .foregroundColor(.secondary)
+                    .foregroundColor(Color("GrayLabel"))
                     .lineLimit(1)
             }
             
             Spacer()
             
-            // 드래그 핸들 (즐겨찾기만)
+            // 햄버거 버튼 (즐겨찾기일 때만 표시)
             if note.isPinned {
                 Button {
-                    // 드래그 or 순서 변경 액션
+                    // 드래그 앤 드롭 기능 (현재 미구현)
                 } label: {
                     Image(systemName: "line.3.horizontal")
-                        .font(.system(size: 16))
-                        .foregroundColor(.secondary)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(Color("BlackLabel"))
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, Metrics.horizontalPadding)
         .frame(height: Metrics.rowHeight)
+        .background(Color.clear) // 투명 배경
         .contentShape(Rectangle())
         .onTapGesture(perform: onTapRow)
     }
 }
 
+// MARK: - DeleteButtonStyle
+
+struct DeleteButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(configuration.isPressed ? Color("ErrorHover") : Color("ErrorContainer"))
+            )
+    }
+}
+
 #Preview {
-    @State var selectedTab: NoteTab = .all
-    @State var selectedNoteIds: Set<UUID> = []
-    @State var isSelectionMode: Bool = false
+    @Previewable @State var selectedTab: NoteTab = .all
+    @Previewable @State var selectedNoteIds: Set<UUID> = []
+    @Previewable @State var isSelectionMode: Bool = false
     
     return NotesManagementListSection(
         selectedTab: $selectedTab,
