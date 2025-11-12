@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import Combine
 
 class PinOrderManager: ObservableObject {
     @Published private var pinOrder: [UUID] = []
