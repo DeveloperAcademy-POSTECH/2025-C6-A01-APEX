@@ -75,6 +75,9 @@ struct ChattingArchiveView: View {
             isFavorite = client?.favorite ?? false
             reloadMediaPreview()
         }
+        .onChange(of: isFavorite) { newValue in
+            persistFavorite(newValue)
+        }
         .onReceive(NotificationCenter.default.publisher(for: .apexChatNotesUpdated)) { notif in
             guard let changedId = notif.userInfo?["clientId"] as? UUID,
                   let currentId = client?.id,
@@ -830,6 +833,29 @@ extension ChattingArchiveView {
         ChatStore.shared.setNotes([], for: id)
         // Let parent decide whether to pop further; this view does not pop itself here
         DispatchQueue.main.async { onDeletedContact?() }
+    }
+    
+    private func persistFavorite(_ newValue: Bool) {
+        guard let base = client else { return }
+        let updated = Client(
+            id: base.id,
+            profile: base.profile,
+            nameCardFront: base.nameCardFront,
+            nameCardBack: base.nameCardBack,
+            surname: base.surname,
+            name: base.name,
+            position: base.position,
+            company: base.company,
+            email: base.email,
+            phoneNumber: base.phoneNumber,
+            linkedinURL: base.linkedinURL,
+            memo: base.memo,
+            action: base.action,
+            favorite: newValue,
+            pin: base.pin,
+            notes: base.notes
+        )
+        ClientsStore.shared.update(updated)
     }
 }
 

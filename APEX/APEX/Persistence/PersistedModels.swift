@@ -6,6 +6,8 @@
 //
 
 import Foundation
+import UIKit
+import SwiftUI
 
 // MARK: - Persisted Attachments
 
@@ -91,6 +93,11 @@ struct PNote: Codable {
 
 struct PClient: Codable {
     var id: UUID
+    // Persist profile image as Data to restore UIImage on launch
+    var profileImageData: Data?
+    // Persist name card previews as Data as well
+    var nameCardFrontData: Data?
+    var nameCardBackData: Data?
     var surname: String
     var name: String
     var position: String?
@@ -162,8 +169,8 @@ extension PNote {
     
     func toRuntime() -> Note {
         let runtimeBundle: AttachmentBundle?
-        if let p = self.bundle {
-            runtimeBundle = p.toRuntime()
+        if let persistedBundle = self.bundle {
+            runtimeBundle = persistedBundle.toRuntime()
         } else {
             runtimeBundle = nil
         }
@@ -174,6 +181,15 @@ extension PNote {
 extension PClient {
     init(from client: Client) {
         self.id = client.id
+        if let image = client.profile {
+            // Prefer JPEG for smaller size; fallback to PNG
+            self.profileImageData = image.jpegData(compressionQuality: 0.9) ?? image.pngData()
+        } else {
+            self.profileImageData = nil
+        }
+        // Render SwiftUI Images to Data for persistence
+        self.nameCardFrontData = Self.renderImageData(from: client.nameCardFront)
+        self.nameCardBackData  = Self.renderImageData(from: client.nameCardBack)
         self.surname = client.surname
         self.name = client.name
         self.position = client.position
@@ -190,11 +206,20 @@ extension PClient {
     
     func toRuntime() -> Client {
         var runtimeNotes: [Note] = notes.map { $0.toRuntime() }
+        let restoredProfile: UIImage? = profileImageData.flatMap { UIImage(data: $0) }
+        let restoredFront: Image? = nameCardFrontData.flatMap { data in
+            guard let ui = UIImage(data: data) else { return nil }
+            return Image(uiImage: ui)
+        }
+        let restoredBack: Image? = nameCardBackData.flatMap { data in
+            guard let ui = UIImage(data: data) else { return nil }
+            return Image(uiImage: ui)
+        }
         let client = Client(
             id: id,
-            profile: nil,
-            nameCardFront: nil,
-            nameCardBack: nil,
+            profile: restoredProfile,
+            nameCardFront: restoredFront,
+            nameCardBack: restoredBack,
             surname: surname,
             name: name,
             position: position,
@@ -209,6 +234,23 @@ extension PClient {
             notes: runtimeNotes
         )
         return client
+    }
+}
+
+// MARK: - Helpers
+private extension PClient {
+    static func renderImageData(from swiftUIImage: Image?) -> Data? {
+        guard let image = swiftUIImage else { return nil }
+        // Render to a reasonable preview size; keep scale for sharpness
+        let targetSize = CGSize(width: 358, height: 214)
+        let renderer = ImageRenderer(
+            content: image
+                .resizable()
+                .scaledToFit()
+                .frame(width: targetSize.width, height: targetSize.height)
+        )
+        renderer.scale = UIScreen.main.scale
+        return renderer.uiImage?.jpegData(compressionQuality: 0.9)
     }
 }
 
