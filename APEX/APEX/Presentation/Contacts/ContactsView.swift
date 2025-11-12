@@ -316,7 +316,7 @@ struct ContactsView: View {
             return 
         }
         
-        print("🔄 되돌리기 실행: \(client.name) \(client.surname), 액션: \(action)")
+        print("🔄 되돌리기 실행: \(client.autoFormattedName), 액션: \(action)")
         
         switch action {
         case .added:

@@ -44,6 +44,7 @@ struct NotesView: View {
             duration: 1.6,
             onButtonTap: undoPinAction
         )
+        
         .scrollEdgeEffectStyle(.soft, for: .top)
         .safeAreaBar(edge: .top) {
             NotesNavigationBar { print("Notes menu tapped") }
@@ -151,10 +152,19 @@ struct NotesView: View {
         lastToggledClientId = client.id
         lastPinAction = client.pin ? .removed : .added
         
-        print("🔧 핀 토글 시작: \(client.name) \(client.surname)")
+        print("🔧 핀 토글 시작: \(client.autoFormattedName)")
         print("🔧 현재 핀 상태: \(client.pin) → 변경될 상태: \(!client.pin)")
         print("🔧 저장된 클라이언트 ID: \(client.id)")
         print("🔧 저장된 액션: \(lastPinAction!)")
+        
+        let newPinState = !client.pin
+        
+        // PinOrderManager 업데이트
+        if newPinState {
+            PinOrderManager.shared.pinClient(client.id)
+        } else {
+            PinOrderManager.shared.unpinClient(client.id)
+        }
         
         // 핀 상태 토글 (ID 유지)
         clientsStore.clients[index] = Client(
@@ -172,12 +182,11 @@ struct NotesView: View {
             memo: client.memo,
             action: client.action,
             favorite: client.favorite,
-            pin: !client.pin,
+            pin: newPinState,
             notes: client.notes
         )
         
         // ✅ 수정: 변경될 상태 기준으로 메시지 생성
-        let newPinState = !client.pin
         toastText = newPinState ? "핀을 추가했습니다" : "핀을 해제했습니다"
         print("🔧 토스트 메시지: \(toastText)")
         presentToast()
@@ -230,7 +239,7 @@ struct NotesView: View {
         }
         
         let currentClient = clientsStore.clients[index]
-        print("🔄 되돌리기 실행: \(currentClient.name) \(currentClient.surname)")
+        print("🔄 되돌리기 실행: \(currentClient.autoFormattedName)")
         print("🔄 원본 액션: \(action), 현재 핀 상태: \(currentClient.pin)")
         
         // 핀 상태를 원래대로 되돌리기
@@ -239,9 +248,11 @@ struct NotesView: View {
         case .added:
             originalPinState = false  // 추가된 것을 되돌리기 (false로)
             print("🔄 추가를 되돌림: true → false")
+            PinOrderManager.shared.unpinClient(clientId)
         case .removed:
             originalPinState = true   // 제거된 것을 되돌리기 (true로)
             print("🔄 제거를 되돌림: false → true")
+            PinOrderManager.shared.pinClient(clientId)
         }
         
         // ✅ 수정: 현재 클라이언트를 기준으로 핀 상태만 변경 (ID 유지)
