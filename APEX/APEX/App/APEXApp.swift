@@ -10,13 +10,14 @@ import SwiftUI
 @main
 struct APEXApp: App {
     @Environment(\.scenePhase) private var scenePhase
-    @StateObject private var router = NavigationRouter()
-    
+    @StateObject private var router = NavigationRouter() // router instance for navigation
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
+
     private var isPreviewEnv: Bool {
         let env = ProcessInfo.processInfo.environment
-        return env["XCODE_RUNNING_FOR_PLAYGROUNDS"] == "1" || env["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+        return env["XCODE_RUNNING_FOR_PLAYGROUNDS"] == "1" || env["XCODE_RUNNING_FOR_PREVIEWS"] == "1" // preview flags
     }
-    
+
     var body: some Scene {
         WindowGroup {
 //            ChattingView()
@@ -33,8 +34,14 @@ struct APEXApp: App {
 //                        CameraManager.shared.prewarmIfPossible()
 //                    }
 //                }
-            RootView()
-                .environmentObject(router)
+            if hasCompletedOnboarding {
+                RootView()
+                    .environmentObject(router)
+            } else {
+                OnBoardingView(onComplete: {
+                    hasCompletedOnboarding = true
+                })
+            }
         }
     }
 }
