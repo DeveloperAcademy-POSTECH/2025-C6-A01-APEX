@@ -370,24 +370,24 @@ private extension SearchView {
 										image: client.profile,
 										initials: Profile.makeInitials(name: client.name, surname: client.surname),
 										size: .extraSmall,
-										fontSize: 16,
+                                        fontSize: 30.72,
 										backgroundColor: Color("PrimaryContainer"),
 										textColor: .white,
 										fontWeight: .semibold
 									)
-									VStack(alignment: .leading, spacing: 2) {
+									VStack(alignment: .leading, spacing: 0) {
 										highlightedText("\(client.name) \(client.surname)", highlight: trimmed)
-											.font(.body3)
+											.font(.body2)
 											.foregroundStyle(Color("BlackLabel"))
 										if !client.company.isEmpty {
 											highlightedText(client.company, highlight: trimmed)
-												.font(.caption2)
+												.font(.body5)
 												.foregroundStyle(Color("GrayLabel"))
 										}
 									}
 									Spacer()
 								}
-								.padding(.vertical, 10)
+								.padding(.vertical, 8)
 								.contentShape(Rectangle())
 							}
 							.buttonStyle(.plain)
@@ -414,43 +414,38 @@ private extension SearchView {
 					sectionHeader(title: "텍스트 메모", iconName: "text.quote", iconColor: Color("Primary"), onTapArrow: {
 						// no-op
 					}, showsArrow: false)
-					VStack(spacing: 0) {
+					VStack(spacing: 8) {
 						ForEach(pairs, id: \.1.id) { client, note in
 							Button {
 								saveRecent(trimmed)
 								router.push(.chat(client.id))
 							} label: {
-								HStack(alignment: .top, spacing: 12) {
+								HStack(alignment: .top, spacing: 8) {
 									Profile(
 										image: client.profile,
 										initials: Profile.makeInitials(name: client.name, surname: client.surname),
-										size: .small,
-										fontSize: 16,
+										size: .extraSmall,
+                                        fontSize: 30.72,
 										backgroundColor: Color("PrimaryContainer"),
 										textColor: .white,
 										fontWeight: .semibold
 									)
 									VStack(alignment: .leading, spacing: 6) {
-										HStack(spacing: 6) {
-											highlightedText("\(client.name) \(client.surname)", highlight: trimmed)
-												.font(.body3)
-												.foregroundStyle(Color("BlackLabel"))
-												.lineLimit(1)
-											Spacer(minLength: 0)
-											Text(note.uploadedAt.formatted(date: .numeric, time: .omitted))
-												.font(.caption2)
-												.foregroundStyle(Color("GrayLabel"))
-										}
+                                        highlightedText("\(client.name) \(client.surname)", highlight: trimmed)
+                                            .font(.caption1)
+                                            .foregroundStyle(Color("BlackLabel"))
+                                            .lineLimit(1)
 										highlightedText(note.text ?? "", highlight: trimmed)
-											.font(.body4)
+											.font(.body6)
 											.foregroundStyle(Color("BlackLabel"))
 											.lineLimit(2)
+                                            .padding(.vertical, 8)
+                                            .padding(.horizontal, 12)
+                                            .background(Color("BackgroundSecondary"))
+                                            .cornerRadius(15)
 									}
-									Image(systemName: "chevron.right")
-										.font(.system(size: 14, weight: .semibold))
-										.foregroundStyle(Color("Primary"))
+                                    Spacer()
 								}
-								.padding(.vertical, 12)
 								.contentShape(Rectangle())
 							}
 							.buttonStyle(.plain)
@@ -833,27 +828,25 @@ private extension SearchView {
     }
 	
 	func sectionHeader(title: String, iconName: String, iconColor: Color, onTapArrow: @escaping () -> Void, showsArrow: Bool = true) -> some View {
-		HStack(alignment: .center, spacing: 8) {
-			Image(systemName: iconName)
-				.font(.system(size: 16, weight: .medium))
-				.foregroundStyle(iconColor)
-			Text(title)
-				.font(.body2)
-				.foregroundStyle(Color("BlackLabel"))
-			Spacer()
-			if showsArrow {
-				Button(action: onTapArrow) {
+		Button(action: onTapArrow) {
+			HStack(alignment: .center, spacing: 8) {
+				Image(systemName: iconName)
+					.font(.system(size: 16, weight: .medium))
+					.foregroundStyle(iconColor)
+				Text(title)
+					.font(.body2)
+					.foregroundStyle(Color("BlackLabel"))
+				Spacer()
+				if showsArrow {
 					Image(systemName: "chevron.right")
 						.font(.system(size: 16, weight: .semibold))
 						.foregroundStyle(Color("Primary"))
 						.frame(width: 32, height: 32)
-						.contentShape(Rectangle())
 				}
-				.buttonStyle(.plain)
-				.glassEffect(in: RoundedRectangle(cornerRadius: 8, style: .continuous))
 			}
+			.padding(.vertical, 10)
 		}
-		.padding(.vertical, 10)
+		.buttonStyle(.plain)
 		.contentShape(Rectangle())
 	}
 	
