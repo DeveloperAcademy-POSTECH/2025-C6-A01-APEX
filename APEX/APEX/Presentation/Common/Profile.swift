@@ -9,11 +9,9 @@ import SwiftUI
 
 struct Profile: View {
     enum Size: Int {
-        case extraSmall = 36
-        case small = 48
-        case medium = 72
-        case large = 100
-        case extraLarge = 232
+        case extraSmall = 48
+        case small = 100
+        case large = 232
     }
     let image: UIImage?
     let initials: String

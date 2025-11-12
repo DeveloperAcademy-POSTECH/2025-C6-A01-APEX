@@ -47,7 +47,7 @@ public struct APEXFileTile: View {
                         .foregroundStyle(.black)
                         .padding(.bottom, 4)
                 } else {
-                    Text(url.lastPathComponent)
+                    Text(displayNameWithNewline())
                         .font(.caption2)
                         .lineLimit(4)
                         .truncationMode(.middle)
@@ -71,7 +71,9 @@ public struct APEXFileTile: View {
             if let onTap {
                 onTap()
             } else {
-                UIApplication.shared.open(url, options: [:], completionHandler: nil)
+                if FileManager.default.fileExists(atPath: url.path) {
+                    UIApplication.shared.open(url, options: [:], completionHandler: nil)
+                }
             }
         }
     }
@@ -112,7 +114,22 @@ private extension APEXFileTile {
             if nextLocation >= nameNSString.length { break }
             searchRange = NSRange(location: nextLocation, length: nameNSString.length - nextLocation)
         }
+        // Insert a newline before the extension so that the extension appears on a new line.
+        // Only apply when there is a valid extension and the dot is not the first character (to avoid hidden files like ".gitignore").
+        if !url.pathExtension.isEmpty {
+            let dotRange = nameNSString.range(of: ".", options: .backwards)
+            if dotRange.location != NSNotFound && dotRange.location > 0 && dotRange.location < nameNSString.length {
+                mas.insert(NSAttributedString(string: "\n"), at: dotRange.location)
+            }
+        }
         return AttributedString(mas)
+    }
+
+    func displayNameWithNewline() -> String {
+        let baseName = url.deletingPathExtension().lastPathComponent
+        let ext = url.pathExtension
+        guard !ext.isEmpty else { return url.lastPathComponent }
+        return baseName + "\n." + ext
     }
 }
 

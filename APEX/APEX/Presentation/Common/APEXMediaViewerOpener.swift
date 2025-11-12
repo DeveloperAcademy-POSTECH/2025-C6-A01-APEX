@@ -18,7 +18,7 @@ struct APEXMediaViewerWrapper<Content: View>: View {
     var onDelete: ((Int, MediaSource) -> Void)?
     var onTitleTap: ((Int) -> Void)?
 
-    @State private var isPresented: Bool = false
+    @EnvironmentObject private var router: NavigationRouter
 
     init(
         content: Content,
@@ -46,12 +46,9 @@ struct APEXMediaViewerWrapper<Content: View>: View {
         content
             .contentShape(Rectangle())
             .onTapGesture {
-                isPresented = true
-            }
-            .fullScreenCover(isPresented: $isPresented) {
-                MediaView(
+                let payload = APEXOpenMediaViewerPayload(
                     items: items,
-                    selectedIndex: min(max(0, selectedIndex), max(0, items.count - 1)),
+                    index: min(max(0, selectedIndex), max(0, items.count - 1)),
                     title: title,
                     uploadedAt: uploadedAt,
                     excludedClientIds: excludedClientIds,
@@ -59,6 +56,8 @@ struct APEXMediaViewerWrapper<Content: View>: View {
                     onDelete: onDelete,
                     onTitleTap: onTitleTap
                 )
+                APEXMediaViewerStore.shared.put(payload)
+                router.push(.mediaViewer(payload.id))
             }
     }
 }
@@ -87,5 +86,4 @@ extension View {
         )
     }
 }
-
 

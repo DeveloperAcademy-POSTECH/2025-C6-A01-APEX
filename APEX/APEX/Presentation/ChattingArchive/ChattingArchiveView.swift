@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 import AVFoundation
 import LinkPresentation
 import UniformTypeIdentifiers
@@ -73,6 +74,9 @@ struct ChattingArchiveView: View {
         .onAppear {
             isFavorite = client?.favorite ?? false
             reloadMediaPreview()
+        }
+        .onChange(of: isFavorite) { newValue in
+            persistFavorite(newValue)
         }
         .onReceive(NotificationCenter.default.publisher(for: .apexChatNotesUpdated)) { notif in
             guard let changedId = notif.userInfo?["clientId"] as? UUID,
@@ -152,19 +156,17 @@ struct ChattingArchiveView: View {
                     router.push(.archiveSection(id, .media))
                 }
             })
-            let items = mediaItems
-            let rows = [
-                GridItem(.fixed(121.67), spacing: 2),
-                GridItem(.fixed(121.67), spacing: 2)
-            ]
-            if !items.isEmpty {
+            let allItems = mediaItems
+            if !allItems.isEmpty {
+                let shouldShowSeeAll = allItems.count >= 9
+                let previewItems = shouldShowSeeAll ? Array(allItems.prefix(8)) : allItems
                 ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHGrid(rows: rows, spacing: 2) {
-                        ForEach(Array(items.enumerated()), id: \.element.id) { idx, item in
+                    HStack(spacing: 2) {
+                        ForEach(Array(previewItems.enumerated()), id: \.element.id) { idx, item in
                             APEXMediaTile(
                                 source: {
                                     if item.isVideo, let url = item.videoURL {
-                                        return .video(url)            // 유효 URL일 때만 비디오로
+                                        return .video(url)
                                     } else {
                                         return .image(item.imageData ?? Data())
                                     }
@@ -175,7 +177,6 @@ struct ChattingArchiveView: View {
                             )
                             .frame(width: 121.67, height: 121.67)
                             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                            // Ensure duration text stays visible above any internal content
                             .overlay(alignment: .bottomLeading) {
                                 if item.isVideo, let url = item.videoURL {
                                     Text(format(durationOf: url))
@@ -184,26 +185,31 @@ struct ChattingArchiveView: View {
                                         .padding(12)
                                 }
                             }
- 							.clipped()
- 							.apexOpensMediaViewer(
- 								items: items.map { mediaItem in
- 									if mediaItem.isVideo, let url = mediaItem.videoURL {
- 										return .video(url)
- 									} else {
- 										return .image(mediaItem.imageData ?? Data())
- 									}
+                            .clipped()
+                            .apexOpensMediaViewer(
+                                items: previewItems.map { mediaItem in
+                                    if mediaItem.isVideo, let url = mediaItem.videoURL {
+                                        return .video(url)
+                                    } else {
+                                        return .image(mediaItem.imageData ?? Data())
+                                    }
                                 },
- 								index: idx,
- 								title: client.map { "\($0.name) \($0.surname)"} ?? "Shared Media",
- 								uploadedAt: nil,
+                                index: idx,
+                                title: client.map { "\($0.name) \($0.surname)"} ?? "Shared Media",
+                                uploadedAt: nil,
                                 excludedClientIds: client.map { [$0.id] } ?? [],
                                 onDelete: { removedIndex, _ in
-                                    guard items.indices.contains(removedIndex), let clientId = client?.id else { return }
-                                    let target = items[removedIndex]
+                                    guard previewItems.indices.contains(removedIndex),
+                                          let clientId = client?.id else { return }
+                                    let target = previewItems[removedIndex]
                                     deleteFlattenedMedia(item: target, clientId: clientId)
                                     reloadMediaPreview()
                                 }
- 							)
+                            )
+                        }
+                        if shouldShowSeeAll, let id = client?.id {
+                            SeeAllTile(size: 121.67, title: "전체보기")
+                                .onTapGesture { router.push(.archiveSection(id, .media)) }
                         }
                     }
                     .padding(.horizontal, 2)
@@ -220,9 +226,16 @@ struct ChattingArchiveView: View {
                 }
             })
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(linkItems, id: \.id) { item in
-                        LinkPreviewCard(url: item.url)
+                let allItems = linkItems
+                let shouldShowSeeAll = allItems.count >= 9
+                let previewItems = shouldShowSeeAll ? Array(allItems.prefix(8)) : allItems
+                HStack(spacing: 2) {
+                    ForEach(previewItems, id: \.id) { item in
+                        APEXLinkTile(url: item.url, width: 121.67)
+                    }
+                    if shouldShowSeeAll, let id = client?.id {
+                        SeeAllTile(size: 121.67, title: "전체보기")
+                            .onTapGesture { router.push(.archiveSection(id, .links)) }
                     }
                 }
                 .padding(.horizontal, 2)
@@ -238,15 +251,26 @@ struct ChattingArchiveView: View {
                 }
             })
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(fileItems, id: \.id) { item in
+                let allItems = fileItems
+                let shouldShowSeeAll = allItems.count >= 9
+                let previewItems = shouldShowSeeAll ? Array(allItems.prefix(8)) : allItems
+                HStack(spacing: 2) {
+                    ForEach(previewItems, id: \.id) { item in
                         APEXFileTile(
                             url: item.url,
                             contentType: item.contentType,
                             highlightQuery: nil,
-                            size: 119,
-                            onTap: nil
+                            size: 121.67,
+                            onTap: {
+                                if FileManager.default.fileExists(atPath: item.url.path) {
+                                    UIApplication.shared.open(item.url, options: [:], completionHandler: nil)
+                                }
+                            }
                         )
+                    }
+                    if shouldShowSeeAll, let id = client?.id {
+                        SeeAllTile(size: 121.67, title: "전체보기")
+                            .onTapGesture { router.push(.archiveSection(id, .files)) }
                     }
                 }
                 .padding(.horizontal, 2)
@@ -262,13 +286,16 @@ struct ChattingArchiveView: View {
                 }
             })
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(audioItems, id: \.id) { item in
+                let allItems = audioItems
+                let shouldShowSeeAll = allItems.count >= 9
+                let previewItems = shouldShowSeeAll ? Array(allItems.prefix(8)) : allItems
+                HStack(spacing: 2) {
+                    ForEach(previewItems, id: \.id) { item in
                         ZStack {
                             AudioSquareTile(
                                 url: item.url,
                                 duration: item.duration,
-                                preferredLength: 119,
+                                preferredLength: 121.67,
                                 titleOverride: nil,
                                 highlightQuery: nil
                             )
@@ -276,6 +303,10 @@ struct ChattingArchiveView: View {
                         }
                         .contentShape(Rectangle())
                         .onTapGesture { recordPayload = DetailRecordPayload(url: item.url) }
+                    }
+                    if shouldShowSeeAll, let id = client?.id {
+                        SeeAllTile(size: 121.67, title: "전체보기")
+                            .onTapGesture { router.push(.archiveSection(id, .audio)) }
                     }
                 }
                 .padding(.horizontal, 2)
@@ -427,7 +458,7 @@ struct ChattingArchiveView: View {
                 Profile(
                     image: image,
                     initials: initials,
-                    size: .large,
+                    size: .small,
                     fontSize: 64,
                     backgroundColor: Color("PrimaryContainer"),
                     textColor: .white,
@@ -587,7 +618,27 @@ private struct ContactDeleteConfirmCard: View {
 }
 // MARK: - Private helpers
 
-private extension ChattingArchiveView {
+extension ChattingArchiveView {
+    struct SeeAllTile: View {
+        let size: CGFloat
+        let title: String
+        
+        var body: some View {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color("BackgroundSecondary"))
+                VStack(spacing: 6) {
+                    Image(systemName: "arrow.right.circle.fill")
+                        .font(.system(size: 16, weight: .regular))
+                        .foregroundStyle(Color("Primary"))
+                    Text(title)
+                        .font(.caption2)
+                        .foregroundStyle(Color("Primary"))
+                }
+            }
+            .frame(width: size, height: size)
+        }
+    }
     func reloadMediaPreview() {
         guard let clientId = client?.id else {
             mediaItems = []; fileItems = []; audioItems = []; linkItems = []
@@ -783,6 +834,29 @@ private extension ChattingArchiveView {
         // Let parent decide whether to pop further; this view does not pop itself here
         DispatchQueue.main.async { onDeletedContact?() }
     }
+    
+    private func persistFavorite(_ newValue: Bool) {
+        guard let base = client else { return }
+        let updated = Client(
+            id: base.id,
+            profile: base.profile,
+            nameCardFront: base.nameCardFront,
+            nameCardBack: base.nameCardBack,
+            surname: base.surname,
+            name: base.name,
+            position: base.position,
+            company: base.company,
+            email: base.email,
+            phoneNumber: base.phoneNumber,
+            linkedinURL: base.linkedinURL,
+            memo: base.memo,
+            action: base.action,
+            favorite: newValue,
+            pin: base.pin,
+            notes: base.notes
+        )
+        ClientsStore.shared.update(updated)
+    }
 }
 
 // MARK: - Media cell (moved to common: APEXMediaTile)
@@ -921,4 +995,10 @@ private func parseFlattenedMediaId(_ id: String) -> (noteId: UUID, isImage: Bool
 
 #Preview {
     ChattingArchiveView()
+}
+
+#Preview("전체보기 타일") {
+    ChattingArchiveView.SeeAllTile(size: 121.67, title: "전체보기")
+        .padding()
+        .background(Color("Background"))
 }

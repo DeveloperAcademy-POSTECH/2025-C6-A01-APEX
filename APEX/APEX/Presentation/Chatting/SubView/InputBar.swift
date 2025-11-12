@@ -1037,6 +1037,11 @@ private extension InputBar {
         levelTimer?.invalidate(); levelTimer = nil
         isRecording = false
         waveformLevels.removeAll()
+        // If a temporary recording was created but not sent, remove it to prevent stale files
+        if let url = recordingURL {
+            try? FileManager.default.removeItem(at: url)
+            recordingURL = nil
+        }
     }
 
     func updateMeters() {

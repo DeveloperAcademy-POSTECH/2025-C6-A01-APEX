@@ -28,52 +28,51 @@ struct AudioSquareTile: View {
     private let waveTimer = Timer.publish(every: 1.0/60.0, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        Button {
-            if isPlaying { stopPlayback() } else { startPlayback() }
-        } label: {
-            ZStack {
-                if showWaveform {
-                    ScrollingWaveformFill(level: level, phase: phase, bgColor: Color("Primary"), strokeColor: .white)
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                } else {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Image(systemName: "waveform")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(.black)
-                        Spacer(minLength: 0)
-                        if let attr = highlightedTitle() {
-                            Text(attr)
-                                .font(.caption2)
-                                .lineLimit(1)
-                                .padding(.bottom, 4)
-                        } else {
-                            Text(titleOverride ?? titleText())
-                                .font(.caption2)
-                                .lineLimit(1)
-                                .padding(.bottom, 4)
-                        }
-                        Text(durationText)
+        ZStack {
+            if showWaveform {
+                ScrollingWaveformFill(level: level, phase: phase, bgColor: Color("Primary"), strokeColor: .white)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            } else {
+                VStack(alignment: .leading, spacing: 0) {
+                    Image(systemName: "waveform")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.black)
+                    Spacer(minLength: 0)
+                    if let attr = highlightedTitle() {
+                        Text(attr)
                             .font(.caption2)
-                            .foregroundStyle(.gray)
+                            .lineLimit(1)
+                            .padding(.bottom, 4)
+                    } else {
+                        Text(titleOverride ?? titleText())
+                            .font(.caption2)
+                            .lineLimit(1)
+                            .padding(.bottom, 4)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .padding(12)
+                    Text(durationText)
+                        .font(.caption2)
+                        .foregroundStyle(.gray)
                 }
-
-                if showWaveform {
-                    Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                        .font(.system(size: 24, weight: .semibold))
-                        .foregroundStyle(Color("Background"))
-                        .shadow(radius: 4)
-                        .allowsHitTesting(false)
-                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .padding(12)
             }
-            .aspectRatio(1, contentMode: .fit)
-            .frame(width: preferredLength ?? 116.33, height: preferredLength ?? 116.33)
-            .background(Color("BackgroundSecondary"))
-            .cornerRadius(10)
+
+            if showWaveform {
+                Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(Color("Background"))
+                    .shadow(radius: 4)
+                    .allowsHitTesting(false)
+            }
         }
-        .buttonStyle(.plain)
+        .aspectRatio(1, contentMode: .fit)
+        .frame(width: preferredLength ?? 116.33, height: preferredLength ?? 116.33)
+        .background(Color("BackgroundSecondary"))
+        .cornerRadius(10)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if isPlaying { stopPlayback() } else { startPlayback() }
+        }
         .onReceive(waveTimer) { _ in
             guard isPlaying, let audioPlayer = player else { return }
             audioPlayer.updateMeters()
@@ -116,8 +115,14 @@ struct AudioSquareTile: View {
         do {
             inactivityWork?.cancel(); inactivityWork = nil
             let session = AVAudioSession.sharedInstance()
-            try? session.setCategory(.playback, options: [.defaultToSpeaker])
-            try? session.setActive(true)
+            // Use playAndRecord with defaultToSpeaker for consistent speaker output.
+            // Fall back to plain playback if setting fails.
+            do {
+                try session.setCategory(.playAndRecord, options: [.defaultToSpeaker])
+            } catch {
+                try? session.setCategory(.playback, options: [])
+            }
+            try session.setActive(true)
             if player == nil { player = try AVAudioPlayer(contentsOf: url) }
             player?.isMeteringEnabled = true
             player?.prepareToPlay()

@@ -10,6 +10,7 @@ import SwiftUI
 struct ProfileDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var router: NavigationRouter
+    let clientId: UUID
     @Binding var client: DummyClient
     @State private var isPresentingEdit = false
     @State private var showingContactAction: ContactType?   // 복구: 섹션 콜백 시 사용
@@ -156,8 +157,8 @@ struct ProfileDetailView: View {
     }
     
     private func deleteClient() {
-        // 실제 삭제 로직
-        ClientsStore.shared.remove(convertToClient().id)
+        // 실제 삭제 로직 (원본 ID로 삭제)
+        ClientsStore.shared.remove(clientId)
         
         // 화면 닫기
         router.pop()
@@ -223,37 +224,13 @@ struct ProfileDetailView: View {
     }
 
     private func openChatForClient() {
-        let emailKey = client.email ?? ""
-        if let existing = ClientsStore.shared.clients.first(where: { ($0.email ?? "") == emailKey }) {
-            router.push(.chat(existing.id))
-            return
-        }
-        let newClient = Client(
-            profile: client.profile,
-            nameCardFront: client.nameCardFront,
-            nameCardBack: client.nameCardBack,
-            surname: client.surname,
-            name: client.name,
-            position: client.position,
-            company: client.company,
-            email: client.email,
-            phoneNumber: client.phoneNumber,
-            linkedinURL: client.linkedinURL,
-            memo: client.memo,
-            action: client.action,
-            favorite: client.favorite,
-            pin: client.pin,
-            notes: []
-        )
-        ClientsStore.shared.add(newClient, atTop: true)
-        router.push(.chat(newClient.id))
+        // 상세보기의 대상은 이미 존재하는 클라이언트이므로 원본 ID로 바로 채팅으로 이동
+        router.push(.chat(clientId))
     }
 
     private func persistClientUpdate(_ updated: DummyClient, previousEmail: String?) {
-        // Prefer updated email; fallback to previous email
-        let candidates = [updated.email, previousEmail].compactMap { $0 }.filter { !$0.isEmpty }
-        guard let key = candidates.first else { return }
-        guard let existing = ClientsStore.shared.clients.first(where: { ($0.email ?? "") == key }) else { return }
+        // 원본 ID로 정확히 매칭하여 업데이트 (이메일 변경/없음에도 안전)
+        guard let existing = ClientsStore.shared.clients.first(where: { $0.id == clientId }) else { return }
         let newClient = Client(
             id: existing.id,
             profile: updated.profile,
@@ -286,5 +263,5 @@ private enum ContactType: Equatable {
 
 #Preview {
     @Previewable @State var client: DummyClient = sampleMyProfileClient
-    ProfileDetailView(client: $client)
+    ProfileDetailView(clientId: UUID(), client: $client)
 }

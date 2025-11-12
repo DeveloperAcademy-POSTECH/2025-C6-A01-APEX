@@ -34,7 +34,12 @@ final class ClientsStore: ObservableObject {
         $clients
             .dropFirst()
             .sink { [weak self] newValue in
-                self?.localStore.saveClients(newValue)
+                guard let self else { return }
+                // Avoid persisting when running SwiftUI previews to prevent preview data from leaking into runtime
+                let env = ProcessInfo.processInfo.environment
+                let isPreview = env["XCODE_RUNNING_FOR_PREVIEWS"] == "1" || env["XCODE_RUNNING_FOR_PLAYGROUNDS"] == "1"
+                guard !isPreview else { return }
+                self.localStore.saveClients(newValue)
             }
             .store(in: &cancellables)
 
