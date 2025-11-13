@@ -11,8 +11,9 @@ struct NotesManagementListSection: View {
     @Binding var selectedTab: NoteTab
     @Binding var selectedNoteIds: Set<UUID>
     @Binding var isSelectionMode: Bool
-    let notes: [NoteItem]
+    @Binding var notes: [NoteItem]
     let onDeleteTap: () -> Void
+    let onMovePinnedNote: (IndexSet, Int) -> Void
     
     private enum Metrics {
         static let horizontalPadding: CGFloat = 16
@@ -34,43 +35,67 @@ struct NotesManagementListSection: View {
     }
     
     private var notesList: some View {
-        ScrollView {
-            LazyVStack(spacing: 0) {
-                ForEach(filteredNotes) { note in
-                    NotesManagementRowView(
-                        note: note,
-                        isSelected: selectedNoteIds.contains(note.id),
-                        isSelectionMode: isSelectionMode,
-                        onToggleSelection: { toggleSelection(for: note.id) },
-                        onTapRow: {
-                            if !isSelectionMode {
-                                isSelectionMode = true
-                            }
-                            toggleSelection(for: note.id)
+        List {
+            ForEach(filteredNotes, id: \.id) { note in
+                NotesManagementRowView(
+                    note: note,
+                    isSelected: selectedNoteIds.contains(note.id),
+                    isSelectionMode: isSelectionMode,
+                    onToggleSelection: { toggleSelection(for: note.id) },
+                    onTapRow: {
+                        if !isSelectionMode {
+                            isSelectionMode = true
                         }
-                    )
+                        toggleSelection(for: note.id)
+                    }
+                )
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                .moveDisabled(!note.isPinned) // 핀된 노트만 드래그 가능 (드래그 핸들 있음)
+            }
+            .onMove { sourceIndices, destination in
+                print("🔄 onMove 호출됨: sourceIndices=\(sourceIndices), destination=\(destination)")
+                let filteredNotesArray = filteredNotes
+                let pinnedCount = filteredNotesArray.filter { $0.isPinned }.count
+                
+                // 핀된 노트들 범위 내에서만 이동 허용
+                if sourceIndices.allSatisfy({ $0 < pinnedCount }) && destination <= pinnedCount {
+                    print("🔄 이동 허용됨 - 핀된 노트 범위 내")
+                    onMovePinnedNote(sourceIndices, destination)
+                } else {
+                    print("🔄 이동 거부됨 - 핀된 노트 범위를 벗어남")
                 }
             }
-            .padding(.horizontal, 16) // 리스트 섹션 내부 좌우 패딩 16
-            .padding(.vertical, 8)    // 리스트 섹션 내부 상하 패딩 8
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .environment(\.editMode, .constant(.active))
     }
     
     private var filteredNotes: [NoteItem] {
+        let baseNotes: [NoteItem]
+        
         switch selectedTab {
         case .all:
-            return notes.sorted { lhs, rhs in
-                if lhs.isPinned != rhs.isPinned {
-                    return lhs.isPinned // 즐겨찾기 우선
-                }
-                return lhs.createdAt > rhs.createdAt // 최신순
-            }
+            baseNotes = notes
         case .apple:
-            return notes.filter { $0.company == "Apple" }
+            baseNotes = notes.filter { $0.company == "Apple" }
         case .apex:
-            return notes.filter { $0.company == "Apex" }
+            baseNotes = notes.filter { $0.company == "Apex" }
         case .google:
-            return notes.filter { $0.company == "Google" }
+            baseNotes = notes.filter { $0.company == "Google" }
+        }
+        
+        // pinOrder 기반 정렬
+        return baseNotes.sorted { lhs, rhs in
+            if lhs.isPinned != rhs.isPinned {
+                return lhs.isPinned // 핀된 노트 우선
+            }
+            if lhs.isPinned && rhs.isPinned {
+                return lhs.pinOrder > rhs.pinOrder // 핀된 노트는 pinOrder 큰 순 (6,5,4,3,2,1)
+            }
+            return lhs.createdAt > rhs.createdAt // 일반 노트는 최신순
         }
     }
     
@@ -155,8 +180,8 @@ struct NotesManagementRowView: View {
             Profile(
                 image: nil,
                 initials: Profile.makeInitials(name: note.author, surname: ""),
-                size: .small,
-                fontSize: nil, // 기본 크기 사용
+                size: .extraSmall,
+                fontSize: 30.72,
                 backgroundColor: Color("PrimaryContainer"),
                 textColor: .white,
                 fontWeight: .semibold
@@ -185,21 +210,9 @@ struct NotesManagementRowView: View {
             }
             
             Spacer()
-            
-            // 햄버거 버튼 (즐겨찾기일 때만 표시)
-            if note.isPinned {
-                Button {
-                    // 드래그 앤 드롭 기능 (현재 미구현)
-                } label: {
-                    Image(systemName: "line.3.horizontal")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(Color("BlackLabel"))
-                }
-                .buttonStyle(.plain)
-            }
         }
         .frame(height: Metrics.rowHeight)
-        .background(Color.clear) // 투명 배경
+        .background(Color.clear)
         .contentShape(Rectangle())
         .onTapGesture(perform: onTapRow)
     }
@@ -221,12 +234,14 @@ struct DeleteButtonStyle: ButtonStyle {
     @Previewable @State var selectedTab: NoteTab = .all
     @Previewable @State var selectedNoteIds: Set<UUID> = []
     @Previewable @State var isSelectionMode: Bool = false
+    @Previewable @State var notes: [NoteItem] = sampleNotes
     
     return NotesManagementListSection(
         selectedTab: $selectedTab,
         selectedNoteIds: $selectedNoteIds,
         isSelectionMode: $isSelectionMode,
-        notes: sampleNotes,
-        onDeleteTap: { print("Delete tapped") }
+        notes: $notes,
+        onDeleteTap: { print("Delete tapped") },
+        onMovePinnedNote: { _, _ in print("Move tapped") }
     )
 }
