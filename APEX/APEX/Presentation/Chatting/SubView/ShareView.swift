@@ -398,9 +398,12 @@ struct ShareView: View {
     }
 
     private func makeAttachmentBundle() -> AttachmentBundle? {
-        // media from attachments (images/videos)
+        // Build images, videos, generic files, and audio in a single pass
         var images: [ImageAttachment] = []
         var videos: [VideoAttachment] = []
+        var genericFiles: [URL] = []
+        var audios: [URL] = []
+
         for (order, item) in attachments.enumerated() {
             switch item.kind {
             case .image(let uiImage):
@@ -412,36 +415,40 @@ struct ShareView: View {
                     let copied = ensureSharedCopy(of: url, directoryName: "SharedVideos", defaultExtension: "mov")
                     videos.append(VideoAttachment(url: copied, progress: nil, orderIndex: order))
                 }
-            default:
+            case .file(let url):
+                // Detect if file is image or video and map to media; otherwise keep as file
+                let type = UTType(filenameExtension: url.pathExtension)
+                if let t = type, t.conforms(to: .image), let data = try? Data(contentsOf: url) {
+                    images.append(ImageAttachment(data: data, progress: nil, orderIndex: order))
+                } else if let t = type, t.conforms(to: .movie) || (type?.conforms(to: .audiovisualContent) ?? false) {
+                    let copied = ensureSharedCopy(of: url, directoryName: "SharedVideos", defaultExtension: url.pathExtension.isEmpty ? "mov" : url.pathExtension)
+                    videos.append(VideoAttachment(url: copied, progress: nil, orderIndex: order))
+                } else {
+                    genericFiles.append(url)
+                }
+            case .audio(let url):
+                audios.append(url)
+            case .text:
                 break
             }
         }
+
         if !images.isEmpty || !videos.isEmpty {
             return .media(images: images, videos: videos)
         }
-
-        // files (not shown in attach bar)
-        let fileURLs: [URL] = attachments.compactMap { item in
-            if case let .file(url) = item.kind { return url } else { return nil }
-        }
-        if !fileURLs.isEmpty {
-            let files = fileURLs.map { url in
+        if !genericFiles.isEmpty {
+            let files = genericFiles.map { url in
                 let copied = ensureSharedCopy(of: url, directoryName: "SharedFiles", defaultExtension: "dat")
                 return FileAttachment(url: copied, contentType: UTType(filenameExtension: copied.pathExtension), progress: nil)
             }
             return .files(files)
         }
-
-        // audio (not shown in attach bar)
-        let audioURLs: [URL] = attachments.compactMap { item in
-            if case let .audio(url) = item.kind { return url } else { return nil }
-        }
-        if !audioURLs.isEmpty {
-            let sharedURLs: [URL] = audioURLs.map { ensureSharedAudioCopy(of: $0) }
-            let audios: [AudioAttachment] = sharedURLs.map { url in
+        if !audios.isEmpty {
+            let sharedURLs: [URL] = audios.map { ensureSharedAudioCopy(of: $0) }
+            let audioAttachments: [AudioAttachment] = sharedURLs.map { url in
                 AudioAttachment(url: url, duration: assetDuration(for: url))
             }
-            return .audio(audios)
+            return .audio(audioAttachments)
         }
         return nil
     }

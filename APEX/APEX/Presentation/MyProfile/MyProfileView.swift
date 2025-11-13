@@ -108,7 +108,7 @@ struct MyProfileView: View {
                 // 위험 구역 섹션
                 MyProfileDangerZoneSection(
                     onLogout: { /* TODO */ },
-                    onDeleteAccount: { /* TODO */ }
+                    onDeleteAccount: { router.push(.unsubscribe) }
                 )
                 .padding(.horizontal, 16)
                 .padding(.top, 32)
@@ -120,7 +120,9 @@ struct MyProfileView: View {
                 client: client,
                 onCancel: { },
                 onSave: { updated in
+                    let previousEmail = self.client.email
                     self.client = updated
+                    persistClientUpdate(updated, previousEmail: previousEmail)
                 }
             )
         }
@@ -235,6 +237,31 @@ struct MyProfileView: View {
         )
         ClientsStore.shared.add(newClient, atTop: true)
         router.push(.chat(newClient.id))
+    }
+    
+    private func persistClientUpdate(_ updated: DummyClient, previousEmail: String?) {
+        let candidates = [updated.email, previousEmail].compactMap { $0 }.filter { !$0.isEmpty }
+        guard let key = candidates.first else { return }
+        guard let existing = ClientsStore.shared.clients.first(where: { ($0.email ?? "") == key }) else { return }
+        let newClient = Client(
+            id: existing.id,
+            profile: updated.profile,
+            nameCardFront: updated.nameCardFront,
+            nameCardBack: updated.nameCardBack,
+            surname: updated.surname,
+            name: updated.name,
+            position: updated.position,
+            company: updated.company,
+            email: updated.email,
+            phoneNumber: updated.phoneNumber,
+            linkedinURL: updated.linkedinURL,
+            memo: updated.memo,
+            action: existing.action,
+            favorite: existing.favorite,
+            pin: existing.pin,
+            notes: existing.notes
+        )
+        ClientsStore.shared.update(newClient)
     }
 }
 

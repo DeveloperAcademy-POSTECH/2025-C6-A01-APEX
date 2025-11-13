@@ -153,7 +153,7 @@ struct MyProfileEditSheet: View {
                                 Profile(
                                     image: image,
                                     initials: Profile.makeInitials(name: trimmedName, surname: trimmedSurname),
-                                    size: .large,
+                                    size: .small,
                                     fontSize: 64
                                 )
                             } else if trimmedName.isEmpty && trimmedSurname.isEmpty {
@@ -162,7 +162,7 @@ struct MyProfileEditSheet: View {
                                 Profile(
                                     image: nil,
                                     initials: Profile.makeInitials(name: trimmedName, surname: trimmedSurname),
-                                    size: .large,
+                                    size: .small,
                                     fontSize: 64
                                 )
                             }

@@ -10,23 +10,22 @@ struct ContactsTopBar: View {
     private let verticalPadding: CGFloat = 8
     private let horizontalPadding: CGFloat = 16
 
-    // Colors (확정된 Asset 이름 사용)
+    // Colors (안전한 fallback 포함)  
     private var backgroundColor: Color { Color("Background") }
-    private var titleColor: Color { Color("Dark") }
-    private var plusNormalColor: Color { Color("Primary") }
-    private var plusPressedColor: Color { Color("PrimaryHover") }
+    private var titleColor: Color { Color.black } // 항상 검은색
+    private var plusNormalColor: Color { Color.blue } // 시스템 파란색
+    private var plusPressedColor: Color { Color.blue.opacity(0.8) } // 눌린 상태
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                // Left spacer (좌측 버튼 없음)
-                Spacer(minLength: 0)
-
                 // Center title
                 Text(title)
-                    .font(.title1) // Pretendard Semibold 24pt (Font+Ex 매핑)
+                    .font(.title1) // 기본 시스템 폰트로 변경
+                    .fontWeight(.semibold)
                     .foregroundColor(titleColor)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                Spacer()
 
                 // Right + button (애플 기본 머티리얼 기반 원형)
                 PlusButton(
@@ -71,7 +70,6 @@ private struct PlusButton: View {
             .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .glassEffect()
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
@@ -86,5 +84,11 @@ private struct PlusButton: View {
 }
 
 #Preview {
-    ContactsTopBar { }
+    VStack {
+        ContactsTopBar {
+            print("Plus button tapped!")
+        }
+        Spacer()
+    }
+    .background(Color.gray.opacity(0.1))
 }

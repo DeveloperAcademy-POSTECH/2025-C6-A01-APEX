@@ -50,7 +50,7 @@ struct ProfileAddView: View {
                                 Profile(
                                     image: image,
                                     initials: Profile.makeInitials(name: trimmedName, surname: trimmedSurname),
-                                    size: .large,
+                                    size: .small,
                                     fontSize: 64
                                 )
                             } else if trimmedName.isEmpty && trimmedSurname.isEmpty {
@@ -59,7 +59,7 @@ struct ProfileAddView: View {
                                 Profile(
                                     image: nil,
                                     initials: Profile.makeInitials(name: trimmedName, surname: trimmedSurname),
-                                    size: .large,
+                                    size: .small,
                                     fontSize: 64
                                 )
                             }
@@ -75,7 +75,7 @@ struct ProfileAddView: View {
                         presentedPhotoType = .card
                     } label: {
                         VStack(spacing: 13) {
-                            if let image = cardFrontUIImage {
+                            if let image = (cardFrontUIImage ?? cardBackUIImage) {
                                 Image(uiImage: image)
                                     .resizable()
                                     .scaledToFit()

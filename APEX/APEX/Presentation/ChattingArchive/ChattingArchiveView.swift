@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 import AVFoundation
 import LinkPresentation
 import UniformTypeIdentifiers
@@ -60,17 +61,22 @@ struct ChattingArchiveView: View {
                 sharedLinksSection
 
                 sharedAudioSection
+                
+                bottomActionsBar
             }
-            .padding(.horizontal, 16)
+            .padding(.leading, 16)
             .padding(.vertical, 12)
         }
         .background(Color("Background"))
-        .safeAreaInset(edge: .top) { topBar }
-        .safeAreaInset(edge: .bottom) { bottomActionsBar }
+        .scrollEdgeEffectStyle(.soft, for: .top)
+        .safeAreaBar(edge: .top) { topBar }
         .overlay(alignment: .center) { contactDeleteOverlay }
         .onAppear {
             isFavorite = client?.favorite ?? false
             reloadMediaPreview()
+        }
+        .onChange(of: isFavorite) { newValue in
+            persistFavorite(newValue)
         }
         .onReceive(NotificationCenter.default.publisher(for: .apexChatNotesUpdated)) { notif in
             guard let changedId = notif.userInfo?["clientId"] as? UUID,
@@ -150,19 +156,17 @@ struct ChattingArchiveView: View {
                     router.push(.archiveSection(id, .media))
                 }
             })
-            let items = mediaItems
-            let rows = [
-                GridItem(.fixed(121.67), spacing: 2),
-                GridItem(.fixed(121.67), spacing: 2)
-            ]
-            if !items.isEmpty {
+            let allItems = mediaItems
+            if !allItems.isEmpty {
+                let shouldShowSeeAll = allItems.count >= 9
+                let previewItems = shouldShowSeeAll ? Array(allItems.prefix(8)) : allItems
                 ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHGrid(rows: rows, spacing: 2) {
-                        ForEach(Array(items.enumerated()), id: \.element.id) { idx, item in
+                    HStack(spacing: 2) {
+                        ForEach(Array(previewItems.enumerated()), id: \.element.id) { idx, item in
                             APEXMediaTile(
                                 source: {
                                     if item.isVideo, let url = item.videoURL {
-                                        return .video(url)            // 유효 URL일 때만 비디오로
+                                        return .video(url)
                                     } else {
                                         return .image(item.imageData ?? Data())
                                     }
@@ -173,7 +177,6 @@ struct ChattingArchiveView: View {
                             )
                             .frame(width: 121.67, height: 121.67)
                             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                            // Ensure duration text stays visible above any internal content
                             .overlay(alignment: .bottomLeading) {
                                 if item.isVideo, let url = item.videoURL {
                                     Text(format(durationOf: url))
@@ -182,26 +185,31 @@ struct ChattingArchiveView: View {
                                         .padding(12)
                                 }
                             }
- 							.clipped()
- 							.apexOpensMediaViewer(
- 								items: items.map { mediaItem in
- 									if mediaItem.isVideo, let url = mediaItem.videoURL {
- 										return .video(url)
- 									} else {
- 										return .image(mediaItem.imageData ?? Data())
- 									}
+                            .clipped()
+                            .apexOpensMediaViewer(
+                                items: previewItems.map { mediaItem in
+                                    if mediaItem.isVideo, let url = mediaItem.videoURL {
+                                        return .video(url)
+                                    } else {
+                                        return .image(mediaItem.imageData ?? Data())
+                                    }
                                 },
- 								index: idx,
- 								title: client.map { "\($0.name) \($0.surname)"} ?? "Shared Media",
- 								uploadedAt: nil,
+                                index: idx,
+                                title: client.map { "\($0.name) \($0.surname)"} ?? "Shared Media",
+                                uploadedAt: nil,
                                 excludedClientIds: client.map { [$0.id] } ?? [],
                                 onDelete: { removedIndex, _ in
-                                    guard items.indices.contains(removedIndex), let clientId = client?.id else { return }
-                                    let target = items[removedIndex]
+                                    guard previewItems.indices.contains(removedIndex),
+                                          let clientId = client?.id else { return }
+                                    let target = previewItems[removedIndex]
                                     deleteFlattenedMedia(item: target, clientId: clientId)
                                     reloadMediaPreview()
                                 }
- 							)
+                            )
+                        }
+                        if shouldShowSeeAll, let id = client?.id {
+                            SeeAllTile(size: 121.67, title: "전체보기")
+                                .onTapGesture { router.push(.archiveSection(id, .media)) }
                         }
                     }
                     .padding(.horizontal, 2)
@@ -212,15 +220,22 @@ struct ChattingArchiveView: View {
 
     private var sharedLinksSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader(title: "링크", iconName: "link", iconColor: .red, action: {
+            sectionHeader(title: "링크", iconName: "link", iconColor: Color(hex: "BC0D59"), action: {
                 if let id = client?.id {
                     router.push(.archiveSection(id, .links))
                 }
             })
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(linkItems, id: \.id) { item in
-                        LinkPreviewCard(url: item.url)
+                let allItems = linkItems
+                let shouldShowSeeAll = allItems.count >= 9
+                let previewItems = shouldShowSeeAll ? Array(allItems.prefix(8)) : allItems
+                HStack(spacing: 2) {
+                    ForEach(previewItems, id: \.id) { item in
+                        APEXLinkTile(url: item.url, width: 121.67)
+                    }
+                    if shouldShowSeeAll, let id = client?.id {
+                        SeeAllTile(size: 121.67, title: "전체보기")
+                            .onTapGesture { router.push(.archiveSection(id, .links)) }
                     }
                 }
                 .padding(.horizontal, 2)
@@ -230,21 +245,32 @@ struct ChattingArchiveView: View {
 
     private var sharedFilesSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader(title: "파일", iconName: "document", iconColor: .green, action: {
+            sectionHeader(title: "파일", iconName: "document", iconColor: Color(hex: "00B22D"), action: {
                 if let id = client?.id {
                     router.push(.archiveSection(id, .files))
                 }
             })
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(fileItems, id: \.id) { item in
+                let allItems = fileItems
+                let shouldShowSeeAll = allItems.count >= 9
+                let previewItems = shouldShowSeeAll ? Array(allItems.prefix(8)) : allItems
+                HStack(spacing: 2) {
+                    ForEach(previewItems, id: \.id) { item in
                         APEXFileTile(
                             url: item.url,
                             contentType: item.contentType,
                             highlightQuery: nil,
-                            size: 119,
-                            onTap: nil
+                            size: 121.67,
+                            onTap: {
+                                if FileManager.default.fileExists(atPath: item.url.path) {
+                                    UIApplication.shared.open(item.url, options: [:], completionHandler: nil)
+                                }
+                            }
                         )
+                    }
+                    if shouldShowSeeAll, let id = client?.id {
+                        SeeAllTile(size: 121.67, title: "전체보기")
+                            .onTapGesture { router.push(.archiveSection(id, .files)) }
                     }
                 }
                 .padding(.horizontal, 2)
@@ -254,19 +280,22 @@ struct ChattingArchiveView: View {
 
     private var sharedAudioSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader(title: "음성메모", iconName: "waveform", iconColor: .orange, action: {
+            sectionHeader(title: "음성메모", iconName: "waveform", iconColor: Color(hex: "E28822"), action: {
                 if let id = client?.id {
                     router.push(.archiveSection(id, .audio))
                 }
             })
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(audioItems, id: \.id) { item in
+                let allItems = audioItems
+                let shouldShowSeeAll = allItems.count >= 9
+                let previewItems = shouldShowSeeAll ? Array(allItems.prefix(8)) : allItems
+                HStack(spacing: 2) {
+                    ForEach(previewItems, id: \.id) { item in
                         ZStack {
                             AudioSquareTile(
                                 url: item.url,
                                 duration: item.duration,
-                                preferredLength: 119,
+                                preferredLength: 121.67,
                                 titleOverride: nil,
                                 highlightQuery: nil
                             )
@@ -274,6 +303,10 @@ struct ChattingArchiveView: View {
                         }
                         .contentShape(Rectangle())
                         .onTapGesture { recordPayload = DetailRecordPayload(url: item.url) }
+                    }
+                    if shouldShowSeeAll, let id = client?.id {
+                        SeeAllTile(size: 121.67, title: "전체보기")
+                            .onTapGesture { router.push(.archiveSection(id, .audio)) }
                     }
                 }
                 .padding(.horizontal, 2)
@@ -309,31 +342,24 @@ struct ChattingArchiveView: View {
             }
             .frame(height: 52)
             .padding(.horizontal, 12)
-            .background(Color("Background"))
         }
     }
 
     private var bottomActionsBar: some View {
         VStack(spacing: 10) {
-            Divider().padding(.top, 4)
             VStack(spacing: 8) {
                 Button(role: .destructive) {
                     showDeleteMediaAlert = true
                 } label: {
-                    HStack {
-                        Image(systemName: "trash")
-                            .font(.system(size: 15, weight: .semibold))
-                        Text("미디어 데이터 모두 삭제하기") +
-                        Text("(\(formatBytes(totalMediaBytes)))")
-                            .foregroundColor(.gray)
-                    }
-                    .font(.body3)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                    Text("미디어 데이터 모두 삭제하기 (\(formatBytes(totalMediaBytes)))")
+                        .font(.body5)
+                        .foregroundColor(Color("BlackLabel"))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 15)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Color("Error"))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .buttonStyle(.plain)
+                .background(Color("BackgroundSecondary"))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .disabled(totalMediaBytes == 0)
                 .opacity(totalMediaBytes == 0 ? 0.5 : 1)
 
@@ -341,19 +367,21 @@ struct ChattingArchiveView: View {
                     showDeleteContactOverlay = true
                 } label: {
                     HStack {
-                        Image(systemName: "person.crop.circle.badge.xmark")
-                            .font(.system(size: 15, weight: .semibold))
+                        Image(systemName: "trash.fill")
+                            .font(.system(size: 16, weight: .bold))
                         Text("연락처 삭제하기")
                     }
-                    .font(.body3)
+                    .font(.body5)
+                    .foregroundColor(Color("Error"))
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                    .padding(.vertical, 15)
                 }
-                .buttonStyle(.bordered)
-                .tint(Color("Error"))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .buttonStyle(.plain)
+                .background(Color("ErrorContainer"))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 24)
+            .padding(.top, 24)
             .padding(.bottom, 8)
         }
         // Confirmations
@@ -375,10 +403,11 @@ struct ChattingArchiveView: View {
                 
                 Text(title)
                     .font(.body2)
-                    .foregroundStyle(.black)
+                    .foregroundStyle(Color("BlackLabel"))
                 
                 Spacer()
             }
+            .padding(.vertical, 10)
         }
         .buttonStyle(SectionHeaderPressedStyle())
     }
@@ -429,16 +458,16 @@ struct ChattingArchiveView: View {
                 Profile(
                     image: image,
                     initials: initials,
-                    size: .large,
-                    fontSize: 48,
+                    size: .small,
+                    fontSize: 64,
                     backgroundColor: Color("PrimaryContainer"),
                     textColor: .white,
                     fontWeight: .semibold
                 )
 
                 Text(name)
-                    .font(.title3)
-                    .foregroundColor(Color("Dark"))
+                    .font(.title5)
+                    .foregroundColor(Color("BlackLabel"))
                     .multilineTextAlignment(.center)
 
                 Group {
@@ -450,8 +479,8 @@ struct ChattingArchiveView: View {
                         Text(position)
                     }
                 }
-                .font(.caption2)
-                .foregroundColor(.gray)
+                .font(.body5)
+                .foregroundColor(Color("GrayLabel"))
                 .multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity)
@@ -589,14 +618,38 @@ private struct ContactDeleteConfirmCard: View {
 }
 // MARK: - Private helpers
 
-private extension ChattingArchiveView {
+extension ChattingArchiveView {
+    struct SeeAllTile: View {
+        let size: CGFloat
+        let title: String
+        
+        var body: some View {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color("BackgroundSecondary"))
+                VStack(spacing: 6) {
+                    Image(systemName: "arrow.right.circle.fill")
+                        .font(.system(size: 16, weight: .regular))
+                        .foregroundStyle(Color("Primary"))
+                    Text(title)
+                        .font(.caption2)
+                        .foregroundStyle(Color("Primary"))
+                }
+            }
+            .frame(width: size, height: size)
+        }
+    }
     func reloadMediaPreview() {
         guard let clientId = client?.id else {
             mediaItems = []; fileItems = []; audioItems = []; linkItems = []
             totalMediaBytes = 0
             return
         }
-        let notes = ChatStore.shared.notes(for: clientId)
+        var notes = ChatStore.shared.notes(for: clientId)
+        if notes.isEmpty {
+            // Fallback to client's persisted notes if ChatStore hasn't been seeded yet
+            notes = client?.notes ?? []
+        }
         mediaItems = computeMediaItems(from: notes)
         fileItems = computeFileItems(from: notes)
         audioItems = computeAudioItems(from: notes)
@@ -781,6 +834,29 @@ private extension ChattingArchiveView {
         // Let parent decide whether to pop further; this view does not pop itself here
         DispatchQueue.main.async { onDeletedContact?() }
     }
+    
+    private func persistFavorite(_ newValue: Bool) {
+        guard let base = client else { return }
+        let updated = Client(
+            id: base.id,
+            profile: base.profile,
+            nameCardFront: base.nameCardFront,
+            nameCardBack: base.nameCardBack,
+            surname: base.surname,
+            name: base.name,
+            position: base.position,
+            company: base.company,
+            email: base.email,
+            phoneNumber: base.phoneNumber,
+            linkedinURL: base.linkedinURL,
+            memo: base.memo,
+            action: base.action,
+            favorite: newValue,
+            pin: base.pin,
+            notes: base.notes
+        )
+        ClientsStore.shared.update(updated)
+    }
 }
 
 // MARK: - Media cell (moved to common: APEXMediaTile)
@@ -919,4 +995,10 @@ private func parseFlattenedMediaId(_ id: String) -> (noteId: UUID, isImage: Bool
 
 #Preview {
     ChattingArchiveView()
+}
+
+#Preview("전체보기 타일") {
+    ChattingArchiveView.SeeAllTile(size: 121.67, title: "전체보기")
+        .padding()
+        .background(Color("Background"))
 }

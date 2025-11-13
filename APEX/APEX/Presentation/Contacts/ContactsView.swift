@@ -8,8 +8,15 @@
 import SwiftUI
 
 struct ContactsView: View {
-    @State private var favorites: [Client] = sampleClients.filter { $0.favorite }
-    @State private var allUngrouped: [Client] = sampleClients
+    @ObservedObject private var store = ClientsStore.shared
+    private var favorites: [Client] {
+        let myEmail = sampleMyProfileClient.email
+        return store.clients.filter { ($0.email ?? "") != myEmail && $0.favorite }
+    }
+    private var allUngrouped: [Client] {
+        let myEmail = sampleMyProfileClient.email
+        return store.clients.filter { ($0.email ?? "") != myEmail }
+    }
 
     @State private var isFavoritesExpanded: Bool = true
     @State private var isAllExpanded: Bool = true
@@ -59,7 +66,6 @@ struct ContactsView: View {
         .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $isProfileAddPresented) {
             ProfileAddView(onComplete: { newClient in
-                allUngrouped.insert(newClient, at: 0)
                 ClientsStore.shared.add(newClient, atTop: true)
                 isProfileAddPresented = false
                 DispatchQueue.main.async {
@@ -88,7 +94,7 @@ struct ContactsView: View {
                 // MARK: - My Profile (TopBar와 0 간격, Favorites와는 8 간격)
                 // My Profile Row (DummyClient -> Client 변환해 표시)
                 ContactsRow(
-                    client: convertToClient(myProfileDummy),
+                    client: (store.clients.first { ($0.email ?? "") == sampleMyProfileClient.email }) ?? convertToClient(myProfileDummy),
                     onToggleFavorite: nil,
                     onDelete: nil,
                     onTap: { navigateToMyProfile() },
@@ -97,7 +103,9 @@ struct ContactsView: View {
                 )
                 .applyListRowCleaning()
 
-                gapRow() // Favorites와 8 간격
+                if !favorites.isEmpty {
+                    gapRow() // Favorites와 8 간격
+                }
 
                 // MARK: - Favorites
                 if !favorites.isEmpty {
@@ -173,12 +181,6 @@ struct ContactsView: View {
                 pin: base.pin,
                 notes: base.notes
             )
-            if let idx = allUngrouped.firstIndex(where: { $0.id == base.id }) {
-                allUngrouped[idx] = updatedClient
-            }
-            if let fidx = favorites.firstIndex(where: { $0.id == base.id }) {
-                favorites[fidx] = updatedClient
-            }
             ClientsStore.shared.update(updatedClient)
         }
     }
@@ -206,30 +208,33 @@ struct ContactsView: View {
     private func toggleFavorite(_ client: Client) {
         // 되돌리기를 위해 현재 상태 저장
         lastToggledClient = client
-        
-        if let idx = favorites.firstIndex(where: { $0.id == client.id }) {
-            // 즐겨찾기 제거 (All 섹션은 건드리지 않음)
-            favorites.remove(at: idx)
-            lastFavoriteAction = .removed
-            toastText = "즐겨찾기를 해제했습니다"
-        } else {
-            // 즐겨찾기 추가 (All 섹션은 건드리지 않음)
-            favorites.append(client)
-            lastFavoriteAction = .added
-            toastText = "즐겨찾기를 추가했습니다"
-        }
-        
+        let toggled = Client(
+            id: client.id,
+            profile: client.profile,
+            nameCardFront: client.nameCardFront,
+            nameCardBack: client.nameCardBack,
+            surname: client.surname,
+            name: client.name,
+            position: client.position,
+            company: client.company,
+            email: client.email,
+            phoneNumber: client.phoneNumber,
+            linkedinURL: client.linkedinURL,
+            memo: client.memo,
+            action: client.action,
+            favorite: !client.favorite,
+            pin: client.pin,
+            notes: client.notes
+        )
+        ClientsStore.shared.update(toggled)
+        lastFavoriteAction = toggled.favorite ? .added : .removed
+        toastText = toggled.favorite ? "즐겨찾기를 추가했습니다" : "즐겨찾기를 해제했습니다"
         // favorites 배열만 변경하므로 All 섹션은 움직이지 않음
         presentToast()
     }
 
     private func deleteClient(_ client: Client) {
-        if let idx = allUngrouped.firstIndex(where: { $0.id == client.id }) {
-            allUngrouped.remove(at: idx)
-        }
-        if let fidx = favorites.firstIndex(where: { $0.id == client.id }) {
-            favorites.remove(at: fidx)
-        }
+        ClientsStore.shared.remove(client.id)
         
         // 모달 상태 초기화
         clientToDelete = nil
@@ -318,19 +323,34 @@ struct ContactsView: View {
         
         print("🔄 되돌리기 실행: \(client.autoFormattedName), 액션: \(action)")
         
-        switch action {
-        case .added:
-            // 추가된 것을 되돌리기 (제거)
-            if let idx = favorites.firstIndex(where: { $0.id == client.id }) {
-                favorites.remove(at: idx)
-                print("✅ 즐겨찾기에서 제거됨")
-            }
-        case .removed:
-            // 제거된 것을 되돌리기 (추가)
-            if !favorites.contains(where: { $0.id == client.id }) {
-                favorites.append(client)
-                print("✅ 즐겨찾기에 추가됨")
-            }
+        // 저장소의 현재 값을 기준으로 favorite을 되돌림
+        if let current = store.clients.first(where: { $0.id == client.id }) {
+            let shouldBeFavorite: Bool = {
+                switch action {
+                case .added:   return false   // 방금 추가했으니 되돌리면 제거
+                case .removed: return true    // 방금 제거했으니 되돌리면 추가
+                }
+            }()
+            let reverted = Client(
+                id: current.id,
+                profile: current.profile,
+                nameCardFront: current.nameCardFront,
+                nameCardBack: current.nameCardBack,
+                surname: current.surname,
+                name: current.name,
+                position: current.position,
+                company: current.company,
+                email: current.email,
+                phoneNumber: current.phoneNumber,
+                linkedinURL: current.linkedinURL,
+                memo: current.memo,
+                action: current.action,
+                favorite: shouldBeFavorite,
+                pin: current.pin,
+                notes: current.notes
+            )
+            ClientsStore.shared.update(reverted)
+            print(shouldBeFavorite ? "✅ 즐겨찾기에 추가됨(되돌리기)" : "✅ 즐겨찾기에서 제거됨(되돌리기)")
         }
         
         // 되돌리기 완료 후 상태 초기화

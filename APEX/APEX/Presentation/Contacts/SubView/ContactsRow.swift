@@ -40,7 +40,7 @@ struct ContactsRow: View {
                         .lineLimit(1)
 
                     Text(subtitle)
-                        .font(.body6)
+                        .font(.body5)  // body6에서 body5로 변경
                         .foregroundColor(.gray)
                         .lineLimit(1)
                 }
@@ -105,7 +105,7 @@ struct ContactsRow: View {
         return Profile(
             image: client.profile,
             initials: initials,
-            size: .small,
+            size: .extraSmall,
             fontSize: 30.72,
             backgroundColor: Color("PrimaryContainer"),
             textColor: .white,

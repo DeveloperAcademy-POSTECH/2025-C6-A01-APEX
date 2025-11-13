@@ -24,19 +24,9 @@ struct ChatDatePickerSheet: View {
         let cal = Calendar.current
         let start = monthStart
         guard let range = cal.range(of: .day, in: .month, for: start) else { return [] }
-        let firstWeekdayIndex = (cal.component(.weekday, from: start) + 6) % 7 // Monday=0
-        var days: [Date] = []
-        if firstWeekdayIndex > 0 {
-            for i in stride(from: firstWeekdayIndex - 1, through: 0, by: -1) {
-                if let d = cal.date(byAdding: .day, value: -i - 1, to: start) { days.append(d) }
-            }
+        return range.compactMap { day in
+            Calendar.current.date(byAdding: .day, value: day - 1, to: start)
         }
-        for day in range {
-            if let d = cal.date(byAdding: .day, value: day - 1, to: start) { days.append(d) }
-        }
-        while days.count % 7 != 0 { if let last = days.last, let d = cal.date(byAdding: .day, value: 1, to: last) { days.append(d) } else { break } }
-        while days.count < 42 { if let last = days.last, let d = cal.date(byAdding: .day, value: 1, to: last) { days.append(d) } else { break } }
-        return days
     }
 
     private func isSameDay(_ a: Date, _ b: Date) -> Bool { Calendar.current.isDate(a, inSameDayAs: b) }
@@ -44,12 +34,13 @@ struct ChatDatePickerSheet: View {
     private func startOfDay(_ d: Date) -> Date { Calendar.current.startOfDay(for: d) }
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 0) {
             // Header row: left-aligned year/month, right chevrons to change month
             HStack {
                 HStack(spacing: 6) {
                     Text(monthHeader(for: displayedMonth))
                         .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(Color("BlackLabel"))
                     Button {
                         let comps = Calendar.current.dateComponents([.year, .month], from: displayedMonth)
                         pickerYear = comps.year ?? pickerYear
@@ -60,32 +51,33 @@ struct ChatDatePickerSheet: View {
                             .font(.system(size: 15, weight: .bold))
                     }
                 }
+                .padding(.horizontal, 16)
                 Spacer()
-                HStack(spacing: 8) {
+                HStack(spacing: 28) {
                     Button {
                         withAnimation(.easeInOut) { monthIndex = max(monthIndex - 1, -120) }
                     } label: {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 20, weight: .medium))
-                            .frame(width: 36, height: 36)
+                            .frame(width: 24, height: 24)
                     }
                     Button {
                         withAnimation(.easeInOut) { monthIndex = min(monthIndex + 1, 120) }
                     } label: {
                         Image(systemName: "chevron.right")
                             .font(.system(size: 20, weight: .medium))
-                            .frame(width: 36, height: 36)
+                            .frame(width: 24, height: 24)
                     }
                 }
             }
+            .padding(.vertical, 8)
 
-            // Weekday symbols (Mon..Sun)
-            let symbols = Calendar.current.shortStandaloneWeekdaySymbols
-            let shifted = Array(symbols[1...6] + symbols[0...0])
+            // Weekday symbols (Sun..Sat)
+            let symbols = weekdaySymbolsKR()
             HStack(spacing: 0) {
-                ForEach(shifted, id: \.self) { s in
+                ForEach(symbols, id: \.self) { s in
                     Text(s)
-                        .font(.caption2)
+                        .font(.caption1)
                         .frame(maxWidth: .infinity)
                         .foregroundStyle(Color.gray)
                 }
@@ -96,31 +88,47 @@ struct ChatDatePickerSheet: View {
                 ForEach(-120...120, id: \.self) { idx in
                     let monthStart = Calendar.current.date(byAdding: .month, value: idx, to: startOfDisplayedMonth) ?? startOfDisplayedMonth
                     // Days grid for this month
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: 7), spacing: 6) {
-                        ForEach(daysInMonth(for: monthStart), id: \.self) { d in
-                            let inMonth = isSameMonth(d, monthStart)
-                            let isToday = isSameDay(d, Date())
-                            let hasMemo = hasMemoDays.contains(startOfDay(d))
-                            let isEnabled = inMonth && hasMemo
-                            Button {
-                                date = d
-                                onSelect(d)
-                            } label: {
-                                Text("\(Calendar.current.component(.day, from: d))")
-                                    .font(.caption)
-                                    .frame(width: 36, height: 36)
-                                    .background(isToday ? Color("Primary").opacity(0.12) : Color.clear)
-                                    .foregroundStyle(
-                                        isToday ? Color("Primary") : (
-                                            hasMemo && inMonth ? Color.primary : Color("BackgroundDisabled")
-                                        )
-                                    )
-                                    .clipShape(Circle())
+                    VStack(spacing: 0) {
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: 7), spacing: 0) {
+                            let cal = Calendar.current
+                            // Sunday-first alignment for leading placeholders
+                            let weekday = cal.component(.weekday, from: monthStart) // 1=Sun ... 7=Sat
+                            let firstWeekdayIndex = weekday - 1 // 0..6, Sunday=0
+                            let inMonthDays = daysInMonth(for: monthStart)
+                            let totalSlots = 42 // Always 6 rows
+                            let leading = firstWeekdayIndex
+                            let middle = inMonthDays.count
+                            ForEach(0..<totalSlots, id: \.self) { slot in
+                                if slot < leading || slot >= leading + middle {
+                                    Color.clear
+                                        .frame(width: 44, height: 44)
+                                } else {
+                                    let d = inMonthDays[slot - leading]
+                                    let isToday = isSameDay(d, Date())
+                                    let hasMemo = hasMemoDays.contains(startOfDay(d))
+                                    let isEnabled = hasMemo
+                                    Button {
+                                        date = d
+                                        onSelect(d)
+                                    } label: {
+                                        Text("\(Calendar.current.component(.day, from: d))")
+                                            .font(.title6)
+                                            .frame(width: 44, height: 44)
+                                            .background(isToday ? Color("Primary").opacity(0.12) : Color.clear)
+                                            .foregroundStyle(
+                                                isToday ? Color("Primary") : (
+                                                    hasMemo ? Color("BlackLabel") : Color("BackgroundDisabled")
+                                                )
+                                            )
+                                            .clipShape(Circle())
+                                    }
+                                    .disabled(!isEnabled)
+                                    .buttonStyle(.plain)
+                                }
                             }
-                            .disabled(!isEnabled)
-                            .buttonStyle(.plain)
                         }
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .tag(idx)
                 }
             }
@@ -143,7 +151,6 @@ struct ChatDatePickerSheet: View {
         }
         .padding(16)
         .background(Color("Background"))
-        .presentationDetents([.medium, .large])
         .presentationBackground(Color("Background"))
         .environment(\.locale, Locale(identifier: "ko_KR"))
     }
@@ -153,6 +160,12 @@ struct ChatDatePickerSheet: View {
         f.locale = Locale(identifier: "ko_KR")
         f.dateFormat = "YYYY년 M월"
         return f.string(from: date)
+    }
+
+    private func weekdaySymbolsKR() -> [String] {
+        var cal = Calendar(identifier: .gregorian)
+        cal.locale = Locale(identifier: "ko_KR")
+        return cal.shortStandaloneWeekdaySymbols
     }
 }
 

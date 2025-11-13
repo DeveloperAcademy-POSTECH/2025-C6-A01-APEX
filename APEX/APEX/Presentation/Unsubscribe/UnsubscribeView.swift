@@ -17,82 +17,147 @@ struct UnsubscribeView: View {
             topBar
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Stash 탈퇴")
-                        .font(.title3)
-                        .foregroundColor(.black)
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
+                VStack(alignment: .center, spacing: 32) { // 컴포넌트 사이 패딩 32
+                    // 1. 상단 타이틀 문구
+                    titleSection
+                       
+                    
+                    // 커스텀 디바이더
+                    customDivider
+                    
+                    // 2. 텍스트 박스 (안내 문구)
+                    informationTextBox
+                      
+                        .padding(.top, -14) // 32pt에서 18pt로 조정 (32-18=14)
+                    
+                    // 3. 동의 체크박스
+                    agreementCheckbox
+                  
+                    
+                    // 4. 탈퇴하기 버튼
+                    unsubscribeButton
 
-                    Text("탈퇴하기 전에 아래 내용을 확인해주세요")
-                        .font(.body6)
-                        .foregroundColor(.gray)
-                        .padding(.horizontal, 16)
-
-                    Divider().padding(.horizontal, 16)
-
-                    // 여기에 안내문 추가 가능
-                    Text("여기에 뭐 써야할지 다 같이 고민…")
-                        .font(.body5)
-                        .foregroundColor(.gray)
-                        .padding(.horizontal, 16)
-
-                    HStack(spacing: 8) {
-                        Button {
-                            agreed.toggle()
-                        } label: {
-                            Image(systemName: agreed ? "checkmark.circle.fill" : "circle")
-                                .foregroundColor(agreed ? Color("Primary") : .gray)
-                                .font(.system(size: 20, weight: .semibold))
-                        }
-                        .buttonStyle(.plain)
-
-                        Text("데이터를 모두 삭제하고 탈퇴하겠습니다.")
-                            .font(.body2)
-                    }
-                    .padding(.horizontal, 16)
-
-                    APEXButton("탈퇴하기", isEnabled: agreed) {
-                        // 더미
-                        dismiss()
-                    }
-                    .apexButtonTheme(
-                        .init(
-                            font: .title4,
-                            foregroundEnabled: Color("Error"),
-                            foregroundDisabled: Color("Error").opacity(0.4),
-                            backgroundEnabled: Color("Error").opacity(0.12),
-                            backgroundPressed: Color("Error").opacity(0.2),
-                            backgroundDisabled: Color("BackgroundSecondary"),
-                            cornerRadius: 8,
-                            height: 52,
-                            horizontalPadding: 16
-                        )
-                    )
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
                 }
-                .padding(.vertical, 16)
+                .padding(.horizontal, 16) // 좌우만 16pt 패딩
+                .padding(.bottom, 16)    // 하단만 16pt 패딩
             }
         }
         .background(Color("Background"))
     }
+    
+    // MARK: - Components
+    
+    // 1. 상단 타이틀 문구
+    private var titleSection: some View {
+        VStack(spacing: 8) { // 제목과 설명 사이 패딩 8
+            Text("Stash 탈퇴")
+                .font(.title1) // title1 사용
+                .foregroundColor(Color("BlackLabel")) // blacklabel 색상
+                .multilineTextAlignment(.center)
 
-    private var topBar: some View {
-        HStack {
-            Button { router.pop() } label: {
-                Image(systemName: "chevron.left")
-                    .font(.title4)
-                    .foregroundColor(.black)
-                    .frame(width: 44, height: 44)
+            Text("탈퇴하기 전에 아래 내용을 확인해주세요")
+                .font(.body2) // body2 사용
+                .foregroundColor(Color("BlackLabel")) // blacklabel 색상
+                .multilineTextAlignment(.center)
+        }
+        .padding(.top, 16) // 상단 추가 패딩만 유지
+    }
+    
+    // 커스텀 디바이더
+    private var customDivider: some View {
+        Rectangle()
+            .fill(Color("BackgroundSecondary"))
+            .frame(height: 2)
+    }
+    
+    // 2. 텍스트 박스 (안내 문구) - 단순화
+    private var informationTextBox: some View {
+        VStack {
+            Text("여기에 뭐 써야할지 다 같이 고민…")
+                .font(.body)
+                .foregroundColor(Color("GrayLabel"))
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.vertical, 8) // 상하 패딩 8
+        .padding(.horizontal, 8) // 좌우 패딩 8
+    }
+    
+    // 3. 동의 체크박스
+    private var agreementCheckbox: some View {
+        HStack(spacing: 16) { // 체크와 텍스트 사이 패딩 16
+            Button {
+                agreed.toggle()
+            } label: {
+                ZStack {
+                    Circle()
+                        .stroke(Color("BackgroundDisabled"), lineWidth: 1) // 선 색상과 두께 1
+                        .fill(agreed ? Color.blue : Color.clear)
+                        .frame(width: 24, height: 24) // 프레임 크기 24x24
+                    
+                    if agreed {
+                        Image(systemName: "checkmark")
+                            .foregroundColor(.white)
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                }
             }
             .buttonStyle(.plain)
-            Spacer()
-            Color.clear.frame(width: 44, height: 44)
+
+            Text("데이터를 모두 삭제하고 탈퇴하겠습니다.")
+                .font(.body2) // body2 사용
+                .foregroundColor(Color("BlackLabel")) // blacklabel 사용
         }
-        .padding(.horizontal, 12)
-        .frame(height: 52)
-        .background(Color("Background"))
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+    
+    // 4. 탈퇴하기 버튼
+    private var unsubscribeButton: some View {
+        APEXButton("탈퇴하기", isEnabled: agreed) {
+            // 더미
+            dismiss()
+        }
+        .apexButtonTheme(
+            .init(
+                font: .body2, // body2 사용
+                foregroundEnabled: Color("Error"),
+                foregroundDisabled: Color("BackgroundDisabled"), // 비활성 텍스트 색상
+                backgroundEnabled: Color("Error").opacity(0.12),
+                backgroundPressed: Color("Error").opacity(0.2),
+                backgroundDisabled: Color("BackgroundSecondary"),
+                cornerRadius: 10, // corner radius 10
+                height: 56, // 높이 56으로 수정
+                horizontalPadding: 16
+            )
+        )
+    }
+
+    private var topBar: some View {
+        HStack(alignment: .center, spacing: 0) {
+            // 뒤로 버튼 (MyProfile 스타일)
+            Button(action: { router.pop() }) {
+                ZStack {
+                    Circle()
+                        .fill(Color.white)
+                        .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundColor(Color.black)
+                }
+                .frame(width: 44, height: 44)
+                .contentShape(Circle())
+                .accessibilityLabel("뒤로")
+            }
+            .buttonStyle(.plain)
+            
+            Spacer()
+        }
+        .padding(.horizontal, 16) // 좌우 16pt
+        .padding(.vertical, 8)    // 상하 8pt
+        .frame(height: 60) // 전체 프레임 높이 60pt
+        .frame(maxWidth: .infinity, alignment: .center)
+        .background(.white)
     }
 }
 

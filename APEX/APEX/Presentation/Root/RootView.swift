@@ -12,6 +12,7 @@ struct RootView: View {
     
     @EnvironmentObject private var router: NavigationRouter
     @State private var selection: Tabs = .contacts
+    @State private var lastNonSearchSelection: Tabs = .contacts
     
     @State private var contactsQuery: String = ""
     @State private var notesQuery: String = ""
@@ -20,7 +21,7 @@ struct RootView: View {
         NavigationStack(path: $router.path) {
             TabView(selection: $selection) {
                 
-                Tab("Contacts", systemImage: "person.3.fill", value: Tabs.contacts) {
+                Tab("Contacts", systemImage: "person.crop.circle.fill", value: Tabs.contacts) {
                     ContactsView()
                 }
 
@@ -29,10 +30,15 @@ struct RootView: View {
                 }
 
                 Tab("Search", systemImage: "magnifyingglass", value: Tabs.search, role: .search) {
-                    Text("")
+                    SearchView(onClose: { selection = lastNonSearchSelection })
                 }
             }
             .tint(Color("Primary"))
+            .onChange(of: selection) { newValue in
+                if newValue != .search {
+                    lastNonSearchSelection = newValue
+                }
+            }
             .navigationDestination(for: NavigationDestination.self) { route in
                 destination(for: route)
             }
@@ -76,24 +82,52 @@ private extension RootView {
                 .toolbar(.hidden, for: .navigationBar)
                 .toolbar(.hidden, for: .tabBar)
         case .archiveSection(let clientId, let section):
-            let client = ClientsStore.shared.clients.first(where: { $0.id == clientId })
-            let notes = ChatStore.shared.notes(for: clientId)
-            let media = computeMediaItems(from: notes)
-            let files = computeFileItems(from: notes)
-            let audios = computeAudioItems(from: notes)
-            let links = computeLinkItems(from: notes)
-            ArchiveListView(
-                section: convert(section),
-                media: media,
-                files: files,
-                links: links,
-                audios: audios,
-                viewerTitle: client.map { "\($0.name) \($0.surname)" } ?? "Shared Media",
-                excludedClientIds: [clientId],
-                onClose: { router.pop() }
-            )
-            .toolbar(.hidden, for: .navigationBar)
-            .toolbar(.hidden, for: .tabBar)
+            let builtView: AnyView = {
+                let client = ClientsStore.shared.clients.first(where: { $0.id == clientId })
+                var notes = ChatStore.shared.notes(for: clientId)
+                if notes.isEmpty {
+                    notes = client?.notes ?? []
+                }
+                let media = computeMediaItems(from: notes)
+                let files = computeFileItems(from: notes)
+                let audios = computeAudioItems(from: notes)
+                let links = computeLinkItems(from: notes)
+                let archiveView = ArchiveListView(
+                    section: convert(section),
+                    media: media,
+                    files: files,
+                    links: links,
+                    audios: audios,
+                    viewerTitle: client.map { "\($0.name) \($0.surname)" } ?? "Shared Media",
+                    excludedClientIds: [clientId],
+                    onClose: { router.pop() }
+                )
+                .toolbar(.hidden, for: .navigationBar)
+                .toolbar(.hidden, for: .tabBar)
+                return AnyView(archiveView)
+            }()
+            builtView
+        case .mediaViewer(let id):
+            if let payload = APEXMediaViewerStore.shared.get(id) {
+                MediaView(
+                    items: payload.items,
+                    selectedIndex: payload.index,
+                    title: payload.title,
+                    uploadedAt: payload.uploadedAt,
+                    excludedClientIds: payload.excludedClientIds,
+                    onSave: payload.onSave,
+                    onDelete: payload.onDelete,
+                    onTitleTap: payload.onTitleTap
+                )
+                .onDisappear {
+                    APEXMediaViewerStore.shared.remove(id)
+                }
+                .toolbar(.hidden, for: .navigationBar)
+                .toolbar(.hidden, for: .tabBar)
+            } else {
+                // Fallback if payload missing
+                Color.clear
+            }
         case .unsubscribe:
             UnsubscribeView()
                 .toolbar(.hidden, for: .navigationBar)
@@ -116,9 +150,56 @@ private extension RootView {
 
 // MARK: - Route Screens (wrappers to adapt bindings)
 private struct MyProfileScreen: View {
+    @ObservedObject private var store = ClientsStore.shared
     @State private var client: DummyClient = sampleMyProfileClient
     var body: some View {
         MyProfileView(client: $client)
+            .onAppear { syncFromStore() }
+            .onChange(of: store.clients) { _ in
+                syncFromStore()
+            }
+    }
+    
+    private func syncFromStore() {
+        // Prefer the seeded sample email as the key for "me"
+        let myEmailKey = sampleMyProfileClient.email
+        if let me = store.clients.first(where: { ($0.email ?? "") == myEmailKey }) {
+            client = DummyClient(
+                profile: me.profile,
+                nameCardFront: me.nameCardFront,
+                nameCardBack: me.nameCardBack,
+                surname: me.surname,
+                name: me.name,
+                position: me.position,
+                company: me.company,
+                email: me.email,
+                phoneNumber: me.phoneNumber,
+                linkedinURL: me.linkedinURL,
+                memo: me.memo,
+                action: me.action,
+                favorite: me.favorite,
+                pin: me.pin,
+                notes: []
+            )
+        } else if let first = store.clients.first {
+            client = DummyClient(
+                profile: first.profile,
+                nameCardFront: first.nameCardFront,
+                nameCardBack: first.nameCardBack,
+                surname: first.surname,
+                name: first.name,
+                position: first.position,
+                company: first.company,
+                email: first.email,
+                phoneNumber: first.phoneNumber,
+                linkedinURL: first.linkedinURL,
+                memo: first.memo,
+                action: first.action,
+                favorite: first.favorite,
+                pin: first.pin,
+                notes: []
+            )
+        }
     }
 }
 
@@ -150,9 +231,27 @@ private extension RootView {
             merged.sort { $0.order < $1.order }
             for entry in merged {
                 if entry.isImage {
-                    result.append(.init(id: "\(note.id.uuidString)-i-\(entry.index)", isVideo: false, imageData: images[entry.index].data, videoURL: nil, uploadedAt: note.uploadedAt, localOrder: entry.order))
+                    result.append(
+                        .init(
+                            id: "\(note.id.uuidString)-i-\(entry.index)",
+                            isVideo: false,
+                            imageData: images[entry.index].data,
+                            videoURL: nil,
+                            uploadedAt: note.uploadedAt,
+                            localOrder: entry.order
+                        )
+                    )
                 } else {
-                    result.append(.init(id: "\(note.id.uuidString)-v-\(entry.index)", isVideo: true, imageData: nil, videoURL: videos[entry.index].url, uploadedAt: note.uploadedAt, localOrder: entry.order))
+                    result.append(
+                        .init(
+                            id: "\(note.id.uuidString)-v-\(entry.index)",
+                            isVideo: true,
+                            imageData: nil,
+                            videoURL: videos[entry.index].url,
+                            uploadedAt: note.uploadedAt,
+                            localOrder: entry.order
+                        )
+                    )
                 }
             }
         }
@@ -237,12 +336,12 @@ private struct ProfileDetailScreen: View {
     
     init(clientId: UUID) {
         self.clientId = clientId
-        if let c = ClientsStore.shared.clients.first(where: { $0.id == clientId }) {
-            _dummy = State(initialValue: ProfileDetailScreen.convertToDummy(c))
+        if let client = ClientsStore.shared.clients.first(where: { $0.id == clientId }) {
+            _dummy = State(initialValue: ProfileDetailScreen.convertToDummy(client))
         }
     }
     var body: some View {
-        ProfileDetailView(client: $dummy)
+        ProfileDetailView(clientId: clientId, client: $dummy)
     }
     
     private static func convertToDummy(_ client: Client) -> DummyClient {
