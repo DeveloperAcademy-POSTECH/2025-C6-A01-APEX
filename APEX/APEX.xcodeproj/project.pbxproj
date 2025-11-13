@@ -8,10 +8,18 @@
 
 /* Begin PBXBuildFile section */
 		0D0B4FC72EBDB8310035C372 /* Stash logo.icon in Resources */ = {isa = PBXBuildFile; fileRef = 0D0B4FC62EBDB8310035C372 /* Stash logo.icon */; };
+		0D6206852EC4DE80005DBC28 /* StashShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 0D62067B2EC4DE80005DBC28 /* StashShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1D0F00012E80000000000001 /* PhoneNumberKit in Frameworks */ = {isa = PBXBuildFile; productRef = 1D0F00022E80000000000002 /* PhoneNumberKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		0D6206832EC4DE80005DBC28 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0DCB62212E7EC7C20065DA6C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0D62067A2EC4DE80005DBC28;
+			remoteInfo = StashShare;
+		};
 		0DCB62372E7EC7C40065DA6C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 0DCB62212E7EC7C20065DA6C /* Project object */;
@@ -28,14 +36,36 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		0D62068A2EC4DE80005DBC28 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				0D6206852EC4DE80005DBC28 /* StashShare.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		0D0B4FC62EBDB8310035C372 /* Stash logo.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = "Stash logo.icon"; sourceTree = "<group>"; };
+		0D62067B2EC4DE80005DBC28 /* StashShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = StashShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		0DCB62292E7EC7C20065DA6C /* APEX.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = APEX.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0DCB62362E7EC7C40065DA6C /* APEXTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = APEXTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0DCB62402E7EC7C40065DA6C /* APEXUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = APEXUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		0D6206892EC4DE80005DBC28 /* Exceptions for "StashShare" folder in "StashShare" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 0D62067A2EC4DE80005DBC28 /* StashShare */;
+		};
 		3FAE6E8C2EA664C500243114 /* Exceptions for "APEX" folder in "APEX" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -46,6 +76,14 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		0D62067C2EC4DE80005DBC28 /* StashShare */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				0D6206892EC4DE80005DBC28 /* Exceptions for "StashShare" folder in "StashShare" target */,
+			);
+			path = StashShare;
+			sourceTree = "<group>";
+		};
 		0DCB622B2E7EC7C20065DA6C /* APEX */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -67,6 +105,13 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		0D6206782EC4DE80005DBC28 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		0DCB62262E7EC7C20065DA6C /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -99,6 +144,7 @@
 				0DCB62392E7EC7C40065DA6C /* APEXTests */,
 				0DCB62432E7EC7C40065DA6C /* APEXUITests */,
 				0D0B4FC62EBDB8310035C372 /* Stash logo.icon */,
+				0D62067C2EC4DE80005DBC28 /* StashShare */,
 				0DCB622A2E7EC7C20065DA6C /* Products */,
 			);
 			sourceTree = "<group>";
@@ -109,6 +155,7 @@
 				0DCB62292E7EC7C20065DA6C /* APEX.app */,
 				0DCB62362E7EC7C40065DA6C /* APEXTests.xctest */,
 				0DCB62402E7EC7C40065DA6C /* APEXUITests.xctest */,
+				0D62067B2EC4DE80005DBC28 /* StashShare.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -116,6 +163,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		0D62067A2EC4DE80005DBC28 /* StashShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0D6206862EC4DE80005DBC28 /* Build configuration list for PBXNativeTarget "StashShare" */;
+			buildPhases = (
+				0D6206772EC4DE80005DBC28 /* Sources */,
+				0D6206782EC4DE80005DBC28 /* Frameworks */,
+				0D6206792EC4DE80005DBC28 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				0D62067C2EC4DE80005DBC28 /* StashShare */,
+			);
+			name = StashShare;
+			packageProductDependencies = (
+			);
+			productName = StashShare;
+			productReference = 0D62067B2EC4DE80005DBC28 /* StashShare.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		0DCB62282E7EC7C20065DA6C /* APEX */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 0DCB624A2E7EC7C40065DA6C /* Build configuration list for PBXNativeTarget "APEX" */;
@@ -123,10 +192,12 @@
 				0DCB62252E7EC7C20065DA6C /* Sources */,
 				0DCB62262E7EC7C20065DA6C /* Frameworks */,
 				0DCB62272E7EC7C20065DA6C /* Resources */,
+				0D62068A2EC4DE80005DBC28 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				0D6206842EC4DE80005DBC28 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				0DCB622B2E7EC7C20065DA6C /* APEX */,
@@ -192,9 +263,12 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2600;
+				LastSwiftUpdateCheck = 2610;
 				LastUpgradeCheck = 2600;
 				TargetAttributes = {
+					0D62067A2EC4DE80005DBC28 = {
+						CreatedOnToolsVersion = 26.1;
+					};
 					0DCB62282E7EC7C20065DA6C = {
 						CreatedOnToolsVersion = 26.0;
 					};
@@ -228,11 +302,19 @@
 				0DCB62282E7EC7C20065DA6C /* APEX */,
 				0DCB62352E7EC7C40065DA6C /* APEXTests */,
 				0DCB623F2E7EC7C40065DA6C /* APEXUITests */,
+				0D62067A2EC4DE80005DBC28 /* StashShare */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		0D6206792EC4DE80005DBC28 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		0DCB62272E7EC7C20065DA6C /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -258,6 +340,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		0D6206772EC4DE80005DBC28 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		0DCB62252E7EC7C20065DA6C /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -282,6 +371,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		0D6206842EC4DE80005DBC28 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0D62067A2EC4DE80005DBC28 /* StashShare */;
+			targetProxy = 0D6206832EC4DE80005DBC28 /* PBXContainerItemProxy */;
+		};
 		0DCB62382E7EC7C40065DA6C /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 0DCB62282E7EC7C20065DA6C /* APEX */;
@@ -295,6 +389,79 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		0D6206872EC4DE80005DBC28 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = StashShare/StashShare.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = ZJ8SJ44N92;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = StashShare/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = StashShare;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apex.gogo.StashShare;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = StashShare;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		0D6206882EC4DE80005DBC28 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = StashShare/StashShare.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = ZJ8SJ44N92;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = StashShare/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = StashShare;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.apex.gogo.StashShare;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = StashShare;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 		0DCB62482E7EC7C40065DA6C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -594,6 +761,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		0D6206862EC4DE80005DBC28 /* Build configuration list for PBXNativeTarget "StashShare" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0D6206872EC4DE80005DBC28 /* Debug */,
+				0D6206882EC4DE80005DBC28 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		0DCB62242E7EC7C20065DA6C /* Build configuration list for PBXProject "APEX" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
