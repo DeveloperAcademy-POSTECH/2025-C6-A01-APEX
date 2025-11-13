@@ -32,8 +32,6 @@ public struct APEXFileTile: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Image(fileSystemSymbolName(for: contentType, url: url))
-                .scaledToFit()
-                .frame(width: 24, height: 24)
 
             if let attr = highlightedName() {
                 Text(attr)
@@ -78,10 +76,10 @@ private func fileSystemSymbolName(for type: UTType?, url: URL?) -> String {
     if resolvedType == nil, let ext = url?.pathExtension, !ext.isEmpty {
         resolvedType = UTType(filenameExtension: ext)
     }
-    guard let resolved = resolvedType else { return "document2" }
-    if resolved.conforms(to: .image) { return "photo2" }
-    if resolved.conforms(to: .movie) || resolved.conforms(to: .audiovisualContent) { return "video2" }
-    return "document2"
+    guard let resolved = resolvedType else { return "document" }
+    if resolved.conforms(to: .image) { return "photo" }
+    if resolved.conforms(to: .movie) || resolved.conforms(to: .audiovisualContent) { return "video" }
+    return "document"
 }
 
 private func fileSizeText(for url: URL) -> String? {
