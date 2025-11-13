@@ -53,6 +53,7 @@ struct NotesNavigationBar: View {
 // MARK: - Menu Toolbar Button
 
 private struct MenuToolbarButton: View {
+    @EnvironmentObject private var router: NavigationRouter
     let size: CGFloat
     let iconSize: CGFloat
     let normalColor: Color
@@ -87,7 +88,7 @@ private struct MenuToolbarButton: View {
             }
 
             // 노트 관리
-            Button(action: { onMenuTap() }) {
+            Button(action: { router.push(.notesManagement)}) {
                 Text("노트 관리")
                     .font(.body2)
                     .foregroundColor(.black)

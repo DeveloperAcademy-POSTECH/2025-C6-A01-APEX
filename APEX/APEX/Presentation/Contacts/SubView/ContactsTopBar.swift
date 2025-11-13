@@ -18,21 +18,28 @@ struct ContactsTopBar: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                // Center title
+            ZStack {
+                // 버튼들 레이아웃
+                HStack {
+                    // 왼쪽 공간 (빈 공간)
+                    Spacer()
+                        .frame(width: 44) // 오른쪽 버튼과 동일한 크기
+                    
+                    Spacer()
+                    
+                    // Right + button (애플 기본 머티리얼 기반 원형)
+                    PlusButton(
+                        normalColor: plusNormalColor,
+                        pressedColor: plusPressedColor,
+                        action: onPlus
+                    )
+                }
+                
+                // 제목을 절대 가운데에 배치
                 Text(title)
-                    .font(.title1) // 기본 시스템 폰트로 변경
+                    .font(.title1)
                     .fontWeight(.semibold)
                     .foregroundColor(titleColor)
-
-                Spacer()
-
-                // Right + button (애플 기본 머티리얼 기반 원형)
-                PlusButton(
-                    normalColor: plusNormalColor,
-                    pressedColor: plusPressedColor,
-                    action: onPlus
-                )
             }
             .frame(height: height)
             .padding(.horizontal, horizontalPadding)

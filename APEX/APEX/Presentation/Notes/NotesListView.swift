@@ -41,7 +41,7 @@ struct NotesListView: View {
                 .environment(\.defaultMinListRowHeight, 1)
                 .scrollContentBackground(.hidden)
                 .safeAreaInset(edge: .top, spacing: 0) {
-                    Color.clear.frame(height: 24)
+                    Color.clear.frame(height: 16)
                 }
             }
         }
@@ -57,7 +57,9 @@ private struct NotesRow: View {
     var onDelete: (() -> Void)?
     var onTap: (() -> Void)?
 
-    private var fullName: String { "\(client.name) \(client.surname)" }
+    private var fullName: String { 
+        client.autoFormattedName
+    }
     
     private var summary: String {
         let live = ChatStore.shared.notes(for: client.id)
@@ -149,7 +151,7 @@ private struct NotesRow: View {
                     .scaledToFill()
                     .frame(width: 48, height: 48)
             } else {
-                let initials = makeInitials(name: client.name, surname: client.surname)
+                let initials = Profile.makeInitials(name: client.name, surname: client.surname)
                 ZStack {
                     Circle()
                         .fill(Color("PrimaryContainer"))
@@ -287,11 +289,20 @@ enum NotesListModel {
         return clients.sorted { lhs, rhs in
             // 1) 핀 우선
             if lhs.pin != rhs.pin { return lhs.pin }
-            // 2) 최신 노트 시간 내림차순 (없으면 .distantPast 처리 → 아래로)
+            
+            // 2) 둘 다 핀된 경우, PinOrderManager의 순서 사용 (최근 핀한 순)
+            if lhs.pin && rhs.pin {
+                let lhsIndex = PinOrderManager.shared.getPinIndex(for: lhs.id) ?? Int.max
+                let rhsIndex = PinOrderManager.shared.getPinIndex(for: rhs.id) ?? Int.max
+                if lhsIndex != rhsIndex { return lhsIndex < rhsIndex }
+            }
+            
+            // 3) 최신 노트 시간 내림차순 (없으면 .distantPast 처리 → 아래로)
             let lhsDate = latestDate(for: lhs)
             let rhsDate = latestDate(for: rhs)
             if lhsDate != rhsDate { return lhsDate > rhsDate }
-            // 3) 동률 시 삽입 순서(ClientsStore 기준) 유지
+            
+            // 4) 동률 시 삽입 순서(ClientsStore 기준) 유지
             return insertionIndex(lhs) < insertionIndex(rhs)
         }
     }
@@ -347,29 +358,4 @@ private struct BackgroundHoverRowStyle: ButtonStyle {
             .scaleEffect(isPressed ? pressedScale : 1.0)
             .animation(.easeInOut(duration: duration), value: isPressed)
     }
-}
-
-// MARK: - Initials helpers (ContactsRow와 동일)
-
-private func makeInitials(name: String, surname: String) -> String {
-    let givenName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-    let familyName = surname.trimmingCharacters(in: .whitespacesAndNewlines)
-    if givenName.isEmpty && familyName.isEmpty { return "" }
-    if containsHangul(givenName) || containsHangul(familyName) {
-        return String((familyName.isEmpty ? givenName : familyName).prefix(1))
-    } else {
-        let first = givenName.isEmpty ? "" : String(givenName.prefix(1)).uppercased()
-        let last = familyName.isEmpty ? "" : String(familyName.prefix(1)).uppercased()
-        return first + last
-    }
-}
-
-private func containsHangul(_ text: String) -> Bool {
-    for scalar in text.unicodeScalars {
-        let scalarValue = scalar.value
-        if (0xAC00...0xD7A3).contains(scalarValue) || (0x1100...0x11FF).contains(scalarValue) || (0x3130...0x318F).contains(scalarValue) {
-            return true
-        }
-    }
-    return false
 }
