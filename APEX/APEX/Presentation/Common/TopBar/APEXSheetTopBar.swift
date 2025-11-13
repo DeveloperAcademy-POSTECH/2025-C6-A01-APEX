@@ -116,7 +116,10 @@ struct APEXSheetTopBar: View {
             } else {
                 Text(rightTitle)
                     .font(.title6)
-                    .frame(width: 52, height: 44)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                    .frame(height: 44)
+                    .padding(.horizontal, 8)
                     .glassEffect()
             }
         }

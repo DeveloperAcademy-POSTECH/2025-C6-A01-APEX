@@ -59,6 +59,11 @@ struct ChattingView: View {
     @State private var editing: EditingPayload?
     private struct SelectCopyPayload: Identifiable { let id = UUID(); let text: String }
     @State private var selectCopy: SelectCopyPayload?
+    // Selection delete confirmation
+    @State private var showSelectionDeleteAlert: Bool = false
+    // Delete selection mode
+    @State private var isDeleteSelecting: Bool = false
+    @State private var selectedNoteIds: Set<UUID> = []
     private struct ShareSeed: Identifiable {
         let id = UUID()
         var text: String?
@@ -77,7 +82,9 @@ struct ChattingView: View {
     private enum Metrics {
         static let timeWidth: CGFloat = 66
         static let timeGap: CGFloat = 12
+        static let leftSelectWidth: CGFloat = 44
     }
+    
     private func timeTextWidth(for date: Date) -> CGFloat {
         let text = date.formattedChatTime
         let font = UIFont.preferredFont(forTextStyle: .caption2)
@@ -105,78 +112,108 @@ struct ChattingView: View {
                             if idx == 0 || !Calendar.current.isDate(note.uploadedAt, inSameDayAs: notes[idx - 1].uploadedAt) {
                                 dateHeaderView(note.uploadedAt)
                             }
-                            ZStack(alignment: .trailing) {
-                                Text(note.uploadedAt.formattedChatTime)
-                                    .font(.caption2)
-                                    .foregroundStyle(Color.secondary)
-                                    .frame(width: Metrics.timeWidth, alignment: .trailing)
-                                    .lineLimit(1)
-                                    .opacity(Double(timestampRevealProgress))
-                                    .offset(x: (1 - timestampRevealProgress) * 8)
-
-                                ChatMessageView(
-                                    note: note,
-                                    chatTitle: chatTitle,
-                                    currentClientId: clientId,
-                                    highlightQuery: (
-                                        isSearchActive &&
-                                        !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-                                        !matchedNoteIds.isEmpty &&
-                                        matchedNoteIds.indices.contains(currentMatchIndex) &&
-                                        matchedNoteIds[currentMatchIndex] == note.id
-                                    ) ? searchText : nil,
-                                    buildViewerPayload: { anchor in
-                                        buildGlobalViewerPayload(startingFrom: anchor)
-                                    },
-                                    onOpenViewer: { anchor in
-                                        openViewer(anchor: anchor)
-                                    },
-                                    onOpenShare: { selectedText in
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                            shareSeed = ShareSeed(text: selectedText, files: [], audios: [], images: [], videos: [])
+                            HStack(alignment: .center, spacing: 12) {
+                                Group {
+                                    if isDeleteSelecting {
+                                        let isChecked = selectedNoteIds.contains(note.id)
+                                        Button {
+                                            toggleSelection(for: note.id)
+                                        } label: {
+                                            Image(systemName: isChecked ? "checkmark.circle.fill" : "circle")
+                                                .font(.system(size: 24, weight: .medium))
+                                                .foregroundStyle(isChecked ? Color("Primary") : .gray)
+                                                .frame(width: 24, height: 24, alignment: .center)
                                         }
-                                    },
-                                    onOpenShareFiles: { urls in
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                            shareSeed = ShareSeed(text: nil, files: urls, audios: [], images: [], videos: [])
-                                        }
-                                    },
-                                    onOpenShareAudio: { url in
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                            shareSeed = ShareSeed(text: nil, files: [], audios: [url], images: [], videos: [])
-                                        }
-                                    },
-                                    onDeleteFile: { noteId, fileIndex in
-                                        deleteFile(noteId: noteId, fileIndex: fileIndex)
-                                    },
-                                    onOpenRecord: { url in
-                                        NotificationCenter.default.post(name: .apexStopAllAudioPlayback, object: nil)
-                                        recordPayload = RecordPayload(url: url)
-                                    },
-                                    onDelete: { anchor in
-                                        deleteMedia(anchor: anchor)
-                                    },
-                                    onDeleteAudio: { noteId, url in
-                                        deleteAudio(noteId: noteId, url: url)
-                                    },
-                                    onCopyText: { text in
-                                        UIPasteboard.general.string = text
-                                        withAnimation { showCopyToast = true }
-                                    },
-                                    onStartEdit: { noteId, currentText in
-                                        editing = EditingPayload(noteId: noteId, text: currentText)
-                                    },
-                                    onDeleteNote: { noteId in
-                                        if let idx = notes.firstIndex(where: { $0.id == noteId }) {
-                                            notes.remove(at: idx)
-                                        }
-                                        ChatStore.shared.setNotes(notes, for: clientId)
-                                    },
-                                    onStartSelectCopy: { text in
-                                        selectCopy = SelectCopyPayload(text: text)
+                                        .buttonStyle(.plain)
+                                    } else {
+                                        Color.clear
+                                            .frame(width: 24, height: 24)
                                     }
-                                )
-                                .offset(x: -timestampRevealProgress * (timeTextWidth(for: note.uploadedAt) + Metrics.timeGap))
+                                }
+                                .padding(.horizontal, 6.5)
+                                
+                                HStack {
+                                    Spacer(minLength: 0)
+                                    
+                                    ZStack(alignment: .trailing) {
+                                        Text(note.uploadedAt.formattedChatTime)
+                                            .font(.caption2)
+                                            .foregroundStyle(Color.secondary)
+                                            .frame(width: Metrics.timeWidth, alignment: .trailing)
+                                            .lineLimit(1)
+                                            .opacity(Double(timestampRevealProgress))
+                                            .offset(x: (1 - timestampRevealProgress) * 8)
+
+                                        ChatMessageView(
+                                            note: note,
+                                            chatTitle: chatTitle,
+                                            currentClientId: clientId,
+                                            highlightQuery: (
+                                                isSearchActive &&
+                                                !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+                                                !matchedNoteIds.isEmpty &&
+                                                matchedNoteIds.indices.contains(currentMatchIndex) &&
+                                                matchedNoteIds[currentMatchIndex] == note.id
+                                            ) ? searchText : nil,
+                                            leadingReservedWidth: Metrics.leftSelectWidth,
+                                            buildViewerPayload: { anchor in
+                                                buildGlobalViewerPayload(startingFrom: anchor)
+                                            },
+                                            onOpenViewer: { anchor in
+                                                openViewer(anchor: anchor)
+                                            },
+                                            onOpenShare: { selectedText in
+                                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                                    shareSeed = ShareSeed(text: selectedText, files: [], audios: [], images: [], videos: [])
+                                                }
+                                            },
+                                            onOpenShareFiles: { urls in
+                                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                                    shareSeed = ShareSeed(text: nil, files: urls, audios: [], images: [], videos: [])
+                                                }
+                                            },
+                                            onOpenShareAudio: { url in
+                                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                                    shareSeed = ShareSeed(text: nil, files: [], audios: [url], images: [], videos: [])
+                                                }
+                                            },
+                                            onDeleteFile: { noteId, fileIndex in
+                                                deleteFile(noteId: noteId, fileIndex: fileIndex)
+                                            },
+                                            onOpenRecord: { url in
+                                                NotificationCenter.default.post(name: .apexStopAllAudioPlayback, object: nil)
+                                                recordPayload = RecordPayload(url: url)
+                                            },
+                                            onDelete: { anchor in
+                                                deleteMedia(anchor: anchor)
+                                            },
+                                            onDeleteAudio: { noteId, url in
+                                                deleteAudio(noteId: noteId, url: url)
+                                            },
+                                            onCopyText: { text in
+                                                UIPasteboard.general.string = text
+                                                withAnimation { showCopyToast = true }
+                                            },
+                                            onStartEdit: { noteId, currentText in
+                                                editing = EditingPayload(noteId: noteId, text: currentText)
+                                            },
+                                            onStartMultiDelete: { noteId in
+                                                startDeleteSelection(preselect: noteId)
+                                            },
+                                            onStartSelectCopy: { text in
+                                                selectCopy = SelectCopyPayload(text: text)
+                                            }
+                                        )
+                                        .offset(x: -timestampRevealProgress * (timeTextWidth(for: note.uploadedAt) + Metrics.timeGap))
+                                        .allowsHitTesting(!isDeleteSelecting)
+                                    }
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        if isDeleteSelecting {
+                                            toggleSelection(for: note.id)
+                                        }
+                                    }
+                                }
                             }
                             .id(note.id)
                         }
@@ -524,6 +561,21 @@ struct ChattingView: View {
                 .frame(height: 52)
                 .padding(.horizontal, 12)
                 .background(Color("Background"))
+            } else if isDeleteSelecting {
+                APEXSheetTopBar(
+                    title: "삭제",
+                    rightTitle: "선택 해제",
+                    isRightEnabled: !selectedNoteIds.isEmpty,
+                    onRightTap: {
+                        selectedNoteIds.removeAll()
+                    },
+                    onClose: {
+                        cancelDeleteSelection()
+                    },
+                    rightIconSystemName: nil,
+                    showsRightButton: true,
+                    leftIconSystemName: "xmark"
+                )
             } else {
                 APEXNavigationBar(
                     .memo(
@@ -558,6 +610,21 @@ struct ChattingView: View {
                             scrollToCurrentMatch()
                         }
                     )
+                } else if isDeleteSelecting {
+                    // Bottom action bar for selection delete
+                    Button {
+                        showSelectionDeleteAlert = true
+                    } label: {
+                        Text("\(selectedNoteIds.count) 삭제하기")
+                            .font(.body2)
+                            .foregroundColor(selectedNoteIds.isEmpty ? Color("BackgroundDisabled") : Color("Error"))
+                            .frame(maxWidth: .infinity, minHeight: 56)
+                            .background(selectedNoteIds.isEmpty ? Color("BackgroundSecondary") : Color("ErrorContainer"))
+                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 24)
+                    .disabled(selectedNoteIds.isEmpty)
                 } else {
                     if !stagedAttachments.isEmpty {
                         AttachBar(items: stagedAttachments) { removed in
@@ -658,6 +725,12 @@ struct ChattingView: View {
             )
         }
         .onPreferenceChange(BottomInsetHeightKey.self) { height in bottomInsetHeight = height }
+        .alert("\(selectedNoteIds.count)개의 노트를 삭제하겠습니까?", isPresented: $showSelectionDeleteAlert) {
+            Button("삭제", role: .destructive) {
+                performDeleteSelected()
+            }
+            Button("취소", role: .cancel) { }
+        }
         .sheet(item: $editing) { payload in
             TextEditSheet(
                 initialText: payload.text,
@@ -770,6 +843,29 @@ private extension ChattingView {
             router.push(.profileDetail(clientId))
         }
     }
+    
+    // MARK: - Delete selection helpers
+    func startDeleteSelection(preselect noteId: UUID) {
+        isDeleteSelecting = true
+        selectedNoteIds = [noteId]
+    }
+    func toggleSelection(for noteId: UUID) {
+        if selectedNoteIds.contains(noteId) {
+            selectedNoteIds.remove(noteId)
+        } else {
+            selectedNoteIds.insert(noteId)
+        }
+    }
+    func performDeleteSelected() {
+        guard !selectedNoteIds.isEmpty else { return }
+        notes.removeAll { selectedNoteIds.contains($0.id) }
+        ChatStore.shared.setNotes(notes, for: clientId)
+        cancelDeleteSelection()
+    }
+    func cancelDeleteSelection() {
+        isDeleteSelecting = false
+        selectedNoteIds.removeAll()
+    }
 
     // convertToDummy moved to RootView wrapper; not needed here
     func deleteAudio(noteId: UUID, url: URL) {
@@ -833,6 +929,32 @@ private extension ChattingView {
             }
             let videosWithProgress = videos.map { VideoAttachment(url: $0.url, progress: 0, orderIndex: $0.orderIndex) }
             noteWithProgress.bundle = .media(images: imagesWithProgress, videos: videosWithProgress)
+        } else if case let .files(files) = note.bundle {
+            if files.count > 1 {
+                let baseDate = note.uploadedAt
+                if let text = note.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
+                    let textOnly = Note(uploadedAt: baseDate, text: text, bundle: nil)
+                    notes.append(textOnly)
+                }
+                let startIdx = notes.count
+                for f in files {
+                    let single = Note(
+                        uploadedAt: baseDate,
+                        text: nil,
+                        bundle: .files([
+                            FileAttachment(url: f.url, contentType: f.contentType, progress: 0)
+                        ])
+                    )
+                    notes.append(single)
+                }
+                ChatStore.shared.setNotes(notes, for: clientId)
+                for idx in startIdx..<notes.count {
+                    startUploadsForNote(at: idx)
+                }
+                return
+            } else if files.count == 1, let f = files.first {
+                noteWithProgress.bundle = .files([FileAttachment(url: f.url, contentType: f.contentType, progress: 0)])
+            }
         }
         notes.append(noteWithProgress)
         ChatStore.shared.setNotes(notes, for: clientId)
@@ -993,6 +1115,7 @@ private struct ChatMessageView: View {
     let chatTitle: String
     let currentClientId: UUID
     let highlightQuery: String?
+    let leadingReservedWidth: CGFloat
     struct ChatAnchor { let noteId: UUID; let isImage: Bool; let localIndex: Int }
     let buildViewerPayload: (ChatAnchor) -> (items: [MediaSource], anchors: [ChatAnchor], index: Int)
     let onOpenViewer: (ChatAnchor) -> Void
@@ -1005,13 +1128,18 @@ private struct ChatMessageView: View {
     let onDeleteAudio: (UUID, URL) -> Void
     let onCopyText: (String) -> Void
     let onStartEdit: (UUID, String) -> Void
-    let onDeleteNote: (UUID) -> Void
+    let onStartMultiDelete: (UUID) -> Void
     let onStartSelectCopy: (String) -> Void
     // Removed selectedRange; SelectableText now manages selection internally
     @State private var showDeleteAlert: Bool = false
     @State private var deleteSubjectText: String = ""
     @State private var pendingDelete: (() -> Void)?
-
+    
+    private enum Metrics {
+        static let tileSize: CGFloat = 106
+        static let spacing: CGFloat = 1
+        static let cornerRadius: CGFloat = 15
+    }
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 8) {
@@ -1019,10 +1147,10 @@ private struct ChatMessageView: View {
                 if videos.count == 1, images.isEmpty {
                     APEXMediaSingleCard(
                         source: .video(videos[0].url),
-                        baseTileWidth: 121.67,
+                        baseTileWidth: Metrics.tileSize,
                         columnsSpanned: 2,
-                        spacing: 2,
-                        cornerRadius: 10
+                        spacing: Metrics.spacing,
+                        cornerRadius: Metrics.cornerRadius
                     )
                     .onTapGesture {
                         onOpenViewer(ChatAnchor(noteId: note.id, isImage: false, localIndex: 0))
@@ -1036,9 +1164,7 @@ private struct ChatMessageView: View {
                         }
                         .tint(.primary)
                         Button(role: .destructive) {
-                            deleteSubjectText = "영상을"
-                            pendingDelete = { onDelete(ChatAnchor(noteId: note.id, isImage: false, localIndex: 0)) }
-                            showDeleteAlert = true
+                            onStartMultiDelete(note.id)
                         } label: {
                             Label("삭제", systemImage: "trash")
                         }
@@ -1047,10 +1173,10 @@ private struct ChatMessageView: View {
                 } else if images.count == 1, videos.isEmpty {
                     APEXMediaSingleCard(
                         source: .image(images[0].data),
-                        baseTileWidth: 121.67,
+                        baseTileWidth: Metrics.tileSize,
                         columnsSpanned: 2,
-                        spacing: 2,
-                        cornerRadius: 10
+                        spacing: Metrics.spacing,
+                        cornerRadius: Metrics.cornerRadius
                     )
                     .onTapGesture {
                         onOpenViewer(ChatAnchor(noteId: note.id, isImage: true, localIndex: 0))
@@ -1066,9 +1192,7 @@ private struct ChatMessageView: View {
                         }
                         .tint(.primary)
                         Button(role: .destructive) {
-                            deleteSubjectText = "사진을"
-                            pendingDelete = { onDelete(ChatAnchor(noteId: note.id, isImage: true, localIndex: 0)) }
-                            showDeleteAlert = true
+                            onStartMultiDelete(note.id)
                         } label: {
                             Label("삭제", systemImage: "trash")
                         }
@@ -1081,26 +1205,10 @@ private struct ChatMessageView: View {
                         onOpen: { isImage, localIndex in
                         onOpenViewer(ChatAnchor(noteId: note.id, isImage: isImage, localIndex: localIndex))
                         },
-                        onShareImageAt: { idx in
-                            guard images.indices.contains(idx) else { return }
-                            if let url = tempURLForImageData(images[idx].data) {
-                                onOpenShareFiles([url])
-                            }
-                        },
-                        onShareVideoAt: { idx in
-                            guard videos.indices.contains(idx) else { return }
-                            onOpenShareFiles([videos[idx].url])
-                        },
-                        onDeleteImageAt: { idx in
-                            deleteSubjectText = "사진을"
-                            pendingDelete = { onDelete(ChatAnchor(noteId: note.id, isImage: true, localIndex: idx)) }
-                            showDeleteAlert = true
-                        },
-                        onDeleteVideoAt: { idx in
-                            deleteSubjectText = "영상을"
-                            pendingDelete = { onDelete(ChatAnchor(noteId: note.id, isImage: false, localIndex: idx)) }
-                            showDeleteAlert = true
-                        },
+                        onShareImageAt: { _ in },
+                        onShareVideoAt: { _ in },
+                        onDeleteImageAt: { _ in },
+                        onDeleteVideoAt: { _ in },
                         onShareAll: {
                             var urls: [URL] = []
                             for img in images {
@@ -1110,29 +1218,63 @@ private struct ChatMessageView: View {
                             if !urls.isEmpty { onOpenShareFiles(urls) }
                         },
                         onDeleteMemo: {
-                            deleteSubjectText = "메모를"
-                            pendingDelete = { onDeleteNote(note.id) }
-                            showDeleteAlert = true
+                            onStartMultiDelete(note.id)
                         }
                     )
-                    // Removed outer context menu for media bundles per request
+                    .clipShape(RoundedRectangle(cornerRadius: Metrics.cornerRadius, style: .continuous))
+                    .contentShape(Rectangle())
+                    .contextMenu {
+                        Button {
+                            var urls: [URL] = []
+                            for img in images {
+                                if let url = tempURLForImageData(img.data) { urls.append(url) }
+                            }
+                            urls.append(contentsOf: videos.map { $0.url })
+                            if !urls.isEmpty { onOpenShareFiles(urls) }
+                        } label: {
+                            Label("공유", systemImage: "square.and.arrow.up")
+                        }
+                        .tint(.primary)
+                        Button(role: .destructive) {
+                            onStartMultiDelete(note.id)
+                        } label: {
+                            Label("삭제", systemImage: "trash")
+                        }
+                        .tint(.red)
+                    }
                 }
             } else if case let .files(files) = note.bundle {
-                FilesGrid(
-                    files: files,
-                    highlightQuery: highlightQuery,
-                    onShareFile: { url in onOpenShareFiles([url]) },
-                    onDeleteFileAt: { idx in onDeleteFile(note.id, idx) },
-                    onShareAll: {
-                        let urls = files.map { $0.url }
-                        onOpenShareFiles(urls)
-                    },
-                    onDeleteMemo: {
-                        deleteSubjectText = "파일 메모"
-                        pendingDelete = { onDeleteNote(note.id) }
-                        showDeleteAlert = true
+                if let first = files.first {
+                    FileMemo(
+                        url: first.url,
+                        contentType: first.contentType,
+                        highlightQuery: highlightQuery,
+                        width: Metrics.tileSize * 2 + Metrics.spacing,
+                        onTap: {
+                            guard first.progress == nil else { return }
+                            openFileURL(first.url)
+                        }
+                    )
+                    .overlay {
+                        if let progress = first.progress {
+                            ProgressOverlay(progress: progress)
+                                .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+                        }
                     }
-                )
+                    .allowsHitTesting(first.progress == nil)
+                    .contextMenu {
+                        Button { onOpenShareFiles([first.url]) } label: {
+                            Label("공유", systemImage: "square.and.arrow.up")
+                        }
+                        .tint(.primary)
+                        Button(role: .destructive) {
+                            onStartMultiDelete(note.id)
+                        } label: {
+                            Label("삭제", systemImage: "trash")
+                        }
+                        .tint(.red)
+                    }
+                }
             }
             // Audio attachments: always render single tile with anchored menu
             else if case let .audio(audios) = note.bundle {
@@ -1151,9 +1293,7 @@ private struct ChatMessageView: View {
                             }
                             .tint(.primary)
                             Button(role: .destructive) {
-                                deleteSubjectText = "음성 녹음을"
-                                pendingDelete = { onDeleteAudio(note.id, first.url) }
-                                showDeleteAlert = true
+                                onStartMultiDelete(note.id)
                             } label: {
                                 Label("삭제", systemImage: "trash")
                             }
@@ -1170,14 +1310,14 @@ private struct ChatMessageView: View {
                         fontSize: 14,
                         textStyle: .body,
                         lineSpacing: 4,
-                        maxLayoutWidth: UIScreen.main.bounds.width - 32,
+                        maxLayoutWidth: UIScreen.main.bounds.width - 24 - leadingReservedWidth,
                         highlightQuery: highlightQuery
                     )
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.vertical, 12)
                     .padding(.horizontal, 8)
-                    .background(.regularMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(Color("BackgroundSecondary"))
+                    .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
 
                     ForEach(urls(in: text), id: \.absoluteString) { url in
                         LinkPreviewCard(url: url)
@@ -1202,9 +1342,7 @@ private struct ChatMessageView: View {
                     }
                     .tint(.primary)
                     Button(role: .destructive) {
-                        deleteSubjectText = "메모"
-                        pendingDelete = { onDeleteNote(note.id) }
-                        showDeleteAlert = true
+                        onStartMultiDelete(note.id)
                     } label: {
                         Label("삭제", systemImage: "trash")
                     }
@@ -1423,6 +1561,12 @@ private struct MediaGrid: View {
         GridItem(.flexible(), spacing: 2),
         GridItem(.flexible(), spacing: 2)
     ]
+    
+    private enum Metrics {
+        static let tileSize: CGFloat = 106
+        static let spacing: CGFloat = 1
+        static let cornerRadius: CGFloat = 2
+    }
 
     var body: some View {
         struct CombinedItem { let isImage: Bool; let index: Int; let order: Int }
@@ -1439,168 +1583,147 @@ private struct MediaGrid: View {
             return combined.sorted { $0.order < $1.order }
         }()
 
-        // Render LTR and right-align the last row using leading placeholders (3-column grid)
-        let remainder = merged.count % 3
-        let paddingCount = remainder == 0 ? 0 : (3 - remainder)
-        let fullCount = merged.count - remainder
-        let leadingPlaceholders = Array(repeating: Optional<Int>.none, count: paddingCount)
-        let fullRows = Array(0..<fullCount).map { Optional($0) }
-        let lastRow = (remainder > 0 ? Array(fullCount..<merged.count).map { Optional($0) } : [])
-        let displayOrder: [Int?] = fullRows + leadingPlaceholders + lastRow
+        let fullCount = (merged.count / 3) * 3
+        let head = Array(merged.prefix(fullCount))
+        let tail = Array(merged.suffix(merged.count - fullCount))
 
-        return LazyVGrid(columns: columns, spacing: 2) {
-            ForEach(displayOrder.indices, id: \.self) { slotIndex in
-                if let mergedIndex = displayOrder[slotIndex] {
-                    let item = merged[mergedIndex]
-                    if item.isImage {
-                        let img = images[item.index]
-                        APEXMediaTile(source: .image(img.data))
-                            .frame(width: 121.67, height: 121.67)
-                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                            .overlay {
-                                if let progress = img.progress {
-                                    ProgressOverlay(progress: progress)
-                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        return VStack(spacing: Metrics.spacing) {
+            // Full rows in 3-column grid
+            if !head.isEmpty {
+                LazyVGrid(columns: columns, spacing: Metrics.spacing) {
+                    ForEach(head.indices, id: \.self) { idx in
+                        let item = head[idx]
+                        if item.isImage {
+                            let img = images[item.index]
+                            APEXMediaTile(source: .image(img.data))
+                                .frame(width: Metrics.tileSize, height: Metrics.tileSize)
+                                .clipShape(RoundedRectangle(cornerRadius: Metrics.cornerRadius, style: .continuous))
+                                .overlay {
+                                    if let progress = img.progress {
+                                        ProgressOverlay(progress: progress)
+                                            .clipShape(RoundedRectangle(cornerRadius: Metrics.cornerRadius, style: .continuous))
+                                    }
                                 }
-                            }
-                        .contentShape(Rectangle())
-                        .onTapGesture { onOpen(true, item.index) }
-                        .contextMenu {
-                            Button { onShareImageAt(item.index) } label: {
-                                Label("공유", systemImage: "square.and.arrow.up")
-                            }
-                            .tint(.primary)
-                            Button(role: .destructive) { onDeleteImageAt(item.index) } label: {
-                                Label("삭제", systemImage: "trash")
-                            }
-                            .tint(.red)
-                            if (images.count + videos.count) > 1 {
-                                Divider()
-                                Button { onShareAll() } label: {
-                                    Label("모두 공유", systemImage: "square.and.arrow.up.on.square")
+                            .contentShape(Rectangle())
+                            .onTapGesture { onOpen(true, item.index) }
+                        } else {
+                            let video = videos[item.index]
+                            APEXMediaTile(source: .video(video.url), showVideoIcon: true, variant: .grid, showsDuration: false)
+                                .frame(width: Metrics.tileSize, height: Metrics.tileSize)
+                                .clipShape(RoundedRectangle(cornerRadius: Metrics.cornerRadius, style: .continuous))
+                                .overlay {
+                                    if let progress = video.progress {
+                                        ProgressOverlay(progress: progress)
+                                            .clipShape(RoundedRectangle(cornerRadius: Metrics.cornerRadius, style: .continuous))
+                                    }
                                 }
-                                .tint(.primary)
-                                Button(role: .destructive) { onDeleteMemo() } label: {
-                                    Label("메모 삭제", systemImage: "trash.fill")
+                                // Always show duration above any overlays to prevent hide after upload completes
+                                .overlay(alignment: .bottomLeading) {
+                                    Text(format(durationOf: video.url))
+                                        .font(.caption1)
+                                        .foregroundStyle(.white)
+                                        .padding(12)
                                 }
-                                .tint(.red)
+                            .contentShape(Rectangle())
+                            .onTapGesture { onOpen(false, item.index) }
+                        }
+                    }
+                }
+            }
+
+            // Last row special spanning when bundle count >= 4
+            if merged.count >= 4, !tail.isEmpty {
+                GeometryReader { geo in
+                    let totalWidth = geo.size.width
+                    let spacing = Metrics.spacing
+                    if tail.count == 1 {
+                        // One item spans all 3 columns
+                        let item = tail[0]
+                        HStack(spacing: 0) {
+                            if item.isImage {
+                                let img = images[item.index]
+                                APEXMediaTile(source: .image(img.data))
+                                    .frame(width: totalWidth, height: Metrics.tileSize)
+                                    .clipShape(RoundedRectangle(cornerRadius: Metrics.cornerRadius, style: .continuous))
+                                    .overlay {
+                                        if let progress = img.progress {
+                                            ProgressOverlay(progress: progress)
+                                                .clipShape(RoundedRectangle(cornerRadius: Metrics.cornerRadius, style: .continuous))
+                                        }
+                                    }
+                                    .contentShape(Rectangle())
+                                    .onTapGesture { onOpen(true, item.index) }
+                            } else {
+                                let video = videos[item.index]
+                                APEXMediaTile(source: .video(video.url), showVideoIcon: true, variant: .grid, showsDuration: false)
+                                    .frame(width: totalWidth, height: Metrics.tileSize)
+                                    .clipShape(RoundedRectangle(cornerRadius: Metrics.cornerRadius, style: .continuous))
+                                    .overlay {
+                                        if let progress = video.progress {
+                                            ProgressOverlay(progress: progress)
+                                                .clipShape(RoundedRectangle(cornerRadius: Metrics.cornerRadius, style: .continuous))
+                                        }
+                                    }
+                                    .overlay(alignment: .bottomLeading) {
+                                        Text(format(durationOf: video.url))
+                                            .font(.caption1)
+                                            .foregroundStyle(.white)
+                                            .padding(12)
+                                    }
+                                    .contentShape(Rectangle())
+                                    .onTapGesture { onOpen(false, item.index) }
                             }
                         }
-                    } else {
-                        let video = videos[item.index]
-                        APEXMediaTile(source: .video(video.url), showVideoIcon: true, variant: .grid, showsDuration: false)
-                            .frame(width: 121.67, height: 121.67)
-                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                            .overlay {
-                                if let progress = video.progress {
-                                    ProgressOverlay(progress: progress)
-                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    } else if tail.count == 2 {
+                        // Two items each span 1.5 columns (half width)
+                        let width = (totalWidth - spacing) / 2
+                        HStack(spacing: spacing) {
+                            ForEach(tail.indices, id: \.self) { j in
+                                let item = tail[j]
+                                if item.isImage {
+                                    let img = images[item.index]
+                                    APEXMediaTile(source: .image(img.data))
+                                        .frame(width: width, height: Metrics.tileSize)
+                                        .clipShape(RoundedRectangle(cornerRadius: Metrics.cornerRadius, style: .continuous))
+                                        .overlay {
+                                            if let progress = img.progress {
+                                                ProgressOverlay(progress: progress)
+                                                    .clipShape(RoundedRectangle(cornerRadius: Metrics.cornerRadius, style: .continuous))
+                                            }
+                                        }
+                                        .contentShape(Rectangle())
+                                        .onTapGesture { onOpen(true, item.index) }
+                                } else {
+                                    let video = videos[item.index]
+                                    APEXMediaTile(source: .video(video.url), showVideoIcon: true, variant: .grid, showsDuration: false)
+                                        .frame(width: width, height: Metrics.tileSize)
+                                        .clipShape(RoundedRectangle(cornerRadius: Metrics.cornerRadius, style: .continuous))
+                                        .overlay {
+                                            if let progress = video.progress {
+                                                ProgressOverlay(progress: progress)
+                                                    .clipShape(RoundedRectangle(cornerRadius: Metrics.cornerRadius, style: .continuous))
+                                            }
+                                        }
+                                        .overlay(alignment: .bottomLeading) {
+                                            Text(format(durationOf: video.url))
+                                                .font(.caption1)
+                                                .foregroundStyle(.white)
+                                                .padding(12)
+                                        }
+                                        .contentShape(Rectangle())
+                                        .onTapGesture { onOpen(false, item.index) }
                                 }
-                            }
-                            // Always show duration above any overlays to prevent hide after upload completes
-                            .overlay(alignment: .bottomLeading) {
-                                Text(format(durationOf: video.url))
-                                    .font(.caption1)
-                                    .foregroundStyle(.white)
-                                    .padding(12)
-                            }
-                        .contentShape(Rectangle())
-                        .onTapGesture { onOpen(false, item.index) }
-                        .contextMenu {
-                            Button { onShareVideoAt(item.index) } label: {
-                                Label("공유", systemImage: "square.and.arrow.up")
-                            }
-                            .tint(.primary)
-                            Button(role: .destructive) { onDeleteVideoAt(item.index) } label: {
-                                Label("삭제", systemImage: "trash")
-                            }
-                            .tint(.red)
-                            if (images.count + videos.count) > 1 {
-                                Divider()
-                                Button { onShareAll() } label: {
-                                    Label("모두 공유", systemImage: "square.and.arrow.up.on.square")
-                                }
-                                .tint(.primary)
-                                Button(role: .destructive) { onDeleteMemo() } label: {
-                                    Label("메모 삭제", systemImage: "trash.fill")
-                                }
-                                .tint(.red)
                             }
                         }
                     }
-                } else {
-                    // Invisible placeholder to push the last row to the right
-                    Color.clear
-                        .frame(height: 121.67)
                 }
+                .frame(height: Metrics.tileSize)
             }
         }
     }
 }
 
-private struct FilesGrid: View {
-    let files: [FileAttachment]
-    let highlightQuery: String?
-    let onShareFile: (URL) -> Void
-    let onDeleteFileAt: (Int) -> Void
-    let onShareAll: () -> Void
-    let onDeleteMemo: () -> Void
-
-    private let columns: [GridItem] = [
-        GridItem(.flexible(), spacing: 2),
-        GridItem(.flexible(), spacing: 2),
-        GridItem(.flexible(), spacing: 2)
-    ]
-
-    var body: some View {
-        LazyVGrid(columns: columns, spacing: 2) {
-            ForEach(files.indices, id: \.self) { idx in
-                ZStack {
-                    APEXFileTile(
-                        url: files[idx].url,
-                        contentType: files[idx].contentType,
-                        highlightQuery: highlightQuery,
-                        size: 119,
-                        onTap: {
-                            guard files[idx].progress == nil else { return }
-                            openFileURL(files[idx].url)
-                        }
-                    )
-
-                    if let progress = files[idx].progress {
-                        ProgressOverlay(progress: progress)
-                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    }
-                }
-                .allowsHitTesting(files[idx].progress == nil)
-                .contextMenu {
-                    Button { onShareFile(files[idx].url) } label: {
-                        Label("공유", systemImage: "square.and.arrow.up")
-                    }
-                    .tint(.primary)
-                    Button(role: .destructive) { onDeleteFileAt(idx) } label: {
-                        Label("삭제", systemImage: "trash")
-                    }
-                    .tint(.red)
-                    if files.count > 1 {
-                        Divider()
-                        Button { onShareAll() } label: {
-                            Label("모두 공유", systemImage: "square.and.arrow.up.on.square")
-                        }
-                        .tint(.primary)
-                        Button(role: .destructive) { onDeleteMemo() } label: {
-                            Label("메모 삭제", systemImage: "trash.fill")
-                        }
-                        .tint(.red)
-                    }
-                }
-            }
-        }
-        .environment(\.layoutDirection, .rightToLeft)
-    }
-}
-
-// FileGridTile refactored to reusable component APEXFileTile in FilesGrid above.
+// FilesGrid removed: file memos upload as single-file notes
 
 private func openFileURL(_ url: URL) {
     if FileManager.default.fileExists(atPath: url.path) {
