@@ -8,10 +8,11 @@
 import SwiftUI
 
 struct NotesManagementListSection: View {
-    @Binding var selectedTab: NoteTab
+    @Binding var selectedFilter: NotesFilter
     @Binding var selectedNoteIds: Set<UUID>
     @Binding var isSelectionMode: Bool
     @Binding var notes: [NoteItem]
+    let availableFilters: [NotesFilterItem]
     let onDeleteTap: () -> Void
     let onMovePinnedNote: (IndexSet, Int) -> Void
     
@@ -22,7 +23,10 @@ struct NotesManagementListSection: View {
     var body: some View {
         VStack(spacing: 0) {
             // 탭 선택
-            NotesManagementTabSelector(selectedTab: $selectedTab)
+            NotesFilterTabs(
+                selectedFilter: $selectedFilter,
+                availableFilters: availableFilters
+            )
             
             // 노트 리스트
             notesList
@@ -74,17 +78,8 @@ struct NotesManagementListSection: View {
     }
     
     private var filteredNotes: [NoteItem] {
-        let baseNotes: [NoteItem]
-        
-        switch selectedTab {
-        case .all:
-            baseNotes = notes
-        case .apple:
-            baseNotes = notes.filter { $0.company == "Apple" }
-        case .apex:
-            baseNotes = notes.filter { $0.company == "Apex" }
-        case .google:
-            baseNotes = notes.filter { $0.company == "Google" }
+        let baseNotes: [NoteItem] = notes.filter { note in
+            selectedFilter.matches(company: note.company)
         }
         
         // pinOrder 기반 정렬
@@ -231,16 +226,27 @@ struct DeleteButtonStyle: ButtonStyle {
 }
 
 #Preview {
-    @Previewable @State var selectedTab: NoteTab = .all
+    @Previewable @State var selectedFilter: NotesFilter = .all
     @Previewable @State var selectedNoteIds: Set<UUID> = []
     @Previewable @State var isSelectionMode: Bool = false
-    @Previewable @State var notes: [NoteItem] = sampleNotes
+    @Previewable @State var notes: [NoteItem] = [
+        NoteItem(id: UUID(), author: "Alice Kim", content: "텍스트 노트", company: "Apple", createdAt: Date(), isPinned: true, pinOrder: 2),
+        NoteItem(id: UUID(), author: "Bob Lee", content: "이미지 2", company: "Apex", createdAt: Date().addingTimeInterval(-3600), isPinned: true, pinOrder: 1),
+        NoteItem(id: UUID(), author: "Carol Park", content: "노트 없음", company: "Google", createdAt: Date().addingTimeInterval(-7200), isPinned: false, pinOrder: 0)
+    ]
+    let filters: [NotesFilterItem] = [
+        NotesFilterItem(filter: .all, isEnabled: true),
+        NotesFilterItem(filter: .company("Apple"), isEnabled: true),
+        NotesFilterItem(filter: .company("Apex"), isEnabled: true),
+        NotesFilterItem(filter: .company("Google"), isEnabled: true)
+    ]
     
     return NotesManagementListSection(
-        selectedTab: $selectedTab,
+        selectedFilter: $selectedFilter,
         selectedNoteIds: $selectedNoteIds,
         isSelectionMode: $isSelectionMode,
         notes: $notes,
+        availableFilters: filters,
         onDeleteTap: { print("Delete tapped") },
         onMovePinnedNote: { _, _ in print("Move tapped") }
     )
