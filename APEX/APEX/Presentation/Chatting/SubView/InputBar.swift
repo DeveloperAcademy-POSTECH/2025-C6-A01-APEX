@@ -56,6 +56,39 @@ private struct PickedVideo: Transferable {
 
 // MARK: - InputBar logic (moved out for lint compliance)
 private extension InputBar {
+    func persistFileToAppCache(originalURL: URL) -> URL {
+        let fm = FileManager.default
+        let cacheDir = (try? fm.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true))
+            ?? fm.temporaryDirectory
+        let dir = cacheDir.appendingPathComponent("APEXUploads", isDirectory: true)
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        let basename = originalURL.deletingPathExtension().lastPathComponent
+        let ext = originalURL.pathExtension
+        var target = dir.appendingPathComponent(basename).appendingPathExtension(ext.isEmpty ? "bin" : ext)
+        // Ensure unique file name
+        var suffix = 1
+        while fm.fileExists(atPath: target.path) {
+            let candidateName = "\(basename)-\(suffix)"
+            target = dir.appendingPathComponent(candidateName).appendingPathExtension(ext.isEmpty ? "bin" : ext)
+            suffix += 1
+        }
+        // If original is in our cache already, return as-is
+        if originalURL.path.hasPrefix(dir.path) {
+            return originalURL
+        }
+        do {
+            // Prefer copy; if fails, try data roundtrip
+            try fm.copyItem(at: originalURL, to: target)
+            return target
+        } catch {
+            if let data = try? Data(contentsOf: originalURL) {
+                try? data.write(to: target, options: .atomic)
+                return target
+            }
+            // Fallback: return original URL if copy failed
+            return originalURL
+        }
+    }
     func calculateHeight() {
         // Subtract internal left padding and the reserved trailing space for the right button
         let contentInsets: CGFloat = (editorLeftPadding / 2) + editorRightPaddingForButton
@@ -702,9 +735,11 @@ struct InputBar: View {
             DocumentPickerView { urls in
                 let shouldRestoreFocus = isEditorFocused
                 // Map picked URLs to FileAttachment and send
-                let files: [FileAttachment] = urls.map {
-                    let type = try? $0.resourceValues(forKeys: [.contentTypeKey]).contentType
-                    return FileAttachment(url: $0, contentType: type, progress: 0)
+                let files: [FileAttachment] = urls.compactMap { original in
+                    let persisted = persistFileToAppCache(originalURL: original)
+                    let type = (try? persisted.resourceValues(forKeys: [.contentTypeKey]).contentType)
+                        ?? (try? original.resourceValues(forKeys: [.contentTypeKey]).contentType)
+                    return FileAttachment(url: persisted, contentType: type, progress: 0)
                 }
                 guard !files.isEmpty else { return }
                 let note = Note(uploadedAt: Date(), text: nil, bundle: .files(files))

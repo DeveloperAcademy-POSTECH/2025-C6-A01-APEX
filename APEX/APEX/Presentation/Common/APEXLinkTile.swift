@@ -29,9 +29,7 @@ public struct APEXLinkTile: View {
 		} label: {
 			VStack(alignment: .leading) {
 				// Host row
-                Image(systemName: "link")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Color("BlackLabel"))
+                Image("link")
                     .padding(.bottom, 8)
     
 				

@@ -19,7 +19,7 @@ public struct APEXFileTile: View {
         url: URL,
         contentType: UTType?,
         highlightQuery: String? = nil,
-        size: CGFloat = 119,
+        size: CGFloat = 124,
         onTap: (() -> Void)? = nil
     ) {
         self.url = url
@@ -30,42 +30,36 @@ public struct APEXFileTile: View {
     }
 
     public var body: some View {
-        ZStack {
-            Color("BackgroundSecondary")
-            VStack(alignment: .leading, spacing: 0) {
-                Image(systemName: fileSystemSymbolName(for: contentType, url: url))
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.black)
+        VStack(alignment: .leading, spacing: 4) {
+            Image(fileSystemSymbolName(for: contentType, url: url))
+                .scaledToFit()
+                .frame(width: 24, height: 24)
 
-                Spacer()
-
-                if let attr = highlightedName() {
-                    Text(attr)
-                        .font(.caption2)
-                        .lineLimit(4)
-                        .truncationMode(.middle)
-                        .foregroundStyle(.black)
-                        .padding(.bottom, 4)
-                } else {
-                    Text(displayNameWithNewline())
-                        .font(.caption2)
-                        .lineLimit(4)
-                        .truncationMode(.middle)
-                        .foregroundStyle(.black)
-                        .padding(.bottom, 4)
-                }
-
-                if let sizeText = fileSizeText(for: url) {
-                    Text(sizeText)
-                        .font(.caption2)
-                        .foregroundStyle(.gray)
-                }
+            if let attr = highlightedName() {
+                Text(attr)
+                    .font(.caption2)
+                    .lineLimit(4)
+                    .truncationMode(.middle)
+                    .foregroundStyle(Color("BlackLabel"))
+            } else {
+                Text(displayNameWithNewline())
+                    .font(.caption2)
+                    .lineLimit(4)
+                    .truncationMode(.middle)
+                    .foregroundStyle(Color("BlackLabel"))
             }
 
-            .padding(12)
+            if let sizeText = fileSizeText(for: url) {
+                Text(sizeText)
+                    .font(.caption2)
+                    .foregroundStyle(Color("GrayLabel"))
+            }
         }
-        .frame(width: size, height: size)
-        .cornerRadius(10)
+        .padding(12)
+        .frame(width: size, height: size, alignment: .topLeading)
+        .background(Color("BackgroundSecondary"))
+        .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+        .clipped()
         .contentShape(Rectangle())
         .onTapGesture {
             if let onTap {
@@ -84,10 +78,10 @@ private func fileSystemSymbolName(for type: UTType?, url: URL?) -> String {
     if resolvedType == nil, let ext = url?.pathExtension, !ext.isEmpty {
         resolvedType = UTType(filenameExtension: ext)
     }
-    guard let resolved = resolvedType else { return "document" }
-    if resolved.conforms(to: .image) { return "photo" }
-    if resolved.conforms(to: .movie) || resolved.conforms(to: .audiovisualContent) { return "video" }
-    return "document"
+    guard let resolved = resolvedType else { return "document2" }
+    if resolved.conforms(to: .image) { return "photo2" }
+    if resolved.conforms(to: .movie) || resolved.conforms(to: .audiovisualContent) { return "video2" }
+    return "document2"
 }
 
 private func fileSizeText(for url: URL) -> String? {
