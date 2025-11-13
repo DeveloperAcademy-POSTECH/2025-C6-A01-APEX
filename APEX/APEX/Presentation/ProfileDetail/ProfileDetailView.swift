@@ -107,8 +107,6 @@ struct ProfileDetailView: View {
                     onEdit: { isPresentingEdit = true }
                 )
                 .background(Color("Background"))
-                .padding(.top, 16)
-                .padding(.bottom, 8)
 
                 // 상단 헤더
                 MyProfileHeaderView(

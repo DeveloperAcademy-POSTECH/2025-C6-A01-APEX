@@ -133,30 +133,39 @@ struct UnsubscribeView: View {
     }
 
     private var topBar: some View {
-        HStack(alignment: .center, spacing: 0) {
-            // 뒤로 버튼 (MyProfile 스타일)
-            Button(action: { router.pop() }) {
-                ZStack {
-                    Circle()
-                        .fill(Color.white)
-                        .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
-                        .frame(width: 44, height: 44)
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 17, weight: .medium))
-                        .foregroundColor(Color.black)
+        ZStack {
+            // 버튼들 레이아웃 - 각 버튼에 개별 패딩 적용
+            HStack(spacing: 0) {
+                // 뒤로 버튼 - SF Pro Medium, 17pt, 44×44px
+                Button(action: { router.pop() }) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.white)
+                            .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
+                            .frame(width: 44, height: 44)
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 17, weight: .medium, design: .default))
+                            .foregroundColor(Color.black)
+                    }
+                    .frame(width: 44, height: 44)
+                    .contentShape(Circle())
+                    .accessibilityLabel("뒤로")
                 }
-                .frame(width: 44, height: 44)
-                .contentShape(Circle())
-                .accessibilityLabel("뒤로")
+                .buttonStyle(.plain)
+                .padding(.leading, 16) // 왼쪽 16px 패딩
+                
+                Spacer()
             }
-            .buttonStyle(.plain)
             
-            Spacer()
+            // 제목을 절대 가운데에 배치 - title5
+            Text("계정 탈퇴")
+                .font(.title5)
+                .foregroundColor(.black)
+                .accessibilityAddTraits(.isHeader)
         }
-        .padding(.horizontal, 16) // 좌우 16pt
-        .padding(.vertical, 8)    // 상하 8pt
-        .frame(height: 60) // 전체 프레임 높이 60pt
         .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.horizontal, 0) // 좌우 패딩 제거
+        .padding(.vertical, 8)   // 상하 패딩만 유지  
         .background(.white)
     }
 }

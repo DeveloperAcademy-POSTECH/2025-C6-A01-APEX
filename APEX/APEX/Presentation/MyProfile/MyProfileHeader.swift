@@ -16,55 +16,59 @@ struct MyProfileNavigationBar: View {
     var isEditEnabled: Bool = true
 
     var body: some View {
-        HStack(alignment: .center, spacing: 0) {
-            // 뒤로 버튼
-            Button(action: onBack) {
-                ZStack {
-                    Circle()
-                        .fill(Color.white)
-                        .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
-                        .frame(width: 44, height: 44)
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 17, weight: .medium))
-                        .foregroundColor(Color.black)
+        ZStack {
+            // 버튼들 레이아웃 - 각 버튼에 개별 패딩 적용
+            HStack(spacing: 0) {
+                // 뒤로 버튼
+                Button(action: onBack) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.white)
+                            .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
+                            .frame(width: 44, height: 44)
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 17, weight: .medium))
+                            .foregroundColor(Color.black)
+                    }
+                    .frame(width: 44, height: 44)
+                    .contentShape(Circle())
+                    .accessibilityLabel("뒤로")
+                    
                 }
-                .frame(width: 44, height: 44)
-                .contentShape(Circle())
-                .accessibilityLabel("뒤로")
+                .buttonStyle(.plain)
+                .padding(.leading, 16) // 왼쪽 16px 패딩
+                
+                Spacer()
+                
+                // 편집 버튼 (상태별 처리)
+                Button(action: onEdit) {
+                    Text("편집")
+                        .font(.title6)
+                        .foregroundColor(isEditEnabled ? Color.black : Color.gray)
+                        .frame(width: 52, height: 44)
+                        .background(
+                            Capsule()
+                                .fill(Color.white)
+                                .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
+                        )
+                        .opacity(isEditEnabled ? 1.0 : 0.6)
+                }
+                .buttonStyle(.plain)
+                .disabled(!isEditEnabled)
+                .accessibilityLabel("편집")
+                .padding(.trailing, 16) // 오른쪽 16px 패딩
             }
-            .buttonStyle(.plain)
             
-            Spacer()
-            
-            // 제목
+            // 제목을 절대 가운데에 배치
             Text(title)
                 .font(.title5)
                 .foregroundColor(.black)
                 .accessibilityAddTraits(.isHeader)
-            
-            Spacer()
-            
-            // 편집 버튼 (상태별 처리)
-            Button(action: onEdit) {
-                Text("편집")
-                    .font(.title6)
-                    .foregroundColor(isEditEnabled ? Color.black : Color.gray)
-                    .frame(width: 52, height: 44)
-                    .background(
-                        Capsule()
-                            .fill(Color.white)
-                            .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
-                    )
-                    .opacity(isEditEnabled ? 1.0 : 0.6)
-            }
-            .buttonStyle(.plain)
-            .disabled(!isEditEnabled)
-            .accessibilityLabel("편집")
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 0)
         .frame(maxWidth: .infinity, alignment: .center)
-        .background(.white)
+        .padding(.horizontal, 0) // 좌우 패딩 제거
+        .padding(.vertical, 8)   // 상하 패딩만 유지  
+        .background(Color("Background"))
     }
 }
 
@@ -126,7 +130,7 @@ struct MyProfileHeaderView: View {
                 ForEach(0..<max(1, items.count), id: \.self) { idx in
                     if idx < items.count {
                         Circle()
-                            .fill(idx == page ? Color(hex: "404040") : Color(hex: "D9D9D9"))
+                            .fill(idx == page ? Color("Primary") : Color(hex: "D9D9D9"))
                             .frame(width: 8, height: 8)
                     } else {
                         Circle()
