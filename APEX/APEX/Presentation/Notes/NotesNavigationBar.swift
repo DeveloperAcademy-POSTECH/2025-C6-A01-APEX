@@ -91,16 +91,19 @@ private struct MenuToolbarButton: View {
             Button(action: { router.push(.notesManagement)}) {
                 Text("노트 관리")
                     .font(.body2)
-                    .foregroundColor(.black)
+                    .foregroundColor(Color.blackLabel)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
             }
         } label: {
             ZStack {
+                // 원형 배경 (처음부터 원형으로 렌더링)
                 Circle()
-                    .fill(.ultraThinMaterial)
+                    .fill(Color.white)
+                    .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
                     .frame(width: size, height: size)
 
+                // 아이콘
                 Image(systemName: "ellipsis")
                     .font(.system(size: iconSize, weight: .semibold))
                     .foregroundColor(isPressed ? .black : .black)
