@@ -43,6 +43,7 @@ struct RootView: View {
                 destination(for: route)
             }
         }
+        .apexSwipeBack()
     }
 }
 

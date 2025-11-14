@@ -155,6 +155,21 @@ private extension SearchView {
 					sectionHeader(title: "최근 검색", iconName: "clock.arrow.circlepath", iconColor: Color("Primary"), onTapArrow: {
 						// No destination; keep behavior as non-clickable header
 					}, showsArrow: false)
+					.overlay(alignment: .trailing) {
+						Button {
+							clearRecent()
+						} label: {
+							Text("초기화")
+								.font(.body3)
+								.foregroundStyle(Color("Primary"))
+								.padding(.horizontal, 8)
+								.padding(.vertical, 6)
+								.background(Color("BackgroundSecondary"))
+								.clipShape(Capsule())
+						}
+						.buttonStyle(.plain)
+                        .padding(.trailing, 16)
+					}
 					ScrollView(.horizontal, showsIndicators: false) {
 						HStack(spacing: 8) {
 							ForEach(recentQueries, id: \.self) { item in
@@ -194,8 +209,8 @@ private extension SearchView {
 							let owner = ownerForFlattenedMedia(item)
 							let payload = owner.flatMap { mediaPayloadForClient($0.client) }
 							let parsed = parseFlattenedMediaId(item.id)
-							let selectedIndex = payload.flatMap { p in
-								p.anchors.firstIndex(where: { $0.noteId == parsed?.noteId && $0.isImage == (parsed?.isImage ?? false) && $0.localIndex == (parsed?.localIndex ?? -1) })
+							let selectedIndex = payload.flatMap { payloadData in
+								payloadData.anchors.firstIndex(where: { $0.noteId == parsed?.noteId && $0.isImage == (parsed?.isImage ?? false) && $0.localIndex == (parsed?.localIndex ?? -1) })
 							} ?? 0
 							APEXMediaTile(
 								source: item.isVideo ? .video(item.videoURL!) : .image(item.imageData ?? Data()),
@@ -484,8 +499,8 @@ private extension SearchView {
 								let owner = ownerForFlattenedMedia(item)
 								let payload = owner.flatMap { mediaPayloadForClient($0.client) }
 								let parsed = parseFlattenedMediaId(item.id)
-								let selectedIndex = payload.flatMap { p in
-									p.anchors.firstIndex(where: { $0.noteId == parsed?.noteId && $0.isImage == (parsed?.isImage ?? false) && $0.localIndex == (parsed?.localIndex ?? -1) })
+								let selectedIndex = payload.flatMap { payloadData in
+									payloadData.anchors.firstIndex(where: { $0.noteId == parsed?.noteId && $0.isImage == (parsed?.isImage ?? false) && $0.localIndex == (parsed?.localIndex ?? -1) })
 								} ?? 0
 								APEXMediaTile(
 									source: item.isVideo ? .video(item.videoURL!) : .image(item.imageData ?? Data()),
@@ -670,6 +685,11 @@ private extension SearchView {
 		allLinks = computeLinkItems(from: notes)
 	}
 	
+	func clearRecent() {
+		recentQueries = []
+		recentQueriesStorage = ""
+	}
+	
 	func computeMediaItems(from notes: [Note]) -> [FlattenedMediaItem] {
 		var result: [FlattenedMediaItem] = []
 		for note in notes {
@@ -813,15 +833,15 @@ private extension SearchView {
         var notesForClient = ChatStore.shared.notes(for: client.id)
         if notesForClient.isEmpty { notesForClient = client.notes }
         let flattened = computeMediaItems(from: notesForClient)
-        let items: [MediaSource] = flattened.map { f in
-            if f.isVideo, let url = f.videoURL {
+        let items: [MediaSource] = flattened.map { flattenedItem in
+            if flattenedItem.isVideo, let url = flattenedItem.videoURL {
                 return .video(url)
             } else {
-                return .image(f.imageData ?? Data())
+                return .image(flattenedItem.imageData ?? Data())
             }
         }
-        let anchors: [(UUID, Bool, Int)] = flattened.compactMap { f in
-            guard let parsed = parseFlattenedMediaId(f.id) else { return nil }
+        let anchors: [(UUID, Bool, Int)] = flattened.compactMap { flattenedItem in
+            guard let parsed = parseFlattenedMediaId(flattenedItem.id) else { return nil }
             return (parsed.noteId, parsed.isImage, parsed.localIndex)
         }
         return (items, anchors)

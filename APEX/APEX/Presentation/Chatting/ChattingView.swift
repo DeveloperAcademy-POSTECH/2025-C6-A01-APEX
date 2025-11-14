@@ -57,8 +57,6 @@ struct ChattingView: View {
     @State private var dateHighlightOffsetY: CGFloat = 0
     private struct EditingPayload: Identifiable { let id = UUID(); let noteId: UUID; var text: String }
     @State private var editing: EditingPayload?
-    private struct SelectCopyPayload: Identifiable { let id = UUID(); let text: String }
-    @State private var selectCopy: SelectCopyPayload?
     // Selection delete confirmation
     @State private var showSelectionDeleteAlert: Bool = false
     // Delete selection mode
@@ -199,9 +197,6 @@ struct ChattingView: View {
                                             },
                                             onStartMultiDelete: { noteId in
                                                 startDeleteSelection(preselect: noteId)
-                                            },
-                                            onStartSelectCopy: { text in
-                                                selectCopy = SelectCopyPayload(text: text)
                                             }
                                         )
                                         .offset(x: -timestampRevealProgress * (timeTextWidth(for: note.uploadedAt) + Metrics.timeGap))
@@ -230,7 +225,7 @@ struct ChattingView: View {
                     }
                     .padding(.horizontal, 12)
                 }
-                .textSelection(.enabled)
+                .textSelection(.disabled)
                 .padding(.bottom, bottomInsetHeight + max(0, -bottomBarOffsetY))
                 .coordinateSpace(name: "chatScroll")
                 .scrollBounceBehavior(.basedOnSize)
@@ -437,18 +432,6 @@ struct ChattingView: View {
                 .onEnded { _ in
                     withAnimation(.easeInOut(duration: 0.15)) {
                         timestampRevealProgress = 0
-                    }
-                }
-        )
-        // Full-screen right-swipe to navigate back (non-intrusive)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 20)
-                .onEnded { value in
-                    let dx = value.translation.width
-                    let dy = value.translation.height
-                    guard abs(dx) > abs(dy) else { return }
-                    if dx > 80, sheetMode == .hidden, !isSearchActive {
-                        router.pop()
                     }
                 }
         )
@@ -762,16 +745,6 @@ struct ChattingView: View {
                     editing = nil
                 },
                 deleteSubject: "메모를"
-            )
-        }
-        .sheet(item: $selectCopy) { payload in
-            SelectCopySheet(
-                text: payload.text,
-                onClose: { selectCopy = nil },
-                onCopyAll: {
-                    UIPasteboard.general.string = payload.text
-                    withAnimation { showCopyToast = true }
-                }
             )
         }
         .sheet(item: $shareSeed) { seed in
@@ -1129,7 +1102,6 @@ private struct ChatMessageView: View {
     let onCopyText: (String) -> Void
     let onStartEdit: (UUID, String) -> Void
     let onStartMultiDelete: (UUID) -> Void
-    let onStartSelectCopy: (String) -> Void
     // Removed selectedRange; SelectableText now manages selection internally
     @State private var showDeleteAlert: Bool = false
     @State private var deleteSubjectText: String = ""
@@ -1327,10 +1299,6 @@ private struct ChatMessageView: View {
                 .contextMenu {
                     Button { onCopyText(text) } label: {
                         Label("전체 복사", systemImage: "doc.on.doc")
-                    }
-                    .tint(.primary)
-                    Button { onStartSelectCopy(text) } label: {
-                        Label("선택 복사", systemImage: "text.viewfinder")
                     }
                     .tint(.primary)
                     Button { onStartEdit(note.id, text) } label: {
@@ -1973,45 +1941,7 @@ private struct TextEditSheet: View {
     }
 }
 
-// Sheet showing selectable text for partial copy
-private struct SelectCopySheet: View {
-    @Environment(\.dismiss) private var dismiss
-    let text: String
-    let onClose: () -> Void
-    let onCopyAll: () -> Void
-
-    var body: some View {
-        NavigationView {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    // 안내 문구 최소화, 기본 동작은 길게 눌러 복사
-                    SelectableText(
-                        text,
-                        fontSize: 14,
-                        textStyle: .body,
-                        lineSpacing: 4,
-                        maxLayoutWidth: UIScreen.main.bounds.width - 32
-                    )
-                    .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(16)
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("닫기") { onClose(); dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("전체 복사") { onCopyAll(); dismiss() }
-                }
-                ToolbarItem(placement: .principal) {
-                    Text("선택 복사")
-                }
-            }
-            .background(Color("Background"))
-        }
-    }
-}
+// (removed) SelectCopySheet
 
 // LinkPreviewLoader moved to Presentation/Common/LinkPreviewSupport.swift
 

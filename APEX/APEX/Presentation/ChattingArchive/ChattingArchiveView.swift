@@ -330,15 +330,19 @@ struct ChattingArchiveView: View {
 
                 Spacer(minLength: 0)
 
-                Button(action: { isFavorite.toggle() }) {
-                    Image(systemName: isFavorite ? "star.fill" : "star")
-                        .font(.title4)
-                        .foregroundColor(Color("Primary"))
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
+                // Hide favorite button for my own profile
+                let isMe = (client?.email ?? "") == sampleMyProfileClient.email
+                if !isMe {
+                    Button(action: { isFavorite.toggle() }) {
+                        Image(systemName: isFavorite ? "star.fill" : "star")
+                            .font(.title4)
+                            .foregroundColor(Color("Primary"))
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .glassEffect()
                 }
-                .buttonStyle(.plain)
-                .glassEffect()
             }
             .frame(height: 52)
             .padding(.horizontal, 12)
@@ -363,22 +367,26 @@ struct ChattingArchiveView: View {
                 .disabled(totalMediaBytes == 0)
                 .opacity(totalMediaBytes == 0 ? 0.5 : 1)
 
-                Button(role: .destructive) {
-                    showDeleteContactOverlay = true
-                } label: {
-                    HStack {
-                        Image(systemName: "trash.fill")
-                            .font(.system(size: 16, weight: .bold))
-                        Text("연락처 삭제하기")
+                // Hide contact delete for my own profile
+                let isMe = (client?.email ?? "") == sampleMyProfileClient.email
+                if !isMe {
+                    Button(role: .destructive) {
+                        showDeleteContactOverlay = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "trash.fill")
+                                .font(.system(size: 16, weight: .bold))
+                            Text("연락처 삭제하기")
+                        }
+                        .font(.body5)
+                        .foregroundColor(Color("Error"))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 15)
                     }
-                    .font(.body5)
-                    .foregroundColor(Color("Error"))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 15)
+                    .buttonStyle(.plain)
+                    .background(Color("ErrorContainer"))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
-                .buttonStyle(.plain)
-                .background(Color("ErrorContainer"))
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
             .padding(.horizontal, 24)
             .padding(.top, 24)
