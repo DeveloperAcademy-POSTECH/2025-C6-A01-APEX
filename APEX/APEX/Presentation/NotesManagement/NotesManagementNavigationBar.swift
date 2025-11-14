@@ -19,7 +19,7 @@ struct NotesManagementNavigationBar: View {
                 // 닫기 버튼 - 44×44px, SF Pro Medium 17pt
                 Button(action: onClose) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 17, weight: .medium, design: .default))
+                        .font(.system(size: 20, weight: .medium, design: .default))
                         .foregroundColor(.black)
                         .frame(width: 44, height: 44)
                         .background(

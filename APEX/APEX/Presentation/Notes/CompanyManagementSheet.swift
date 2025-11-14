@@ -43,7 +43,7 @@ struct CompanyManagementSheet: View {
                     isPresented = false
                 }) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 17, weight: .medium, design: .default))
+                        .font(.system(size: 20, weight: .medium, design: .default))
                         .foregroundColor(.black)
                         .frame(width: 44, height: 44)
                         .background(
@@ -88,44 +88,59 @@ struct CompanyManagementSheet: View {
     }
     
     private var sortToggleSection: some View {
-        HStack(spacing: 0) {
-            // 가나다 순 버튼
-            Button(action: {
-                sortByAlphabet = true
-            }) {
-                Text("가나다 순")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(sortByAlphabet ? .black : Color.black.opacity(0.4))
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(
-                        Capsule()
-                            .fill(sortByAlphabet ? Color.white : Color.clear)
-                    )
-            }
-            .buttonStyle(.plain)
+        HStack {
+            Spacer()
             
-            // 사용자 설정 순 버튼
-            Button(action: {
-                sortByAlphabet = false
-            }) {
-                Text("사용자 설정 순")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(!sortByAlphabet ? .black : Color.black.opacity(0.4))
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(
-                        Capsule()
-                            .fill(!sortByAlphabet ? Color.white : Color.clear)
-                    )
+            // Pill-style segmented control with animated glass effect
+            ZStack {
+                // 컨테이너 배경
+                RoundedRectangle(cornerRadius: 19)
+                    .fill(Color("PrimaryContainer"))
+                    .frame(width: 192, height: 38)
+                
+                // 애니메이션되는 플랫 타원
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color("Background"))
+                    .frame(width: 92, height: 32)
+                    .offset(x: sortByAlphabet ? -48 : 48) // 왼쪽(-48) 또는 오른쪽(+48)으로 이동
+                    .animation(.easeInOut(duration: 0.3), value: sortByAlphabet)
+                
+                // 버튼들 (투명한 배경)
+                HStack(spacing: 0) {
+                    // 가나다 순 버튼
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            sortByAlphabet = true
+                        }
+                    }) {
+                        Text("가나다 순")
+                            .font(.caption1)
+                            .foregroundColor(sortByAlphabet ? Color("BlackLabel") : Color("GrayLabel"))
+                            .frame(width: 96, height: 38)
+                    }
+                    .buttonStyle(.plain)
+                    
+                    // 사용자 설정 순 버튼  
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            sortByAlphabet = false
+                        }
+                    }) {
+                        Text("사용자 설정 순")
+                            .font(.caption1)
+                            .foregroundColor(!sortByAlphabet ? Color("BlackLabel") : Color("GrayLabel"))
+                            .frame(width: 96, height: 38)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
-            .buttonStyle(.plain)
+            .frame(width: 192, height: 38)
             
             Spacer()
         }
         .padding(.horizontal, 16)
-        .padding(.top, 16)
-        .padding(.bottom, 20)
+        .padding(.top, 8)
+        .padding(.bottom, 8)
     }
     
     private var companyListSection: some View {
@@ -203,25 +218,25 @@ struct CompanyRowView: View {
     var body: some View {
         HStack(spacing: 16) {
             Text(company)
-                .font(.system(size: 16, weight: .medium))
-                .foregroundColor(isEnabled ? .black : Color.black.opacity(0.4))
+                .font(.body2)
+                .foregroundColor(isEnabled ? Color("BlackLabel") : Color("GrayLabel"))
             
             Spacer()
-            
-            // 드래그 핸들 (사용자 설정 순이고 활성화된 회사만)
-            if canReorder && isEnabled {
-                Image(systemName: "line.3.horizontal")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(Color.black.opacity(0.6))
-            }
             
             // 토글 버튼
             Button(action: onToggle) {
                 Image(systemName: isEnabled ? "minus.circle.fill" : "plus.circle.fill")
-                    .font(.system(size: 20))
-                    .foregroundColor(isEnabled ? .red : .green)
+                    .font(.system(size: 22))
+                    .foregroundColor(isEnabled ? Color("Error") : Color("GreenLabel"))
             }
             .buttonStyle(.plain)
+            
+            // 드래그 핸들 (사용자 설정 순이고 활성화된 회사만) - +/- 버튼 우측에 배치
+            if canReorder && isEnabled {
+                Image(systemName: "line.3.horizontal")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(Color("BlackLabel"))
+            }
         }
         .padding(.vertical, 12)
     }
