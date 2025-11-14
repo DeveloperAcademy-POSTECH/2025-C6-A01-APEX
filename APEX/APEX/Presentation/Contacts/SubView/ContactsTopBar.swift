@@ -21,9 +21,11 @@ struct ContactsTopBar: View {
             ZStack {
                 // 버튼들 레이아웃
                 HStack {
-                    // 왼쪽 공간 (빈 공간)
-                    Spacer()
-                        .frame(width: 44) // 오른쪽 버튼과 동일한 크기
+                    // 왼쪽에 타이틀 배치
+                    Text(title)
+                        .font(.title1)
+                        .fontWeight(.semibold)
+                        .foregroundColor(titleColor)
                     
                     Spacer()
                     
@@ -34,12 +36,6 @@ struct ContactsTopBar: View {
                         action: onPlus
                     )
                 }
-                
-                // 제목을 절대 가운데에 배치
-                Text(title)
-                    .font(.title1)
-                    .fontWeight(.semibold)
-                    .foregroundColor(titleColor)
             }
             .frame(height: height)
             .padding(.horizontal, horizontalPadding)
