@@ -23,7 +23,7 @@ struct SelectableText: UIViewRepresentable {
       textView.translatesAutoresizingMaskIntoConstraints = false
       textView.isScrollEnabled = false
       textView.isEditable = false
-      textView.isSelectable = true
+      textView.isSelectable = false
       textView.dataDetectorTypes = .link
       textView.backgroundColor = .clear
       textView.textContainer.lineBreakMode = .byWordWrapping

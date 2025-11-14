@@ -47,6 +47,7 @@ struct ProfileDetailView: View {
         mainContent
         .background(Color("Background"))
         .sheet(isPresented: $isPresentingEdit) {
+            let isMe = (client.email ?? "") == sampleMyProfileClient.email
             MyProfileEditSheet(
                 client: client,
                 onCancel: { },
@@ -56,7 +57,7 @@ struct ProfileDetailView: View {
                             persistClientUpdate(updated, previousEmail: previousEmail)
                 },
                 onDelete: { deleteClient() }, // 직접 삭제 처리
-                showDeleteButton: true  // ProfileDetailView에서만 삭제 버튼 표시
+                showDeleteButton: !isMe  // 내 프로필이면 삭제 버튼 숨김
             )
         }
         .toolbar(.hidden, for: .navigationBar)
