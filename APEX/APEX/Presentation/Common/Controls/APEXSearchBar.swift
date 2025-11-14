@@ -52,7 +52,8 @@ struct APEXSearchBar: View {
 					Image(systemName: "magnifyingglass")
 						.font(.system(size: 14, weight: .regular))
 						.foregroundStyle(.secondary)
-						.padding(.leading, 18)
+						.padding(.leading, 12)
+                        .padding(.trailing, 8)
 				}
 			}
 			

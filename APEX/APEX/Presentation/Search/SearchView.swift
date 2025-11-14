@@ -366,7 +366,7 @@ private extension SearchView {
 		return Group {
 			if !filtered.isEmpty {
 				VStack(alignment: .leading, spacing: 8) {
-					sectionHeader(title: "클라이언트", iconName: "person.2", iconColor: Color("Primary"), onTapArrow: {
+					sectionHeader(title: "연락처", iconName: "person.crop.circle.fill", iconColor: Color("Primary"), onTapArrow: {
 						// no-op
 					}, showsArrow: false)
 					VStack(spacing: 0) {
@@ -426,7 +426,7 @@ private extension SearchView {
 		return Group {
 			if !pairs.isEmpty {
 				VStack(alignment: .leading, spacing: 8) {
-					sectionHeader(title: "텍스트 메모", iconName: "text.quote", iconColor: Color("Primary"), onTapArrow: {
+					sectionHeader(title: "텍스트", iconName: "text.quote", iconColor: Color("Primary"), onTapArrow: {
 						// no-op
 					}, showsArrow: false)
 					VStack(spacing: 8) {
