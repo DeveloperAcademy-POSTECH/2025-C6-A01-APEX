@@ -34,9 +34,7 @@ struct AudioSquareTile: View {
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             } else {
                 VStack(alignment: .leading, spacing: 0) {
-                    Image(systemName: "waveform")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.black)
+                    Image("Waveform")
                     Spacer(minLength: 0)
                     if let attr = highlightedTitle() {
                         Text(attr)
