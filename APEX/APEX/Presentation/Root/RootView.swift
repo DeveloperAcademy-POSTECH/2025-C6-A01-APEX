@@ -368,4 +368,5 @@ private struct ProfileDetailScreen: View {
 
 #Preview {
     RootView()
+        .environmentObject(NavigationRouter())
 }
