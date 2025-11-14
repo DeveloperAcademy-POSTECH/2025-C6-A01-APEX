@@ -34,7 +34,7 @@ struct ContactsRow: View {
                 avatar
 
                 VStack(alignment: .leading, spacing: Metrics.nameSubtitleSpacing) {
-                    Text("\(client.name) \(client.surname)")
+                    Text(client.autoFormattedName)
                         .font(.body2)
                         .foregroundColor(.primary)
                         .lineLimit(1)
@@ -82,7 +82,7 @@ struct ContactsRow: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(client.name) \(client.surname), \(subtitle)")
+        .accessibilityLabel("\(client.autoFormattedName), \(subtitle)")
         .accessibilityAddTraits(.isButton) // 행이 버튼 역할임을 명확히
     }
 
