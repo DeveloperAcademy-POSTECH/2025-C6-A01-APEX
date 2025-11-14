@@ -61,19 +61,18 @@ private struct PlusButton: View {
             ZStack {
                 // 원형 배경 (처음부터 원형으로 렌더링)
                 Circle()
-                    .fill(Color.white)
-                    .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
-                    .frame(width: size, height: size)
-
+                    .fill(Color.background)
+                
                 // 아이콘
                 Image(systemName: "plus")
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundColor(isPressed ? pressedColor : normalColor)
+                
             }
+            .glassEffect()
             .frame(width: size, height: size)
             .contentShape(Circle())
         }
-        .buttonStyle(.plain)
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
