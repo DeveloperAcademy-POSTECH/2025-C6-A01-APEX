@@ -89,7 +89,7 @@ struct APEXSheetTopBar: View {
     private var leftButton: some View {
         Button(action: onClose) {
             Image(systemName: leftIconSystemName)
-                .font(.title4)
+                .font(.system(size: 20, weight: .medium, design: .default))
                 .foregroundColor(foreground)
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
