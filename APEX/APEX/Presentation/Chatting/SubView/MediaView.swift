@@ -75,14 +75,13 @@ struct MediaView: View {
     }
 
     var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-
+        Group {
             if !pages.isEmpty {
                 TabView(selection: $selectedIndex, content: {
                     ForEach(pages.indices, id: \.self) { idx in
                         pageView(for: pages[idx])
                             .tag(idx)
+                            
                     }
                 })
                 .tabViewStyle(.page(indexDisplayMode: .never))
@@ -93,40 +92,39 @@ struct MediaView: View {
                     }
                 )
             }
-
+        }
+        .ignoresSafeArea()
+        .safeAreaBar(edge: .top) {
             if showChrome {
-                VStack(spacing: 0) {
-                    MediaHeaderBar(
-                        title: title,
-                        uploadedAt: uploadedAt,
-                        onBack: { dismiss() },
-                        onGrid: { },
-                        onTitleTap: {
-                            // Dismiss first to avoid pushing a new route that gets popped immediately.
-                            let currentIndex = selectedIndex
-                            dismiss()
-                            if let onTitleTap {
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                    onTitleTap(currentIndex)
-                                }
+                MediaHeaderBar(
+                    title: title,
+                    uploadedAt: uploadedAt,
+                    onBack: { dismiss() },
+                    onGrid: { },
+                    onTitleTap: {
+                        // Dismiss first to avoid pushing a new route that gets popped immediately.
+                        let currentIndex = selectedIndex
+                        dismiss()
+                        if let onTitleTap {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                onTitleTap(currentIndex)
                             }
                         }
-                    )
-                    Spacer()
-                }
+                    }
+                )
                 .transition(.move(edge: .top).combined(with: .opacity))
                 .allowsHitTesting(!isVideoPlaying)
-
-                VStack(spacing: 0) {
-                    Spacer()
-                    MediaBottomBar(
-                        index: selectedIndex,
-                        total: pages.count,
-                        onShare: { handleShareTapped() },
-                        onSave: { handleSave() },
-                        onDelete: { showDeleteAlert = true }
-                    )
-                }
+            }
+        }
+        .safeAreaBar(edge: .bottom) {
+            if showChrome {
+                MediaBottomBar(
+                    index: selectedIndex,
+                    total: pages.count,
+                    onShare: { handleShareTapped() },
+                    onSave: { handleSave() },
+                    onDelete: { showDeleteAlert = true }
+                )
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .allowsHitTesting(!isVideoPlaying)
             }
