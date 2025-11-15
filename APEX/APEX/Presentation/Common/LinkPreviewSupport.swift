@@ -108,8 +108,7 @@ public struct LinkPreviewCard: View {
 				.frame(width: targetWidth, height: imageHeight)
 				.clipped()
 				VStack(alignment: .leading, spacing: 0) {
-					Image(systemName: "link")
-						.font(.system(size: 13, weight: .medium))
+					Image("URL")
 						.padding(.bottom, 2)
 					Text(loader.metadata?.title ?? url.host ?? url.absoluteString)
 						.font(.caption2)

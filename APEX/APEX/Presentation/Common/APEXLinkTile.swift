@@ -31,7 +31,8 @@ public struct APEXLinkTile: View {
 				// Host row
                 Image("URL")
                     .padding(.bottom, 8)
-    
+                
+                Spacer(minLength: 0)
 				
 				// Title
 				Text(loader.metadata?.title ?? url.absoluteString)
