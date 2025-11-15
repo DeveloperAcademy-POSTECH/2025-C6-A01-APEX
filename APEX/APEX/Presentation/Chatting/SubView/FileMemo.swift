@@ -96,11 +96,11 @@ private func iconName(for type: UTType?, url: URL?) -> String {
     if resolvedType == nil, let ext = url?.pathExtension, !ext.isEmpty {
         resolvedType = UTType(filenameExtension: ext)
     }
-    guard let resolved = resolvedType else { return "document2" }
+    guard let resolved = resolvedType else { return "Document2" }
     if resolved.conforms(to: .audio) { return "Sound2" }
     if resolved.conforms(to: .image) { return "Photo2" }
     if resolved.conforms(to: .movie) || resolved.conforms(to: .audiovisualContent) { return "Video2" }
-    return "document2"
+    return "Document2"
 }
 
 private func loadImageThumb(from url: URL, targetMaxLength: CGFloat) -> UIImage? {

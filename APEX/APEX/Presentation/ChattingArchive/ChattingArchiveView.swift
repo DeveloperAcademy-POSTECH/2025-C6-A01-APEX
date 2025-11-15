@@ -43,24 +43,41 @@ struct ChattingArchiveView: View {
     // Record viewer
     private struct DetailRecordPayload: Identifiable { let id = UUID(); let url: URL }
     @State private var recordPayload: DetailRecordPayload?
+    // Archive full-screen presentation
+    private struct ArchiveSheetPayload: Identifiable { let id = UUID(); let section: ArchiveSection }
+    @State private var archiveSheet: ArchiveSheetPayload?
     // Bottom actions
     @State private var showDeleteMediaAlert: Bool = false
     @State private var showDeleteContactOverlay: Bool = false
     @State private var isDeleteConfirmChecked: Bool = false
     @State private var totalMediaBytes: Int64 = 0
+    
+    private enum Metrics {
+        static let headerAndMediaGap: CGFloat = 24
+        static let mediaGap: CGFloat = 8
+        static let buttonAndMediaGap: CGFloat = 40
+        static let buttonGap: CGFloat = 12
+        static let profileAndNameGap: CGFloat = 8
+        static let nameAndPositionGap: CGFloat = 2
+    }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 0) {
                 headerSection
+                    .padding(.bottom, Metrics.headerAndMediaGap)
 
                 sharedMediaSection
+                    .padding(.bottom, Metrics.mediaGap)
                 
                 sharedFilesSection
+                    .padding(.bottom, Metrics.mediaGap)
 
                 sharedLinksSection
+                    .padding(.bottom, Metrics.mediaGap)
 
                 sharedAudioSection
+                    .padding(.bottom, Metrics.buttonAndMediaGap)
                 
                 bottomActionsBar
             }
@@ -130,6 +147,19 @@ struct ChattingArchiveView: View {
         .fullScreenCover(item: $recordPayload) { payload in
             RecordView(audioURL: payload.url)
         }
+        .fullScreenCover(item: $archiveSheet) { payload in
+            let displayName = (client?.autoFormattedName ?? "").trimmingCharacters(in: .whitespaces)
+            ArchiveListView(
+                section: payload.section,
+                media: mediaItems,
+                files: fileItems,
+                links: linkItems,
+                audios: audioItems,
+                viewerTitle: displayName.isEmpty ? "Archive" : displayName,
+                excludedClientIds: client.map { [$0.id] } ?? [],
+                onClose: { archiveSheet = nil }
+            )
+        }
         // Hidden NavigationLink for archive push removed; Router handles navigation
     }
 
@@ -137,11 +167,11 @@ struct ChattingArchiveView: View {
 
     private var headerSection: some View {
         let initials = Profile.makeInitials(name: client?.name ?? "", surname: client?.surname ?? "")
-        let fullName = ((client?.name ?? "") + " " + (client?.surname ?? "")).trimmingCharacters(in: .whitespaces)
+        let displayName = client?.autoFormattedName ?? ""
         return ChatDetailHeader(
             image: client?.profile,
             initials: initials,
-            name: fullName,
+            name: displayName,
             company: client?.company,
             position: client?.position,
             phone: client?.phoneNumber,
@@ -150,11 +180,9 @@ struct ChattingArchiveView: View {
     }
 
     private var sharedMediaSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 0) {
             sectionHeader(title: "사진/동영상", iconName: "photo", iconColor: Color("Primary"), action: {
-                if let id = client?.id {
-                    router.push(.archiveSection(id, .media))
-                }
+                archiveSheet = .init(section: .media)
             })
             let allItems = mediaItems
             if !allItems.isEmpty {
@@ -176,7 +204,7 @@ struct ChattingArchiveView: View {
                                 showsDuration: false
                             )
                             .frame(width: 121.67, height: 121.67)
-                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .clipShape(Rectangle())
                             .overlay(alignment: .bottomLeading) {
                                 if item.isVideo, let url = item.videoURL {
                                     Text(format(durationOf: url))
@@ -207,12 +235,12 @@ struct ChattingArchiveView: View {
                                 }
                             )
                         }
-                        if shouldShowSeeAll, let id = client?.id {
+                        if shouldShowSeeAll {
                             SeeAllTile(size: 121.67, title: "전체보기")
-                                .onTapGesture { router.push(.archiveSection(id, .media)) }
+                                .onTapGesture { archiveSheet = .init(section: .media) }
                         }
                     }
-                    .padding(.horizontal, 2)
+                    .padding(.horizontal, 8)
                 }
             }
         }
@@ -221,9 +249,7 @@ struct ChattingArchiveView: View {
     private var sharedLinksSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             sectionHeader(title: "링크", iconName: "link", iconColor: Color(hex: "BC0D59"), action: {
-                if let id = client?.id {
-                    router.push(.archiveSection(id, .links))
-                }
+                archiveSheet = .init(section: .links)
             })
             ScrollView(.horizontal, showsIndicators: false) {
                 let allItems = linkItems
@@ -233,22 +259,20 @@ struct ChattingArchiveView: View {
                     ForEach(previewItems, id: \.id) { item in
                         APEXLinkTile(url: item.url, width: 121.67)
                     }
-                    if shouldShowSeeAll, let id = client?.id {
+                    if shouldShowSeeAll {
                         SeeAllTile(size: 121.67, title: "전체보기")
-                            .onTapGesture { router.push(.archiveSection(id, .links)) }
+                            .onTapGesture { archiveSheet = .init(section: .links) }
                     }
                 }
-                .padding(.horizontal, 2)
+                .padding(.horizontal, 8)
             }
         }
     }
 
     private var sharedFilesSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 0) {
             sectionHeader(title: "파일", iconName: "document", iconColor: Color(hex: "00B22D"), action: {
-                if let id = client?.id {
-                    router.push(.archiveSection(id, .files))
-                }
+                archiveSheet = .init(section: .files)
             })
             ScrollView(.horizontal, showsIndicators: false) {
                 let allItems = fileItems
@@ -268,12 +292,12 @@ struct ChattingArchiveView: View {
                             }
                         )
                     }
-                    if shouldShowSeeAll, let id = client?.id {
+                    if shouldShowSeeAll {
                         SeeAllTile(size: 121.67, title: "전체보기")
-                            .onTapGesture { router.push(.archiveSection(id, .files)) }
+                            .onTapGesture { archiveSheet = .init(section: .files) }
                     }
                 }
-                .padding(.horizontal, 2)
+                .padding(.horizontal, 8)
             }
         }
     }
@@ -281,9 +305,7 @@ struct ChattingArchiveView: View {
     private var sharedAudioSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             sectionHeader(title: "음성메모", iconName: "waveform", iconColor: Color(hex: "E28822"), action: {
-                if let id = client?.id {
-                    router.push(.archiveSection(id, .audio))
-                }
+                archiveSheet = .init(section: .audio)
             })
             ScrollView(.horizontal, showsIndicators: false) {
                 let allItems = audioItems
@@ -304,12 +326,12 @@ struct ChattingArchiveView: View {
                         .contentShape(Rectangle())
                         .onTapGesture { recordPayload = DetailRecordPayload(url: item.url) }
                     }
-                    if shouldShowSeeAll, let id = client?.id {
+                    if shouldShowSeeAll {
                         SeeAllTile(size: 121.67, title: "전체보기")
-                            .onTapGesture { router.push(.archiveSection(id, .audio)) }
+                            .onTapGesture { archiveSheet = .init(section: .audio) }
                     }
                 }
-                .padding(.horizontal, 2)
+                .padding(.horizontal, 8)
             }
         }
     }
@@ -350,48 +372,46 @@ struct ChattingArchiveView: View {
     }
 
     private var bottomActionsBar: some View {
-        VStack(spacing: 10) {
-            VStack(spacing: 8) {
+        VStack(spacing: Metrics.buttonGap) {
+            Button(role: .destructive) {
+                showDeleteMediaAlert = true
+            } label: {
+                Text("미디어 데이터 모두 삭제하기 (\(formatBytes(totalMediaBytes)))")
+                    .font(.body5)
+                    .foregroundColor(Color("BlackLabel"))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
+            }
+            .buttonStyle(.plain)
+            .background(Color("BackgroundSecondary"))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .disabled(totalMediaBytes == 0)
+            .opacity(totalMediaBytes == 0 ? 0.5 : 1)
+
+            // Hide contact delete for my own profile
+            let isMe = (client?.email ?? "") == sampleMyProfileClient.email
+            if !isMe {
                 Button(role: .destructive) {
-                    showDeleteMediaAlert = true
+                    showDeleteContactOverlay = true
                 } label: {
-                    Text("미디어 데이터 모두 삭제하기 (\(formatBytes(totalMediaBytes)))")
-                        .font(.body5)
-                        .foregroundColor(Color("BlackLabel"))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 15)
+                    HStack {
+                        Image(systemName: "trash.fill")
+                            .font(.system(size: 16, weight: .bold))
+                        Text("연락처 삭제하기")
+                    }
+                    .font(.body5)
+                    .foregroundColor(Color("Error"))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
                 }
                 .buttonStyle(.plain)
-                .background(Color("BackgroundSecondary"))
+                .background(Color("ErrorContainer"))
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .disabled(totalMediaBytes == 0)
-                .opacity(totalMediaBytes == 0 ? 0.5 : 1)
-
-                // Hide contact delete for my own profile
-                let isMe = (client?.email ?? "") == sampleMyProfileClient.email
-                if !isMe {
-                    Button(role: .destructive) {
-                        showDeleteContactOverlay = true
-                    } label: {
-                        HStack {
-                            Image(systemName: "trash.fill")
-                                .font(.system(size: 16, weight: .bold))
-                            Text("연락처 삭제하기")
-                        }
-                        .font(.body5)
-                        .foregroundColor(Color("Error"))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 15)
-                    }
-                    .buttonStyle(.plain)
-                    .background(Color("ErrorContainer"))
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                }
             }
-            .padding(.horizontal, 24)
-            .padding(.top, 24)
-            .padding(.bottom, 8)
         }
+        .padding(.horizontal, 24)
+        .padding(.top, 24)
+        .padding(.bottom, 8)
         // Confirmations
         .alert("모든 미디어 데이터를 삭제할까요?", isPresented: $showDeleteMediaAlert) {
             Button("취소", role: .cancel) { }
@@ -462,7 +482,7 @@ struct ChattingArchiveView: View {
         let favorite: Bool
 
         var body: some View {
-            VStack(alignment: .center, spacing: 8) {
+            VStack(alignment: .center, spacing: 0) {
                 Profile(
                     image: image,
                     initials: initials,
@@ -472,11 +492,13 @@ struct ChattingArchiveView: View {
                     textColor: .white,
                     fontWeight: .semibold
                 )
+                .padding(.bottom, Metrics.profileAndNameGap)
 
                 Text(name)
                     .font(.title5)
                     .foregroundColor(Color("BlackLabel"))
                     .multilineTextAlignment(.center)
+                    .padding(.bottom, Metrics.nameAndPositionGap)
 
                 Group {
                     if let company, let position, !company.isEmpty, !position.isEmpty {

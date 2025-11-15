@@ -90,8 +90,8 @@ public struct LinkPreviewCard: View {
 	}
 
 	public var body: some View {
-		let targetWidth = width ?? 246
-		let imageHeight = targetWidth * (180.0 / 246.0)
+        let targetWidth = width ?? 246.0
+        let imageHeight = 180.0
 		Button {
 			let target = normalizeURL(url)
 			UIApplication.shared.open(target, options: [:], completionHandler: nil)
@@ -108,9 +108,9 @@ public struct LinkPreviewCard: View {
 				.frame(width: targetWidth, height: imageHeight)
 				.clipped()
 				VStack(alignment: .leading, spacing: 0) {
-					Image(systemName: "link")
-						.font(.system(size: 13, weight: .medium))
+					Image("URL")
 						.padding(.bottom, 2)
+                    Spacer(minLength: 0)
 					Text(loader.metadata?.title ?? url.host ?? url.absoluteString)
 						.font(.caption2)
 						.lineLimit(2)

@@ -99,7 +99,7 @@ private extension RootView {
                     files: files,
                     links: links,
                     audios: audios,
-                    viewerTitle: client.map { "\($0.name) \($0.surname)" } ?? "Shared Media",
+                    viewerTitle: client.map { $0.autoFormattedName } ?? "Shared Media",
                     excludedClientIds: [clientId],
                     onClose: { router.pop() }
                 )
