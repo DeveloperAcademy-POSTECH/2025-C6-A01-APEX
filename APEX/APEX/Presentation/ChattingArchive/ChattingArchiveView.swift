@@ -148,14 +148,14 @@ struct ChattingArchiveView: View {
             RecordView(audioURL: payload.url)
         }
         .fullScreenCover(item: $archiveSheet) { payload in
-            let fullName = ((client?.name ?? "") + " " + (client?.surname ?? "")).trimmingCharacters(in: .whitespaces)
+            let displayName = (client?.autoFormattedName ?? "").trimmingCharacters(in: .whitespaces)
             ArchiveListView(
                 section: payload.section,
                 media: mediaItems,
                 files: fileItems,
                 links: linkItems,
                 audios: audioItems,
-                viewerTitle: fullName.isEmpty ? "Archive" : fullName,
+                viewerTitle: displayName.isEmpty ? "Archive" : displayName,
                 excludedClientIds: client.map { [$0.id] } ?? [],
                 onClose: { archiveSheet = nil }
             )
