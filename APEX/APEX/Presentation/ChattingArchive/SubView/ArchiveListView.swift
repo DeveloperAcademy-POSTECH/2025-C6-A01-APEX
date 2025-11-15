@@ -27,7 +27,16 @@ struct ArchiveListView: View {
     // Record viewer
     private struct ArchiveRecordPayload: Identifiable { let id = UUID(); let url: URL }
     @State private var recordPayload: ArchiveRecordPayload?
-
+    
+    private enum Metrics {
+        static let horizontalPadding: CGFloat = 12
+        static let tapBetweenContentGap: CGFloat = 16
+        static let groupMonthMediaGap: CGFloat = 16
+        static let monthAndMediaGap: CGFloat = 6
+        static let mediaGap: CGFloat = 2
+        static let mediaSize: CGFloat = 121.67
+    }
+    
 	var body: some View {
 		VStack(spacing: 0) {
 			APEXSheetTopBar(
@@ -38,9 +47,8 @@ struct ArchiveListView: View {
 				onClose: { onClose() },
 				rightIconSystemName: nil,
                 showsRightButton: false,
-                leftIconSystemName: "chevron.left"
+                leftIconSystemName: "xmark"
 			)
-			.padding(.bottom, 4)
 
 			APEXUnderlineTabs(
 				items: ["사진/동영상", "파일", "링크", "음성메모"],
@@ -52,11 +60,36 @@ struct ArchiveListView: View {
 			.background(Color("Background"))
 
 			content
-				.padding(.horizontal, 12)
-				.padding(.bottom, 16)
+                .padding(.vertical, Metrics.tapBetweenContentGap)
+                .padding(.horizontal, Metrics.horizontalPadding)
 				.background(Color("Background"))
 				.ignoresSafeArea(edges: .bottom)
 		}
+		.contentShape(Rectangle())
+		.highPriorityGesture(
+			DragGesture(minimumDistance: 20)
+				.onEnded { value in
+					let dx = value.translation.width
+					let dy = value.translation.height
+					guard abs(dx) > abs(dy), abs(dx) > 40 else { return }
+					let currentIndex = tabIndex(from: selectedTab)
+					if dx < 0 {
+						let next = min(3, currentIndex + 1)
+						if next != currentIndex {
+							withAnimation(.easeInOut(duration: 0.25)) {
+								selectedTab = indexToTab(next)
+							}
+						}
+					} else {
+						let prev = max(0, currentIndex - 1)
+						if prev != currentIndex {
+							withAnimation(.easeInOut(duration: 0.25)) {
+								selectedTab = indexToTab(prev)
+							}
+						}
+					}
+				}
+		)
 		.background(Color("Background"))
         .fullScreenCover(item: $recordPayload) { payload in
             RecordView(audioURL: payload.url)
@@ -106,18 +139,18 @@ struct ArchiveListView: View {
 	@ViewBuilder
 	private var content: some View {
 		ScrollView {
-			LazyVStack(alignment: .leading, spacing: 16) {
+            LazyVStack(alignment: .leading, spacing: Metrics.groupMonthMediaGap) {
 				switch selectedTab {
 				case .media:
 					let groups = groupByMonth(media, date: { $0.uploadedAt })
 					ForEach(groups.indices, id: \.self) { gIdx in
 						let group = groups[gIdx]
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: Metrics.monthAndMediaGap) {
                             sectionHeader(group.keyDate)
-                        let columns = [GridItem(.flexible(minimum: 121.67), spacing: 2),
-                                       GridItem(.flexible(minimum: 121.67), spacing: 2),
-                                       GridItem(.flexible(minimum: 121.67), spacing: 2)]
-                        LazyVGrid(columns: columns, spacing: 2) {
+                            let columns = [GridItem(.flexible(minimum: Metrics.mediaSize), spacing: Metrics.mediaGap),
+                                       GridItem(.flexible(minimum: Metrics.mediaSize), spacing: Metrics.mediaGap),
+                                       GridItem(.flexible(minimum: Metrics.mediaSize), spacing: Metrics.mediaGap)]
+                        LazyVGrid(columns: columns, spacing: Metrics.mediaGap) {
                                 ForEach(Array(group.items.enumerated()), id: \.element.id) { idx, item in
                                 APEXMediaTile(
                                     source: item.isVideo
@@ -127,8 +160,8 @@ struct ArchiveListView: View {
                                     variant: .grid,
                                     showsDuration: false
                                 )
-                                    .frame(height: 121.67)
-                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                .frame(width: Metrics.mediaSize, height: Metrics.mediaSize)
+                                        .clipShape(Rectangle())
                                         // Keep duration always visible on top for videos
                                         .overlay(alignment: .bottomLeading) {
                                             if item.isVideo, let url = item.videoURL {
@@ -167,18 +200,18 @@ struct ArchiveListView: View {
 					let groups = groupByMonth(files, date: { $0.uploadedAt })
 					ForEach(groups.indices, id: \.self) { gIdx in
 						let group = groups[gIdx]
-                        VStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: Metrics.monthAndMediaGap) {
                             sectionHeader(group.keyDate)
-                            let columns = [GridItem(.flexible(minimum: 100), spacing: 8),
-                                           GridItem(.flexible(minimum: 100), spacing: 8),
-                                           GridItem(.flexible(minimum: 100), spacing: 8)]
-                            LazyVGrid(columns: columns, spacing: 8) {
+                            let columns = [GridItem(.flexible(minimum: 100), spacing: Metrics.mediaGap),
+                                           GridItem(.flexible(minimum: Metrics.mediaSize), spacing: Metrics.mediaGap),
+                                           GridItem(.flexible(minimum: Metrics.mediaSize), spacing: Metrics.mediaGap)]
+                            LazyVGrid(columns: columns, spacing: Metrics.mediaGap) {
                                 ForEach(group.items, id: \.id) { item in
                                     APEXFileTile(
                                         url: item.url,
                                         contentType: item.contentType,
                                         highlightQuery: nil,
-                                        size: 119,
+                                        size: Metrics.mediaSize,
                                         onTap: {
                                             if FileManager.default.fileExists(atPath: item.url.path) {
                                                 UIApplication.shared.open(item.url, options: [:], completionHandler: nil)
@@ -191,15 +224,14 @@ struct ArchiveListView: View {
 					}
 				case .links:
 					let groups = groupByMonth(links, date: { $0.uploadedAt })
-					let spacing: CGFloat = 8
-					let colWidth = (UIScreen.main.bounds.width - 32 - spacing) / 2.0
+                    let colWidth = (UIScreen.main.bounds.width - Metrics.horizontalPadding * 2 - Metrics.mediaGap) / 2.0
 					ForEach(groups.indices, id: \.self) { gIdx in
 						let group = groups[gIdx]
-                        VStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: Metrics.monthAndMediaGap) {
                             sectionHeader(group.keyDate)
-                            let columns = [GridItem(.flexible(minimum: colWidth), spacing: spacing),
-                                           GridItem(.flexible(minimum: colWidth), spacing: spacing)]
-                            LazyVGrid(columns: columns, spacing: spacing) {
+                            let columns = [GridItem(.flexible(minimum: colWidth), spacing: Metrics.mediaGap),
+                                           GridItem(.flexible(minimum: colWidth), spacing: Metrics.mediaGap)]
+                            LazyVGrid(columns: columns, spacing: Metrics.mediaGap) {
                                 ForEach(group.items, id: \.id) { item in
                                     LinkPreviewCard(url: item.url, width: colWidth)
                                 }
@@ -210,23 +242,23 @@ struct ArchiveListView: View {
 					let groups = groupByMonth(audios, date: { $0.uploadedAt })
 					ForEach(groups.indices, id: \.self) { gIdx in
 						let group = groups[gIdx]
-                        VStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: Metrics.monthAndMediaGap) {
                             sectionHeader(group.keyDate)
-                            let columns = [GridItem(.flexible(minimum: 100), spacing: 8),
-                                           GridItem(.flexible(minimum: 100), spacing: 8),
-                                           GridItem(.flexible(minimum: 100), spacing: 8)]
-                            LazyVGrid(columns: columns, spacing: 8) {
+                            let columns = [
+                                GridItem(.flexible(minimum: Metrics.mediaSize), spacing: Metrics.mediaGap),
+                                GridItem(.flexible(minimum: Metrics.mediaSize), spacing: Metrics.mediaGap),
+                                GridItem(.flexible(minimum: Metrics.mediaSize), spacing: Metrics.mediaGap)
+                            ]
+                            LazyVGrid(columns: columns, spacing: Metrics.mediaGap) {
                                 ForEach(group.items, id: \.id) { item in
-                                    ZStack {
-                                        AudioSquareTile(
-                                            url: item.url,
-                                            duration: item.duration,
-                                            preferredLength: 119,
-                                            titleOverride: nil,
-                                            highlightQuery: nil
-                                        )
-                                        .allowsHitTesting(false)
-                                    }
+                                    AudioSquareTile(
+                                        url: item.url,
+                                        duration: item.duration,
+                                        preferredLength: 121.67,
+                                        titleOverride: nil,
+                                        highlightQuery: nil
+                                    )
+                                    .allowsHitTesting(false)
                                     .contentShape(Rectangle())
                                     .onTapGesture { recordPayload = ArchiveRecordPayload(url: item.url) }
                                 }
