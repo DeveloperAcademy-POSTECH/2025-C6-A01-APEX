@@ -51,19 +51,33 @@ struct ChattingArchiveView: View {
     @State private var showDeleteContactOverlay: Bool = false
     @State private var isDeleteConfirmChecked: Bool = false
     @State private var totalMediaBytes: Int64 = 0
+    
+    private enum Metrics {
+        static let headerAndMediaGap: CGFloat = 24
+        static let mediaGap: CGFloat = 8
+        static let buttonAndMediaGap: CGFloat = 40
+        static let buttonGap: CGFloat = 12
+        static let profileAndNameGap: CGFloat = 8
+        static let nameAndPositionGap: CGFloat = 2
+    }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 0) {
                 headerSection
+                    .padding(.bottom, Metrics.headerAndMediaGap)
 
                 sharedMediaSection
+                    .padding(.bottom, Metrics.mediaGap)
                 
                 sharedFilesSection
+                    .padding(.bottom, Metrics.mediaGap)
 
                 sharedLinksSection
+                    .padding(.bottom, Metrics.mediaGap)
 
                 sharedAudioSection
+                    .padding(.bottom, Metrics.buttonAndMediaGap)
                 
                 bottomActionsBar
             }
@@ -153,11 +167,11 @@ struct ChattingArchiveView: View {
 
     private var headerSection: some View {
         let initials = Profile.makeInitials(name: client?.name ?? "", surname: client?.surname ?? "")
-        let fullName = ((client?.name ?? "") + " " + (client?.surname ?? "")).trimmingCharacters(in: .whitespaces)
+        let displayName = client?.autoFormattedName ?? ""
         return ChatDetailHeader(
             image: client?.profile,
             initials: initials,
-            name: fullName,
+            name: displayName,
             company: client?.company,
             position: client?.position,
             phone: client?.phoneNumber,
@@ -166,7 +180,7 @@ struct ChattingArchiveView: View {
     }
 
     private var sharedMediaSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 0) {
             sectionHeader(title: "사진/동영상", iconName: "photo", iconColor: Color("Primary"), action: {
                 archiveSheet = .init(section: .media)
             })
@@ -190,7 +204,7 @@ struct ChattingArchiveView: View {
                                 showsDuration: false
                             )
                             .frame(width: 121.67, height: 121.67)
-                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .clipShape(Rectangle())
                             .overlay(alignment: .bottomLeading) {
                                 if item.isVideo, let url = item.videoURL {
                                     Text(format(durationOf: url))
@@ -226,7 +240,7 @@ struct ChattingArchiveView: View {
                                 .onTapGesture { archiveSheet = .init(section: .media) }
                         }
                     }
-                    .padding(.horizontal, 2)
+                    .padding(.horizontal, 8)
                 }
             }
         }
@@ -250,13 +264,13 @@ struct ChattingArchiveView: View {
                             .onTapGesture { archiveSheet = .init(section: .links) }
                     }
                 }
-                .padding(.horizontal, 2)
+                .padding(.horizontal, 8)
             }
         }
     }
 
     private var sharedFilesSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 0) {
             sectionHeader(title: "파일", iconName: "document", iconColor: Color(hex: "00B22D"), action: {
                 archiveSheet = .init(section: .files)
             })
@@ -283,7 +297,7 @@ struct ChattingArchiveView: View {
                             .onTapGesture { archiveSheet = .init(section: .files) }
                     }
                 }
-                .padding(.horizontal, 2)
+                .padding(.horizontal, 8)
             }
         }
     }
@@ -317,7 +331,7 @@ struct ChattingArchiveView: View {
                             .onTapGesture { archiveSheet = .init(section: .audio) }
                     }
                 }
-                .padding(.horizontal, 2)
+                .padding(.horizontal, 8)
             }
         }
     }
@@ -358,48 +372,46 @@ struct ChattingArchiveView: View {
     }
 
     private var bottomActionsBar: some View {
-        VStack(spacing: 10) {
-            VStack(spacing: 8) {
+        VStack(spacing: Metrics.buttonGap) {
+            Button(role: .destructive) {
+                showDeleteMediaAlert = true
+            } label: {
+                Text("미디어 데이터 모두 삭제하기 (\(formatBytes(totalMediaBytes)))")
+                    .font(.body5)
+                    .foregroundColor(Color("BlackLabel"))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
+            }
+            .buttonStyle(.plain)
+            .background(Color("BackgroundSecondary"))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .disabled(totalMediaBytes == 0)
+            .opacity(totalMediaBytes == 0 ? 0.5 : 1)
+
+            // Hide contact delete for my own profile
+            let isMe = (client?.email ?? "") == sampleMyProfileClient.email
+            if !isMe {
                 Button(role: .destructive) {
-                    showDeleteMediaAlert = true
+                    showDeleteContactOverlay = true
                 } label: {
-                    Text("미디어 데이터 모두 삭제하기 (\(formatBytes(totalMediaBytes)))")
-                        .font(.body5)
-                        .foregroundColor(Color("BlackLabel"))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 15)
+                    HStack {
+                        Image(systemName: "trash.fill")
+                            .font(.system(size: 16, weight: .bold))
+                        Text("연락처 삭제하기")
+                    }
+                    .font(.body5)
+                    .foregroundColor(Color("Error"))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
                 }
                 .buttonStyle(.plain)
-                .background(Color("BackgroundSecondary"))
+                .background(Color("ErrorContainer"))
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .disabled(totalMediaBytes == 0)
-                .opacity(totalMediaBytes == 0 ? 0.5 : 1)
-
-                // Hide contact delete for my own profile
-                let isMe = (client?.email ?? "") == sampleMyProfileClient.email
-                if !isMe {
-                    Button(role: .destructive) {
-                        showDeleteContactOverlay = true
-                    } label: {
-                        HStack {
-                            Image(systemName: "trash.fill")
-                                .font(.system(size: 16, weight: .bold))
-                            Text("연락처 삭제하기")
-                        }
-                        .font(.body5)
-                        .foregroundColor(Color("Error"))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 15)
-                    }
-                    .buttonStyle(.plain)
-                    .background(Color("ErrorContainer"))
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                }
             }
-            .padding(.horizontal, 24)
-            .padding(.top, 24)
-            .padding(.bottom, 8)
         }
+        .padding(.horizontal, 24)
+        .padding(.top, 24)
+        .padding(.bottom, 8)
         // Confirmations
         .alert("모든 미디어 데이터를 삭제할까요?", isPresented: $showDeleteMediaAlert) {
             Button("취소", role: .cancel) { }
@@ -470,7 +482,7 @@ struct ChattingArchiveView: View {
         let favorite: Bool
 
         var body: some View {
-            VStack(alignment: .center, spacing: 8) {
+            VStack(alignment: .center, spacing: 0) {
                 Profile(
                     image: image,
                     initials: initials,
@@ -480,11 +492,13 @@ struct ChattingArchiveView: View {
                     textColor: .white,
                     fontWeight: .semibold
                 )
+                .padding(.bottom, Metrics.profileAndNameGap)
 
                 Text(name)
                     .font(.title5)
                     .foregroundColor(Color("BlackLabel"))
                     .multilineTextAlignment(.center)
+                    .padding(.bottom, Metrics.nameAndPositionGap)
 
                 Group {
                     if let company, let position, !company.isEmpty, !position.isEmpty {
