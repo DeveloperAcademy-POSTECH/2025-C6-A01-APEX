@@ -239,7 +239,14 @@ struct ChattingView: View {
                         )
                     }
                 )
-                .onTapGesture { UIApplication.apexDismissKeyboard() }
+                .onTapGesture {
+                    UIApplication.apexDismissKeyboard()
+                    if sheetMode == .collapsed {
+                        withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
+                            sheetMode = .hidden
+                        }
+                    }
+                }
                 .onAppear {
                     DispatchQueue.main.async {
                         if notes.isEmpty {
@@ -573,71 +580,75 @@ struct ChattingView: View {
                 )
             }
         }
-        
+        .safeAreaBar(edge: .bottom) {
+            if isDeleteSelecting {
+                // Bottom action bar for selection delete
+                Button {
+                    showSelectionDeleteAlert = true
+                } label: {
+                    Text("\(selectedNoteIds.count) 삭제하기")
+                        .font(.body2)
+                        .foregroundColor(selectedNoteIds.isEmpty ? Color("BackgroundDisabled") : Color("Error"))
+                        .frame(maxWidth: .infinity, minHeight: 56)
+                        .background(selectedNoteIds.isEmpty ? Color("BackgroundSecondary") : Color("ErrorContainer"))
+                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 24)
+                .disabled(selectedNoteIds.isEmpty)
+            }
+        }
         .safeAreaInset(edge: .bottom) {
-            VStack(spacing: 8) {
-                if isSearchActive {
-                    APEXSearchBar(
-                        text: $searchText,
-                        isFocused: _isSearchFieldFocused,
-                        onPrev: { navigateToPrevMatch() },
-                        onNext: { navigateToNextMatch() },
-                        onClose: {
-                            isSearchFieldFocused = false
-                            withAnimation { isSearchActive = false }
-                            searchText = ""
-                            matchedNoteIds.removeAll()
-                        },
-                        onTextChange: { _ in
-                            recomputeMatches()
-                            scrollToCurrentMatch()
-                        }
-                    )
-                } else if isDeleteSelecting {
-                    // Bottom action bar for selection delete
-                    Button {
-                        showSelectionDeleteAlert = true
-                    } label: {
-                        Text("\(selectedNoteIds.count) 삭제하기")
-                            .font(.body2)
-                            .foregroundColor(selectedNoteIds.isEmpty ? Color("BackgroundDisabled") : Color("Error"))
-                            .frame(maxWidth: .infinity, minHeight: 56)
-                            .background(selectedNoteIds.isEmpty ? Color("BackgroundSecondary") : Color("ErrorContainer"))
-                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 24)
-                    .disabled(selectedNoteIds.isEmpty)
-                } else {
-                    if !stagedAttachments.isEmpty {
-                        AttachBar(items: stagedAttachments) { removed in
-                            stagedAttachments.removeAll { $0.id == removed.id }
-                        }
-                    }
-
-                    InputBar({ note in
-                        handleIncoming(note: note)
-                    }, onSheetVisibilityChanged: { visible in
-                        // Map InputBar left button toggle to our custom sheet modes
-                        withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
-                            if visible {
-                                sheetMode = .collapsed
-                            } else {
-                                sheetMode = (sheetMode == .expanded) ? .collapsed : .hidden
+            if !isDeleteSelecting {
+                VStack(spacing: 8) {
+                    if isSearchActive {
+                        APEXSearchBar(
+                            text: $searchText,
+                            isFocused: _isSearchFieldFocused,
+                            onPrev: { navigateToPrevMatch() },
+                            onNext: { navigateToNextMatch() },
+                            onClose: {
+                                isSearchFieldFocused = false
+                                withAnimation { isSearchActive = false }
+                                searchText = ""
+                                matchedNoteIds.removeAll()
+                            },
+                            onTextChange: { _ in
+                                recomputeMatches()
+                                scrollToCurrentMatch()
+                            }
+                        )
+                    } else {
+                        if !stagedAttachments.isEmpty {
+                            AttachBar(items: stagedAttachments) { removed in
+                                stagedAttachments.removeAll { $0.id == removed.id }
                             }
                         }
-                    }, stagedAttachments: $stagedAttachments, onBarOffsetChanged: { offset in
-                        bottomBarOffsetY = offset
-                    })
+
+                        InputBar({ note in
+                            handleIncoming(note: note)
+                        }, onSheetVisibilityChanged: { visible in
+                            // Map InputBar left button toggle to our custom sheet modes
+                            withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
+                                if visible {
+                                    sheetMode = .collapsed
+                                } else {
+                                    sheetMode = (sheetMode == .expanded) ? .collapsed : .hidden
+                                }
+                            }
+                        }, stagedAttachments: $stagedAttachments, onBarOffsetChanged: { offset in
+                            bottomBarOffsetY = offset
+                        })
+                    }
                 }
+                .offset(y: bottomBarOffsetY)
+                .animation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2), value: bottomBarOffsetY)
+                .background(
+                    GeometryReader { geo in
+                        Color.clear.preference(key: BottomInsetHeightKey.self, value: geo.size.height)
+                    }
+                )
             }
-            .offset(y: bottomBarOffsetY)
-            .animation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2), value: bottomBarOffsetY)
-            .background(
-                GeometryReader { geo in
-                    Color.clear.preference(key: BottomInsetHeightKey.self, value: geo.size.height)
-                }
-            )
         }
         // Custom overlay sheet (replaces system .sheet for media picker)
         .overlay(alignment: .bottom) {
@@ -2068,15 +2079,27 @@ private struct BottomSheetHost<Content: View>: View {
             .onEnded { value in
                 switch mode {
                 case .collapsed:
-                    // Upward drag expands
-                    if value.translation.height < -threshold || value.predictedEndTranslation.height < -threshold {
+                    // Smooth snap based on where the user ended and momentum
+                    let base = collapsedHeight
+                    // Allow both directions while deciding snap target
+                    let offset = -value.translation.height * 0.9
+                    let endHeight = min(max(base + offset, 0), expandedHeight)
+                    let towardExpanded = (value.predictedEndTranslation.height < -threshold) || (endHeight > (collapsedHeight + expandedHeight) / 2)
+                    let towardHidden = (value.predictedEndTranslation.height > threshold) || (endHeight < collapsedHeight * 0.45)
+                    if towardExpanded {
                         mode = .expanded
+                    } else if towardHidden {
+                        mode = .hidden
+                    } else {
+                        mode = .collapsed
                     }
                 case .expanded:
                     // Downward drag collapses
-                    if value.translation.height > threshold || value.predictedEndTranslation.height > threshold {
-                        mode = .collapsed
-                    }
+                    let base = expandedHeight
+                    let offset = -max(0, value.translation.height) * 1.0
+                    let endHeight = min(max(base + offset, collapsedHeight), expandedHeight)
+                    let towardCollapsed = (value.predictedEndTranslation.height > threshold) || (endHeight < (collapsedHeight + expandedHeight) / 2)
+                    mode = towardCollapsed ? .collapsed : .expanded
                 case .hidden:
                     break
                 }
@@ -2086,9 +2109,14 @@ private struct BottomSheetHost<Content: View>: View {
         let interactiveOffset: CGFloat = {
             switch mode {
             case .collapsed:
-                // allow only upward drag (negative), increase height up to expanded
-                let allowed = min(0, dragY)
-                return -allowed * 0.9 // soften tracking
+                // Allow both: upward to expand, downward to reduce toward hidden
+                let upward = min(0, dragY)     // negative or zero
+                let downward = max(0, dragY)   // positive or zero
+                if downward > 0 {
+                    return -downward * 0.9
+                } else {
+                    return -upward * 0.9
+                }
             case .expanded:
                 // allow only downward drag (positive), decrease height down to collapsed
                 let allowed = max(0, dragY)
@@ -2102,8 +2130,8 @@ private struct BottomSheetHost<Content: View>: View {
         let displayedHeight: CGFloat = {
             switch mode {
             case .collapsed:
-                // Allow interactive growth up to expanded while dragging
-                return min(max(unclampedHeight, collapsedHeight), expandedHeight)
+                // Allow interactive growth up to expanded and reduction down to 0 while dragging
+                return min(max(unclampedHeight, 0), expandedHeight)
             case .expanded:
                 return min(max(unclampedHeight, collapsedHeight), expandedHeight)
             case .hidden:
