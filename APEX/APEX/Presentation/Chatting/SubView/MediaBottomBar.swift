@@ -16,30 +16,19 @@ struct MediaBottomBar: View {
     var onDelete: () -> Void
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            LinearGradient(
-                colors: [Color.black.opacity(0.0), Color.black.opacity(0.6)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .frame(height: 98)
-            .ignoresSafeArea(edges: .bottom)
+        VStack(spacing: 12) {
+            // Page indicator removed per design request
 
-            VStack(spacing: 12) {
-                // Page indicator removed per design request
-
-                // Action buttons row
-                HStack(spacing: 48) {
-                    Spacer(minLength: 0)
-                    actionButton(systemName: "square.and.arrow.down", accessibility: "저장", action: onSave)
-                    actionButton(systemName: "square.and.arrow.up", accessibility: "공유", action: onShare)
-                    actionButton(systemName: "trash", accessibility: "삭제", action: onDelete)
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 6)
+            // Action buttons row
+            HStack(spacing: 48) {
+                Spacer(minLength: 0)
+                actionButton(systemName: "square.and.arrow.down", accessibility: "저장", action: onSave)
+                actionButton(systemName: "square.and.arrow.up", accessibility: "공유", action: onShare)
+                actionButton(systemName: "trash", accessibility: "삭제", action: onDelete)
+                Spacer(minLength: 0)
             }
-            .padding(.bottom, 16)
+            .padding(.horizontal, 24)
+            .padding(.bottom, 6)
         }
         .allowsHitTesting(true)
     }

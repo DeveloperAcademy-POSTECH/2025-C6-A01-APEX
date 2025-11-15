@@ -232,6 +232,43 @@ struct ChattingArchiveView: View {
                                     let target = previewItems[removedIndex]
                                     deleteFlattenedMedia(item: target, clientId: clientId)
                                     reloadMediaPreview()
+                                },
+                                onTitleTap: { current in
+                                    guard let clientId = client?.id else { return }
+                                    let anchors: [UUID?] = previewItems.map { mediaItem in
+                                        return parseFlattenedMediaId(mediaItem.id)?.noteId
+                                    }
+                                    guard anchors.indices.contains(current),
+                                          let noteId = anchors[current] else { return }
+                                    // Delay slightly to ensure MediaView route has been popped before navigation.
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                        // If a chat for this client already exists in the stack, pop back to it; otherwise push.
+                                        if let idx = router.path.lastIndex(where: {
+                                            if case let .chat(id) = $0 { return id == clientId }
+                                            return false
+                                        }) {
+                                            let newPath = Array(router.path.prefix(idx + 1))
+                                            router.setPath(newPath)
+                                        } else {
+                                            router.push(.chat(clientId))
+                                        }
+                                        // Post after chat has mounted to guarantee ScrollViewReader is ready
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                            NotificationCenter.default.post(
+                                                name: .apexNavigateToNote,
+                                                object: nil,
+                                                userInfo: ["noteId": noteId]
+                                            )
+                                        }
+                                        // Retry once more to cover edge cases where initial post races with mount/data load
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                                            NotificationCenter.default.post(
+                                                name: .apexNavigateToNote,
+                                                object: nil,
+                                                userInfo: ["noteId": noteId]
+                                            )
+                                        }
+                                    }
                                 }
                             )
                         }

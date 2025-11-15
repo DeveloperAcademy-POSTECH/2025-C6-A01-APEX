@@ -49,6 +49,8 @@ struct ChattingView: View {
     @State private var searchText: String = ""
     @State private var matchedNoteIds: [UUID] = []
     @State private var currentMatchIndex: Int = 0
+    // Suppress auto-scroll-to-bottom when navigating to a specific note
+    @State private var suppressAutoScroll: Bool = false
     @State private var sheetModeBeforeSearch: BottomSheetMode? = nil
     // Date search
     @State private var showDatePicker: Bool = false
@@ -259,16 +261,17 @@ struct ChattingView: View {
                                 notes = persisted
                             }
                         }
-                        proxy.scrollTo(bottomSentinelId, anchor: .bottom)
+                        if !suppressAutoScroll {
+                            proxy.scrollTo(bottomSentinelId, anchor: .bottom)
+                        }
                         // If any incoming notes carry pending progress, kick off simulations
                         kickOffPendingUploadsIfNeeded()
                     }
                 }
                 .onChange(of: notes.count) { _ in
                     DispatchQueue.main.async {
-                        withAnimation(.easeOut(duration: 0.2)) {
-                            proxy.scrollTo(bottomSentinelId, anchor: .bottom)
-                        }
+                        guard !suppressAutoScroll else { return }
+                        withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(bottomSentinelId, anchor: .bottom) }
                         // 확실히 맨 아래로 이동했을 때 버튼 숨김 (metrics 업데이트 전 선반영)
                         self.showScrollToBottom = false
                     }
@@ -276,12 +279,11 @@ struct ChattingView: View {
                 .onChange(of: bottomBarOffsetY) { _ in
                     // 사용자가 위로 올려본 상태면(auto-scroll off) 건드리지 않음
                     guard !showScrollToBottom else { return }
+                    guard !suppressAutoScroll else { return }
                     // 키보드/레이아웃 반영 직후에 센티널로 스크롤
                     keyboardScrollWork?.cancel()
                     let work = DispatchWorkItem {
-                        withAnimation(.easeOut(duration: 0.2)) {
-                            proxy.scrollTo(bottomSentinelId, anchor: .bottom)
-                        }
+                        withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(bottomSentinelId, anchor: .bottom) }
                     }
                     keyboardScrollWork = work
                     // 레이아웃 적용 직후 실행하여 위치 튐 방지
@@ -289,26 +291,22 @@ struct ChattingView: View {
                 }
                 .onChange(of: bottomInsetHeight) { _ in
                     guard !showScrollToBottom else { return }
+                    guard !suppressAutoScroll else { return }
                     keyboardScrollWork?.cancel()
                     DispatchQueue.main.async {
-                        withAnimation(.easeOut(duration: 0.2)) {
-                            proxy.scrollTo(bottomSentinelId, anchor: .bottom)
-                        }
+                        withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(bottomSentinelId, anchor: .bottom) }
                         self.showScrollToBottom = false
                     }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .apexInputFocused)) { _ in
+                    guard !suppressAutoScroll else { return }
                     keyboardScrollWork?.cancel()
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        proxy.scrollTo(bottomSentinelId, anchor: .bottom)
-                    }
+                    withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(bottomSentinelId, anchor: .bottom) }
                     self.isEditorCurrentlyFocused = true
                     self.showScrollToBottom = false
 
                     let work = DispatchWorkItem {
-                        withAnimation(.easeOut(duration: 0.2)) {
-                            proxy.scrollTo(bottomSentinelId, anchor: .bottom)
-                        }
+                        withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(bottomSentinelId, anchor: .bottom) }
                     }
                     keyboardScrollWork = work
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.06, execute: work)
@@ -318,10 +316,14 @@ struct ChattingView: View {
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .apexNavigateToNote)) { notif in
                     if let noteId = notif.userInfo?["noteId"] as? UUID {
+                        suppressAutoScroll = true
                         withAnimation(.easeInOut(duration: 0.25)) {
                             proxy.scrollTo(noteId, anchor: .center)
                         }
                         self.showScrollToBottom = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            suppressAutoScroll = false
+                        }
                     }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .apexNavigateToDate)) { notif in
@@ -1627,7 +1629,7 @@ private struct MediaGrid: View {
             }
 
             // Last row special spanning when bundle count >= 4
-            if merged.count >= 4, !tail.isEmpty {
+            if !tail.isEmpty {
                 GeometryReader { geo in
                     let totalWidth = geo.size.width
                     let spacing = Metrics.spacing

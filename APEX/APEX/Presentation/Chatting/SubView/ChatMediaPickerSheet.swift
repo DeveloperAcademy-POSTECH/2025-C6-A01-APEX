@@ -139,6 +139,7 @@ struct ChatMediaPickerSheet: View {
         .overlay(alignment: .bottomTrailing) {
             if showLargeHeader {
                 Button {
+                    selectedIds.removeAll()
                     onConfirmUpload()
                     isPresented = false
                 } label: {
@@ -155,6 +156,7 @@ struct ChatMediaPickerSheet: View {
                 .padding(16)
             }
         }
+        .onDisappear { selectedIds.removeAll() }
         .onAppear { requestAndFetchRecents() }
         .onAppear { onDetentChanged(detentSelection) }
         .presentationDetents([.fraction(0.4), .large], selection: $detentSelection)
@@ -279,11 +281,13 @@ struct ChatMediaPickerSheet: View {
                 rightTitle: "전체",
                 isRightEnabled: true,
                 onRightTap: {
+                    selectedIds.removeAll()
                     onOpenSystemAlbum()
                     isPresented = false
                 },
                 onClose: {
                     // If hosted inside a custom bottom sheet, ask parent to collapse. Otherwise, use internal detent.
+                    selectedIds.removeAll()
                     if isFullyExpandedOverride != nil { onCloseTopBar() } else { isPresented = false }
                 },
                 rightIconSystemName: "photo"
@@ -295,6 +299,7 @@ struct ChatMediaPickerSheet: View {
 
     private var cameraTile: some View {
         Button {
+            selectedIds.removeAll()
             onTapCamera()
             isPresented = false
         } label: {
@@ -314,6 +319,7 @@ struct ChatMediaPickerSheet: View {
 
     private var fileSquareTile: some View {
         Button {
+            selectedIds.removeAll()
             onTapFile()
             isPresented = false
         } label: {
@@ -334,6 +340,7 @@ struct ChatMediaPickerSheet: View {
 
     private var fileWideTile: some View {
         Button {
+            selectedIds.removeAll()
             onTapFile()
             isPresented = false
         } label: {

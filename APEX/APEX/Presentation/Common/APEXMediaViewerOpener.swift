@@ -18,7 +18,7 @@ struct APEXMediaViewerWrapper<Content: View>: View {
     var onDelete: ((Int, MediaSource) -> Void)?
     var onTitleTap: ((Int) -> Void)?
 
-    @EnvironmentObject private var router: NavigationRouter
+    @Environment(\.apexOpenMediaViewer) private var openMediaViewer
 
     init(
         content: Content,
@@ -57,7 +57,7 @@ struct APEXMediaViewerWrapper<Content: View>: View {
                     onTitleTap: onTitleTap
                 )
                 APEXMediaViewerStore.shared.put(payload)
-                router.push(.mediaViewer(payload.id))
+                openMediaViewer(payload)
             }
     }
 }
