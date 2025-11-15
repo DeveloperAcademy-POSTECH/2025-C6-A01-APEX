@@ -628,14 +628,22 @@ struct ChattingView: View {
                         InputBar({ note in
                             handleIncoming(note: note)
                         }, onSheetVisibilityChanged: { visible in
-                            // Map InputBar left button toggle to our custom sheet modes
-                            withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
-                                if visible {
-                                    sheetMode = .collapsed
-                                } else {
-                                    sheetMode = (sheetMode == .expanded) ? .collapsed : .hidden
-                                }
-                            }
+                         // If in delete selection mode, force sheet hidden and ignore requests
+                         if isDeleteSelecting {
+                             withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
+                                 sheetMode = .hidden
+                                 bottomBarOffsetY = 0
+                             }
+                             return
+                         }
+                         // Map InputBar left button toggle to our custom sheet modes
+                         withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
+                             if visible {
+                                 sheetMode = .collapsed
+                             } else {
+                                 sheetMode = (sheetMode == .expanded) ? .collapsed : .hidden
+                             }
+                         }
                         }, stagedAttachments: $stagedAttachments, onBarOffsetChanged: { offset in
                             bottomBarOffsetY = offset
                         })
@@ -717,6 +725,14 @@ struct ChattingView: View {
                 object: nil,
                 userInfo: ["visible": visible]
             )
+        }
+        .onChange(of: isDeleteSelecting) { _, selecting in
+            if selecting {
+                withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
+                    sheetMode = .hidden
+                    bottomBarOffsetY = 0
+                }
+            }
         }
         .onPreferenceChange(BottomInsetHeightKey.self) { height in bottomInsetHeight = height }
         .alert("\(selectedNoteIds.count)개의 노트를 삭제하겠습니까?", isPresented: $showSelectionDeleteAlert) {
