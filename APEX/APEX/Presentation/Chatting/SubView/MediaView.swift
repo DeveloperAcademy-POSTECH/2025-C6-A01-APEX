@@ -102,8 +102,14 @@ struct MediaView: View {
                         onBack: { dismiss() },
                         onGrid: { },
                         onTitleTap: {
-                            if let onTitleTap { onTitleTap(selectedIndex) }
+                            // Dismiss first to avoid pushing a new route that gets popped immediately.
+                            let currentIndex = selectedIndex
                             dismiss()
+                            if let onTitleTap {
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                    onTitleTap(currentIndex)
+                                }
+                            }
                         }
                     )
                     Spacer()

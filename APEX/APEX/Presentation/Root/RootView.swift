@@ -18,29 +18,31 @@ struct RootView: View {
     @State private var notesQuery: String = ""
     
     var body: some View {
-        NavigationStack(path: $router.path) {
-            TabView(selection: $selection) {
-                
-                Tab("Contacts", systemImage: "person.crop.circle.fill", value: Tabs.contacts) {
-                    ContactsView()
-                }
+        APEXMediaViewerHost {
+            NavigationStack(path: $router.path) {
+                TabView(selection: $selection) {
+                    
+                    Tab("Contacts", systemImage: "person.crop.circle.fill", value: Tabs.contacts) {
+                        ContactsView()
+                    }
 
-                Tab("Notes", systemImage: "note.text", value: Tabs.notes) {
-                    NotesView()
-                }
+                    Tab("Notes", systemImage: "note.text", value: Tabs.notes) {
+                        NotesView()
+                    }
 
-                Tab("Search", systemImage: "magnifyingglass", value: Tabs.search, role: .search) {
-                    SearchView(onClose: { selection = lastNonSearchSelection })
+                    Tab("Search", systemImage: "magnifyingglass", value: Tabs.search, role: .search) {
+                        SearchView(onClose: { selection = lastNonSearchSelection })
+                    }
                 }
-            }
-            .tint(Color("Primary"))
-            .onChange(of: selection) { newValue in
-                if newValue != .search {
-                    lastNonSearchSelection = newValue
+                .tint(Color("Primary"))
+                .onChange(of: selection) { newValue in
+                    if newValue != .search {
+                        lastNonSearchSelection = newValue
+                    }
                 }
-            }
-            .navigationDestination(for: NavigationDestination.self) { route in
-                destination(for: route)
+                .navigationDestination(for: NavigationDestination.self) { route in
+                    destination(for: route)
+                }
             }
         }
         .apexSwipeBack()
