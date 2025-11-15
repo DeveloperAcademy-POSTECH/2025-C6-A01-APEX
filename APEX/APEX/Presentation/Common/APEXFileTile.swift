@@ -76,10 +76,10 @@ private func fileSystemSymbolName(for type: UTType?, url: URL?) -> String {
     if resolvedType == nil, let ext = url?.pathExtension, !ext.isEmpty {
         resolvedType = UTType(filenameExtension: ext)
     }
-    guard let resolved = resolvedType else { return "document" }
-    if resolved.conforms(to: .image) { return "photo" }
-    if resolved.conforms(to: .movie) || resolved.conforms(to: .audiovisualContent) { return "video" }
-    return "document"
+    guard let resolved = resolvedType else { return "Document" }
+    if resolved.conforms(to: .image) { return "Photo" }
+    if resolved.conforms(to: .movie) || resolved.conforms(to: .audiovisualContent) { return "Video" }
+    return "Document"
 }
 
 private func fileSizeText(for url: URL) -> String? {
