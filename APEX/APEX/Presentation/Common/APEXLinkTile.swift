@@ -29,7 +29,7 @@ public struct APEXLinkTile: View {
 		} label: {
 			VStack(alignment: .leading) {
 				// Host row
-                Image("link")
+                Image("URL")
                     .padding(.bottom, 8)
     
 				
