@@ -90,8 +90,8 @@ public struct LinkPreviewCard: View {
 	}
 
 	public var body: some View {
-		let targetWidth = width ?? 246
-		let imageHeight = 180
+        let targetWidth = width ?? 246.0
+        let imageHeight = 180.0
 		Button {
 			let target = normalizeURL(url)
 			UIApplication.shared.open(target, options: [:], completionHandler: nil)
