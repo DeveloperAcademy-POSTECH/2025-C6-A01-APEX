@@ -53,7 +53,7 @@ private extension RootView {
         switch route {
         case .chat(let id):
             if let client = ClientsStore.shared.clients.first(where: { $0.id == id }) {
-                ChattingView(clientId: id, chatTitle: "\(client.name) \(client.surname)", initialNotes: client.notes)
+                ChattingView(clientId: id, chatTitle: client.autoFormattedName, initialNotes: client.notes)
                     .toolbar(.hidden, for: .navigationBar)
                     .toolbar(.hidden, for: .tabBar)
             } else {
