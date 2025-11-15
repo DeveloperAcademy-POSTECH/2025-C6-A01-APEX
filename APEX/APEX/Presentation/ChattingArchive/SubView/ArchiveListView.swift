@@ -38,7 +38,7 @@ struct ArchiveListView: View {
 				onClose: { onClose() },
 				rightIconSystemName: nil,
                 showsRightButton: false,
-                leftIconSystemName: "chevron.left"
+                leftIconSystemName: "xmark"
 			)
 			.padding(.bottom, 4)
 
@@ -57,6 +57,31 @@ struct ArchiveListView: View {
 				.background(Color("Background"))
 				.ignoresSafeArea(edges: .bottom)
 		}
+		.contentShape(Rectangle())
+		.highPriorityGesture(
+			DragGesture(minimumDistance: 20)
+				.onEnded { value in
+					let dx = value.translation.width
+					let dy = value.translation.height
+					guard abs(dx) > abs(dy), abs(dx) > 40 else { return }
+					let currentIndex = tabIndex(from: selectedTab)
+					if dx < 0 {
+						let next = min(3, currentIndex + 1)
+						if next != currentIndex {
+							withAnimation(.easeInOut(duration: 0.25)) {
+								selectedTab = indexToTab(next)
+							}
+						}
+					} else {
+						let prev = max(0, currentIndex - 1)
+						if prev != currentIndex {
+							withAnimation(.easeInOut(duration: 0.25)) {
+								selectedTab = indexToTab(prev)
+							}
+						}
+					}
+				}
+		)
 		.background(Color("Background"))
         .fullScreenCover(item: $recordPayload) { payload in
             RecordView(audioURL: payload.url)
@@ -127,7 +152,7 @@ struct ArchiveListView: View {
                                     variant: .grid,
                                     showsDuration: false
                                 )
-                                    .frame(height: 121.67)
+                                .frame(width: 121.67, height: 121.67)
                                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                                         // Keep duration always visible on top for videos
                                         .overlay(alignment: .bottomLeading) {

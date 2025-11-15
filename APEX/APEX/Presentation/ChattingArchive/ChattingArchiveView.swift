@@ -43,6 +43,9 @@ struct ChattingArchiveView: View {
     // Record viewer
     private struct DetailRecordPayload: Identifiable { let id = UUID(); let url: URL }
     @State private var recordPayload: DetailRecordPayload?
+    // Archive full-screen presentation
+    private struct ArchiveSheetPayload: Identifiable { let id = UUID(); let section: ArchiveSection }
+    @State private var archiveSheet: ArchiveSheetPayload?
     // Bottom actions
     @State private var showDeleteMediaAlert: Bool = false
     @State private var showDeleteContactOverlay: Bool = false
@@ -130,6 +133,19 @@ struct ChattingArchiveView: View {
         .fullScreenCover(item: $recordPayload) { payload in
             RecordView(audioURL: payload.url)
         }
+        .fullScreenCover(item: $archiveSheet) { payload in
+            let fullName = ((client?.name ?? "") + " " + (client?.surname ?? "")).trimmingCharacters(in: .whitespaces)
+            ArchiveListView(
+                section: payload.section,
+                media: mediaItems,
+                files: fileItems,
+                links: linkItems,
+                audios: audioItems,
+                viewerTitle: fullName.isEmpty ? "Archive" : fullName,
+                excludedClientIds: client.map { [$0.id] } ?? [],
+                onClose: { archiveSheet = nil }
+            )
+        }
         // Hidden NavigationLink for archive push removed; Router handles navigation
     }
 
@@ -152,9 +168,7 @@ struct ChattingArchiveView: View {
     private var sharedMediaSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             sectionHeader(title: "사진/동영상", iconName: "photo", iconColor: Color("Primary"), action: {
-                if let id = client?.id {
-                    router.push(.archiveSection(id, .media))
-                }
+                archiveSheet = .init(section: .media)
             })
             let allItems = mediaItems
             if !allItems.isEmpty {
@@ -207,9 +221,9 @@ struct ChattingArchiveView: View {
                                 }
                             )
                         }
-                        if shouldShowSeeAll, let id = client?.id {
+                        if shouldShowSeeAll {
                             SeeAllTile(size: 121.67, title: "전체보기")
-                                .onTapGesture { router.push(.archiveSection(id, .media)) }
+                                .onTapGesture { archiveSheet = .init(section: .media) }
                         }
                     }
                     .padding(.horizontal, 2)
@@ -221,9 +235,7 @@ struct ChattingArchiveView: View {
     private var sharedLinksSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             sectionHeader(title: "링크", iconName: "link", iconColor: Color(hex: "BC0D59"), action: {
-                if let id = client?.id {
-                    router.push(.archiveSection(id, .links))
-                }
+                archiveSheet = .init(section: .links)
             })
             ScrollView(.horizontal, showsIndicators: false) {
                 let allItems = linkItems
@@ -233,9 +245,9 @@ struct ChattingArchiveView: View {
                     ForEach(previewItems, id: \.id) { item in
                         APEXLinkTile(url: item.url, width: 121.67)
                     }
-                    if shouldShowSeeAll, let id = client?.id {
+                    if shouldShowSeeAll {
                         SeeAllTile(size: 121.67, title: "전체보기")
-                            .onTapGesture { router.push(.archiveSection(id, .links)) }
+                            .onTapGesture { archiveSheet = .init(section: .links) }
                     }
                 }
                 .padding(.horizontal, 2)
@@ -246,9 +258,7 @@ struct ChattingArchiveView: View {
     private var sharedFilesSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             sectionHeader(title: "파일", iconName: "document", iconColor: Color(hex: "00B22D"), action: {
-                if let id = client?.id {
-                    router.push(.archiveSection(id, .files))
-                }
+                archiveSheet = .init(section: .files)
             })
             ScrollView(.horizontal, showsIndicators: false) {
                 let allItems = fileItems
@@ -268,9 +278,9 @@ struct ChattingArchiveView: View {
                             }
                         )
                     }
-                    if shouldShowSeeAll, let id = client?.id {
+                    if shouldShowSeeAll {
                         SeeAllTile(size: 121.67, title: "전체보기")
-                            .onTapGesture { router.push(.archiveSection(id, .files)) }
+                            .onTapGesture { archiveSheet = .init(section: .files) }
                     }
                 }
                 .padding(.horizontal, 2)
@@ -281,9 +291,7 @@ struct ChattingArchiveView: View {
     private var sharedAudioSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             sectionHeader(title: "음성메모", iconName: "waveform", iconColor: Color(hex: "E28822"), action: {
-                if let id = client?.id {
-                    router.push(.archiveSection(id, .audio))
-                }
+                archiveSheet = .init(section: .audio)
             })
             ScrollView(.horizontal, showsIndicators: false) {
                 let allItems = audioItems
@@ -304,9 +312,9 @@ struct ChattingArchiveView: View {
                         .contentShape(Rectangle())
                         .onTapGesture { recordPayload = DetailRecordPayload(url: item.url) }
                     }
-                    if shouldShowSeeAll, let id = client?.id {
+                    if shouldShowSeeAll {
                         SeeAllTile(size: 121.67, title: "전체보기")
-                            .onTapGesture { router.push(.archiveSection(id, .audio)) }
+                            .onTapGesture { archiveSheet = .init(section: .audio) }
                     }
                 }
                 .padding(.horizontal, 2)
