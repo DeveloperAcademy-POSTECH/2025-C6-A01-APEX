@@ -9,70 +9,93 @@ import SwiftUI
 
 // MARK: - Navigation Bar
 
-struct MyProfileNavigationBar: View {
+public struct MyProfileNavigationBar: View {
     let title: String
     var onBack: () -> Void
     var onEdit: () -> Void
     var isEditEnabled: Bool = true
 
-    var body: some View {
-        ZStack {
-            // 버튼들 레이아웃 - 각 버튼에 개별 패딩 적용
-            HStack(spacing: 0) {
-                // 뒤로 버튼 - NotesManagement 스타일 적용
-                Button(action: onBack) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 20, weight: .medium, design: .default))
-                        .foregroundColor(.black)
-                        .frame(width: 44, height: 44)
-                        .background(
-                            Circle()
-                                .fill(Color.white)
-                                .glassEffect()
-                        )
-                        .contentShape(Circle())
+    // Theme - APEXSheetTopBar와 동일하게
+    private var background: Color = Color("Background")
+    private var foreground: Color = .black
+    private var height: CGFloat = 52
+
+    public init(
+        title: String,
+        onBack: @escaping () -> Void,
+        onEdit: @escaping () -> Void,
+        isEditEnabled: Bool = true
+    ) {
+        self.title = title
+        self.onBack = onBack
+        self.onEdit = onEdit
+        self.isEditEnabled = isEditEnabled
+    }
+
+    public var body: some View {
+        VStack(spacing: 0) {
+            ZStack(alignment: .center) {
+                // Left/right lane (APEXSheetTopBar와 동일한 구조)
+                HStack(spacing: 0) {
+                    leftButton
+                    Spacer(minLength: 0)
+                    rightButton
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("뒤로")
-                .padding(.leading, 16) // 왼쪽 16px 패딩
-                
-                Spacer()
-                
-                // 편집 버튼 - NotesManagement 스타일 적용
-                Button(action: onEdit) {
-                    Text("편집")
-                        .font(.title6)
-                        .foregroundColor(isEditEnabled ? .black : .gray)
-                        .frame(width: 52, height: 44)
-                        .background(
-                            Capsule()
-                                .fill(Color.white)
-                                .glassEffect()
-                        )
-                        .opacity(isEditEnabled ? 1.0 : 0.6)
-                }
-                .buttonStyle(.plain)
-                .disabled(!isEditEnabled)
-                .accessibilityLabel("편집")
-                .padding(.trailing, 16) // 오른쪽 16px 패딩
+                .frame(height: height)
+                .padding(.horizontal, 12)
+
+                // Center title overlay
+                Text(title)
+                    .font(.title5)
+                    .foregroundColor(foreground)
+                    .lineLimit(1)
+                    .frame(height: height)
+                    .padding(.horizontal, 12)
+                    .allowsHitTesting(false)
+                    .accessibilityAddTraits(.isHeader)
             }
-            
-            // 제목을 절대 가운데에 배치
-            Text(title)
-                .font(.title5)
-                .foregroundColor(.black)
-                .accessibilityAddTraits(.isHeader)
         }
-        .frame(maxWidth: .infinity, alignment: .center)
-        .padding(.horizontal, 0) // 좌우 패딩 제거
-        .padding(.vertical, 8)   // 상하 패딩만 유지  
-        .background(Color("Background"))
+    }
+
+    private var leftButton: some View {
+        Button(action: onBack) {
+            Image(systemName: "chevron.left")
+                .font(.system(size: 20, weight: .medium, design: .default))
+                .foregroundColor(foreground)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .glassEffect()
+        .accessibilityLabel("뒤로")
+    }
+
+    private var rightButton: some View {
+        Button(action: onEdit) {
+            Text("편집")
+                .font(.title6)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                .foregroundColor(isEditEnabled ? foreground : .gray)
+                .frame(height: 44)
+                .padding(.horizontal, 8)
+                .background(
+                    Capsule()
+                        .fill(Color.white)
+                )
+                .glassEffect()
+                .opacity(isEditEnabled ? 1.0 : 0.6)
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEditEnabled)
+        .accessibilityLabel("편집")
     }
 }
 
+
 // MARK: - Profile Header View
 
-struct MyProfileHeaderView: View {
+public struct MyProfileHeaderView: View {
     let client: Client
     @Binding var page: Int
     var onCardTapped: (() -> Void)? = nil
@@ -99,7 +122,7 @@ struct MyProfileHeaderView: View {
         return arr
     }
 
-    var body: some View {
+    public var body: some View {
         let items = pages
         
         VStack(alignment: .center, spacing: 0) {

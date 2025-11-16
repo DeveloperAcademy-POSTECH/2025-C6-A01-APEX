@@ -25,7 +25,7 @@ struct NotesManagementNavigationBar: View {
                         .background(
                             Circle()
                                 .fill(Color.white)
-                                .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
+                                .glassEffect()
                         )
                         .contentShape(Circle())
                 }
@@ -43,7 +43,7 @@ struct NotesManagementNavigationBar: View {
                         .background(
                             Capsule()
                                 .fill(Color.white)
-                                .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
+                                .glassEffect()
                         )
                 }
                 .buttonStyle(.plain)

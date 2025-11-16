@@ -98,15 +98,12 @@ struct MyProfileView: View {
                 .padding(16)
             }
         }
-        .scrollEdgeEffectStyle(.soft, for: .all)
         .background(Color("Background"))
         .safeAreaBar(edge: .top) {
-            APEXSheetTopBar(
+            MyProfileNavigationBar(
                 title: "\(client.surname)\(client.name)",
-                rightTitle: "편집",
-                onRightTap: { isPresentingEdit = true },
-                onClose: { router.pop() },
-                leftIconSystemName: "chevron.left"
+                onBack: { router.pop() },
+                onEdit: { isPresentingEdit = true }
             )
         }
         .sheet(isPresented: $isPresentingEdit) {
