@@ -56,11 +56,17 @@ struct ProfileDetailView: View {
 
                 // 나머지 컨텐츠를 하나의 VStack으로 묶고 패딩 적용
                 VStack(spacing: 32) {
-                    // 프라이머리 액션
+                    // 프라이머리 액션 - 56px 높이, 15px 코너라운드 적용
                     MyProfilePrimaryActionView(title: "메모하기") {
                         openChatForClient()
                     }
                     .accessibilityLabel("메모하기")
+                    .apexButtonTheme(
+                        APEXButtonTheme(
+                            cornerRadius: 15,
+                            height: 56
+                        )
+                    )
 
                     // 연락처 섹션
                     MyProfileContactsSection(

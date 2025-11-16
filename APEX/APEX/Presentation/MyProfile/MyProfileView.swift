@@ -46,7 +46,7 @@ struct MyProfileView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
-                // 상단 헤더
+                // 상단 헤더 - 자체 패딩 사용 (16px)
                 MyProfileHeaderView(
                     client: adaptedClient,
                     page: $currentPageIndex,
@@ -56,9 +56,15 @@ struct MyProfileView: View {
 
                 // 나머지 컨텐츠를 하나의 VStack으로 묶고 패딩 적용
                 VStack(spacing: 32) {
-                    // 프라이머리 액션
+                    // 프라이머리 액션 - 56px 높이, 15px 코너라운드 적용
                     MyProfilePrimaryActionView(title: "메모하기") { openMyChat() }
                     .accessibilityLabel("메모하기")
+                    .apexButtonTheme(
+                        APEXButtonTheme(
+                            cornerRadius: 15,
+                            height: 56
+                        )
+                    )
 
                     // 연락처 섹션
                     // 섹션 시그니처 변경에 맞춰 openExternal / copyToPasteboard 유틸 콜백을 전달
@@ -95,7 +101,7 @@ struct MyProfileView: View {
                         onDeleteAccount: { router.push(.unsubscribe) }
                     )
                 }
-                .padding(.horizontal, 16) // 좌우 16px 패딩
+                .padding(.horizontal, 16) // 컨텐츠에만 좌우 16px 패딩
                 .padding(.vertical, 16)   // 상하 16px 패딩
             }
         }
