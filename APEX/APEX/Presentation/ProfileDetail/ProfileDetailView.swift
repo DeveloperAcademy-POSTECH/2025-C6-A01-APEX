@@ -44,8 +44,58 @@ struct ProfileDetailView: View {
     }
 
     var body: some View {
-        mainContent
+        ScrollView {
+            VStack(spacing: 0) {
+                // 상단 헤더
+                MyProfileHeaderView(
+                    client: adaptedClient,
+                    page: $currentPageIndex,
+                    onCardTapped: { isShowingCardViewer = true }
+                )
+                .padding(.top, 4)
+
+                // 나머지 컨텐츠를 하나의 VStack으로 묶고 패딩 적용
+                VStack(spacing: 32) {
+                    // 프라이머리 액션
+                    MyProfilePrimaryActionView(title: "메모하기") {
+                        openChatForClient()
+                    }
+                    .accessibilityLabel("메모하기")
+
+                    // 연락처 섹션
+                    MyProfileContactsSection(
+                        email: client.email,
+                        phone: client.phoneNumber,
+                        linkedin: client.linkedinURL,
+                        openExternal: { url in
+                            openExternal(url)
+                        },
+                        copyToPasteboard: { text in
+                            copyToPasteboard(text)
+                        }
+                    )
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    // 메모 섹션
+                    ProfileDetailMemoSection(
+                        memo: client.memo ?? ""
+                    )
+                    .padding(.horizontal, 8) // 다른 섹션과의 패딩 일관성을 위해 조정
+                }
+                .padding(16)
+            }
+        }
+        .scrollEdgeEffectStyle(.soft, for: .all)
         .background(Color("Background"))
+        .safeAreaBar(edge: .top) {
+            APEXSheetTopBar(
+                title: client.autoFormattedName,
+                rightTitle: "편집",
+                onRightTap: { isPresentingEdit = true },
+                onClose: { router.pop() },
+                leftIconSystemName: "chevron.left"
+            )
+        }
         .sheet(isPresented: $isPresentingEdit) {
             let isMe = (client.email ?? "") == sampleMyProfileClient.email
             MyProfileEditSheet(
@@ -96,64 +146,7 @@ struct ProfileDetailView: View {
         // Hidden NavigationLink removed; Router handles navigation
     }
 
-    // MARK: - Main Content
-    
-    private var mainContent: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                // 네비게이션 바
-                MyProfileNavigationBar(
-                    title: client.autoFormattedName,
-                    onBack: { router.pop() },
-                    onEdit: { isPresentingEdit = true }
-                )
-                .background(Color("Background"))
-
-                // 상단 헤더
-                MyProfileHeaderView(
-                    client: adaptedClient,
-                    page: $currentPageIndex,
-                    onCardTapped: { isShowingCardViewer = true }
-                )
-                .padding(.top, 4)
-
-                // 프라이머리 액션
-                MyProfilePrimaryActionView(title: "메모하기") {
-                    openChatForClient()
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 0)
-                .accessibilityLabel("메모하기")
-
-                // 연락처 섹션
-                MyProfileContactsSection(
-                    email: client.email,
-                    phone: client.phoneNumber,
-                    linkedin: client.linkedinURL,
-                    openExternal: { url in
-                        openExternal(url)
-                    },
-                    copyToPasteboard: { text in
-                        copyToPasteboard(text)
-                    }
-                )
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.top, 32)
-                
-
-                // 메모 섹션
-                ProfileDetailMemoSection(
-                    memo: client.memo ?? ""
-                )
-                .padding(.horizontal, 24)
-                .padding(.top, 24)
-            
-            }
-        }
-        .toolbar(.hidden, for: .navigationBar)
-        .toolbar(.hidden, for: .tabBar)
-    }
+    // MARK: - Helpers
     
     private func deleteClient() {
         // 실제 삭제 로직 (원본 ID로 삭제)

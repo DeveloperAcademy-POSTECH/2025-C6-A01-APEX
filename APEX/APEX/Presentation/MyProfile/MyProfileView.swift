@@ -46,14 +46,6 @@ struct MyProfileView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
-                // 네비게이션 바
-                MyProfileNavigationBar(
-                    title: "\(client.surname)\(client.name)",
-                    onBack: { router.pop() },
-                    onEdit: { isPresentingEdit = true }
-                )
-                .background(Color("Background"))
-
                 // 상단 헤더
                 MyProfileHeaderView(
                     client: adaptedClient,
@@ -62,57 +54,61 @@ struct MyProfileView: View {
                 )
                 .padding(.top, 4)
 
-                // 프라이머리 액션
-                MyProfilePrimaryActionView(title: "메모하기") { openMyChat() }
-                .padding(.horizontal, 16)
-                .padding(.top, 0)
-                .accessibilityLabel("메모하기")
+                // 나머지 컨텐츠를 하나의 VStack으로 묶고 패딩 적용
+                VStack(spacing: 32) {
+                    // 프라이머리 액션
+                    MyProfilePrimaryActionView(title: "메모하기") { openMyChat() }
+                    .accessibilityLabel("메모하기")
 
-                // 연락처 섹션
-                // 섹션 시그니처 변경에 맞춰 openExternal / copyToPasteboard 유틸 콜백을 전달
-                MyProfileContactsSection(
-                    email: client.email,
-                    phone: client.phoneNumber,
-                    linkedin: client.linkedinURL,
-                    openExternal: { url in
-                        openExternal(url)
-                    },
-                    copyToPasteboard: { text in
-                        copyToPasteboard(text)
-                    }
-                )
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.top, 32)
+                    // 연락처 섹션
+                    // 섹션 시그니처 변경에 맞춰 openExternal / copyToPasteboard 유틸 콜백을 전달
+                    MyProfileContactsSection(
+                        email: client.email,
+                        phone: client.phoneNumber,
+                        linkedin: client.linkedinURL,
+                        openExternal: { url in
+                            openExternal(url)
+                        },
+                        copyToPasteboard: { text in
+                            copyToPasteboard(text)
+                        }
+                    )
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                // 저장공간 섹션
-                MyProfileStorageSection(
-                    usedText: usedSizeText,
-                    isPurgeEnabled: false,
-                    onManageTapped: { router.push(.dataManagement) },
-                    onPurgeTapped: { /* TODO */ }
-                )
-                .padding(.horizontal, 16)
-                .padding(.top, 32)
+                    // 저장공간 섹션
+                    MyProfileStorageSection(
+                        usedText: usedSizeText,
+                        isPurgeEnabled: false,
+                        onManageTapped: { router.push(.dataManagement) },
+                        onPurgeTapped: { /* TODO */ }
+                    )
 
-                // 앱 정보 섹션
-                MyProfileAppInfoSection(
-                    versionText: Bundle.main.apexVersionString(),
-                    onTermsTapped: { /* TODO: 약관 화면/URL */ }
-                )
-                .padding(.horizontal, 16)
-                .padding(.top, 32)
+                    // 앱 정보 섹션
+                    MyProfileAppInfoSection(
+                        versionText: Bundle.main.apexVersionString(),
+                        onTermsTapped: { /* TODO: 약관 화면/URL */ }
+                    )
 
-                // 위험 구역 섹션
-                MyProfileDangerZoneSection(
-                    onLogout: { /* TODO */ },
-                    onDeleteAccount: { router.push(.unsubscribe) }
-                )
-                .padding(.horizontal, 16)
-                .padding(.top, 32)
+                    // 위험 구역 섹션
+                    MyProfileDangerZoneSection(
+                        onLogout: { /* TODO */ },
+                        onDeleteAccount: { router.push(.unsubscribe) }
+                    )
+                }
+                .padding(16)
             }
         }
+        .scrollEdgeEffectStyle(.soft, for: .all)
         .background(Color("Background"))
+        .safeAreaBar(edge: .top) {
+            APEXSheetTopBar(
+                title: "\(client.surname)\(client.name)",
+                rightTitle: "편집",
+                onRightTap: { isPresentingEdit = true },
+                onClose: { router.pop() },
+                leftIconSystemName: "chevron.left"
+            )
+        }
         .sheet(isPresented: $isPresentingEdit) {
             MyProfileEditSheet(
                 client: client,

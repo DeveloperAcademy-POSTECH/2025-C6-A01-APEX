@@ -19,37 +19,35 @@ struct MyProfileNavigationBar: View {
         ZStack {
             // 버튼들 레이아웃 - 각 버튼에 개별 패딩 적용
             HStack(spacing: 0) {
-                // 뒤로 버튼
+                // 뒤로 버튼 - NotesManagement 스타일 적용
                 Button(action: onBack) {
-                    ZStack {
-                        Circle()
-                            .fill(Color.white)
-                            .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
-                            .frame(width: 44, height: 44)
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 17, weight: .medium))
-                            .foregroundColor(Color.black)
-                    }
-                    .frame(width: 44, height: 44)
-                    .contentShape(Circle())
-                    .accessibilityLabel("뒤로")
-                    
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 20, weight: .medium, design: .default))
+                        .foregroundColor(.black)
+                        .frame(width: 44, height: 44)
+                        .background(
+                            Circle()
+                                .fill(Color.white)
+                                .glassEffect()
+                        )
+                        .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("뒤로")
                 .padding(.leading, 16) // 왼쪽 16px 패딩
                 
                 Spacer()
                 
-                // 편집 버튼 (상태별 처리)
+                // 편집 버튼 - NotesManagement 스타일 적용
                 Button(action: onEdit) {
                     Text("편집")
                         .font(.title6)
-                        .foregroundColor(isEditEnabled ? Color.black : Color.gray)
+                        .foregroundColor(isEditEnabled ? .black : .gray)
                         .frame(width: 52, height: 44)
                         .background(
                             Capsule()
                                 .fill(Color.white)
-                                .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
+                                .glassEffect()
                         )
                         .opacity(isEditEnabled ? 1.0 : 0.6)
                 }
