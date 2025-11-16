@@ -88,53 +88,13 @@ struct ProfileDetailView: View {
         .scrollEdgeEffectStyle(.soft, for: .all)
         .background(Color("Background"))
         .safeAreaBar(edge: .top) {
-            ZStack {
-                // 버튼들 레이아웃 - 각 버튼에 개별 패딩 적용
-                HStack(spacing: 0) {
-                    // 뒤로가기 버튼 - 44×44px, SF Pro Medium 17pt
-                    Button(action: { router.pop() }) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 20, weight: .medium, design: .default))
-                            .foregroundColor(.black)
-                            .frame(width: 44, height: 44)
-                            .background(
-                                Circle()
-                                    .fill(Color.white)
-                                    .glassEffect()
-                            )
-                            .contentShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.leading, 16) // 왼쪽 16px 패딩
-                    
-                    Spacer()
-                    
-                    // 편집 버튼 - 52×44px, title6
-                    Button(action: { isPresentingEdit = true }) {
-                        Text("편집")
-                            .font(.title6)
-                            .foregroundColor(.black)
-                            .frame(width: 52, height: 44)
-                            .background(
-                                Capsule()
-                                    .fill(Color.white)
-                                    .glassEffect()
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.trailing, 16) // 오른쪽 16px 패딩
-                }
-                
-                // 제목을 절대 가운데에 배치 - title5
-                Text(client.autoFormattedName)
-                    .font(.title5)
-                    .foregroundColor(.black)
-                    .accessibilityAddTraits(.isHeader)
-            }
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.horizontal, 0) // 좌우 패딩 제거
-            .padding(.vertical, 8)   // 상하 패딩만 유지  
-            .background(Color("Background"))
+            APEXSheetTopBar(
+                title: client.autoFormattedName,
+                rightTitle: "편집",
+                onRightTap: { isPresentingEdit = true },
+                onClose: { router.pop() },
+                leftIconSystemName: "chevron.left"
+            )
         }
         .sheet(isPresented: $isPresentingEdit) {
             let isMe = (client.email ?? "") == sampleMyProfileClient.email

@@ -9,7 +9,7 @@ import SwiftUI
 
 // MARK: - Navigation Bar
 
-public struct MyProfileNavigationBar: View {
+struct MyProfileNavigationBar: View {
     let title: String
     var onBack: () -> Void
     var onEdit: () -> Void
@@ -20,7 +20,7 @@ public struct MyProfileNavigationBar: View {
     private var foreground: Color = .black
     private var height: CGFloat = 52
 
-    public init(
+    init(
         title: String,
         onBack: @escaping () -> Void,
         onEdit: @escaping () -> Void,
@@ -32,7 +32,7 @@ public struct MyProfileNavigationBar: View {
         self.isEditEnabled = isEditEnabled
     }
 
-    public var body: some View {
+    var body: some View {
         VStack(spacing: 0) {
             ZStack(alignment: .center) {
                 // Left/right lane (APEXSheetTopBar와 동일한 구조)
@@ -74,17 +74,13 @@ public struct MyProfileNavigationBar: View {
         Button(action: onEdit) {
             Text("편집")
                 .font(.title6)
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
-                .foregroundColor(isEditEnabled ? foreground : .gray)
-                .frame(height: 44)
-                .padding(.horizontal, 8)
+                .foregroundColor(isEditEnabled ? foreground : Color("BackgroundDisabled"))
+                .frame(width: 52, height: 44)
                 .background(
                     Capsule()
                         .fill(Color.white)
+                        .glassEffect()
                 )
-                .glassEffect()
-                .opacity(isEditEnabled ? 1.0 : 0.6)
         }
         .buttonStyle(.plain)
         .disabled(!isEditEnabled)

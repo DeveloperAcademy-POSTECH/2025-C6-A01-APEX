@@ -116,18 +116,16 @@ struct APEXSheetTopBar: View {
             } else {
                 Text(rightTitle)
                     .font(.title6)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.85)
-                    .frame(height: 44)
-                    .padding(.horizontal, 8)
-                    .glassEffect()
+                    .foregroundColor(isEnabled ? .black : Color("BackgroundDisabled"))
+                    .frame(width: 52, height: 44)
+                    .background(
+                        Capsule()
+                            .fill(Color.white)
+                            .glassEffect()
+                    )
             }
         }
-        .buttonStyle(
-            TopBarTextButtonStyle(
-                isEnabled: isEnabled
-            )
-        )
+        .buttonStyle(.plain)
         .disabled(!isEnabled)
         .accessibilityLabel(Text(rightTitle))
     }

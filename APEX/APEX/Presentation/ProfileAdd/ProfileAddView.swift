@@ -175,73 +175,36 @@ struct ProfileAddView: View {
                 .padding(.top, 30)
         }
         .safeAreaBar(edge: .top) {
-            ZStack {
-                // 버튼들 레이아웃 - 각 버튼에 개별 패딩 적용
-                HStack(spacing: 0) {
-                    // 닫기 버튼 - 44×44px, SF Pro Medium 17pt
-                    Button(action: { dismiss() }) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 20, weight: .medium, design: .default))
-                            .foregroundColor(.black)
-                            .frame(width: 44, height: 44)
-                            .background(
-                                Circle()
-                                    .fill(Color.white)
-                                    .glassEffect()
-                            )
-                            .contentShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.leading, 16) // 왼쪽 16px 패딩
-                    
-                    Spacer()
-                    
-                    // 완료 버튼 - 52×44px, title6
-                    Button(action: {
-                        let client = Client(
-                            profile: profileUIImage,
-                            nameCardFront: cardFrontUIImage.map { Image(uiImage: $0) },
-                            nameCardBack: cardBackUIImage.map { Image(uiImage: $0) },
-                            surname: surname,
-                            name: name,
-                            position: position.isEmpty ? nil : position,
-                            company: company,
-                            email: emails.first,
-                            phoneNumber: contacts.first,
-                            linkedinURL: linkedinLink.isEmpty ? nil : linkedinLink,
-                            memo: memo.isEmpty ? nil : memo,
-                            action: nil,
-                            favorite: false,
-                            pin: false,
-                            notes: []
-                        )
-                        onComplete?(client)
-                    }) {
-                        Text("완료")
-                            .font(.title6)
-                            .foregroundColor(!surname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .black : Color("BackgroundDisabled"))
-                            .frame(width: 52, height: 44)
-                            .background(
-                                Capsule()
-                                    .fill(Color.white)
-                                    .glassEffect()
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(!(!surname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
-                    .padding(.trailing, 16) // 오른쪽 16px 패딩
-                }
-                
-                // 제목을 절대 가운데에 배치 - title5
-                Text("연락처 추가")
-                    .font(.title5)
-                    .foregroundColor(.black)
-                    .accessibilityAddTraits(.isHeader)
-            }
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.horizontal, 0) // 좌우 패딩 제거
-            .padding(.vertical, 8)   // 상하 패딩만 유지  
-            .background(Color("Background"))
+            APEXSheetTopBar(
+                title: "연락처 추가",
+                rightTitle: "완료",
+                isRightEnabled: !surname
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .isEmpty || !name
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .isEmpty,
+                onRightTap: {
+                let client = Client(
+                    profile: profileUIImage,
+                    nameCardFront: cardFrontUIImage.map { Image(uiImage: $0) },
+                    nameCardBack: cardBackUIImage.map { Image(uiImage: $0) },
+                    surname: surname,
+                    name: name,
+                    position: position.isEmpty ? nil : position,
+                    company: company,
+                    email: emails.first,
+                    phoneNumber: contacts.first,
+                    linkedinURL: linkedinLink.isEmpty ? nil : linkedinLink,
+                    memo: memo.isEmpty ? nil : memo,
+                    action: nil,
+                    favorite: false,
+                    pin: false,
+                    notes: []
+                )
+                onComplete?(client)
+            }, onClose: {
+                dismiss()
+            })
         }
         .onAppear { ensureFieldArrays() }
         .onChange(of: addItemConfig.emailCount) { _ in ensureFieldArrays() }
