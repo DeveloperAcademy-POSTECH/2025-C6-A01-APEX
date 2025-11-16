@@ -42,7 +42,7 @@ struct MyProfileNavigationBar: View {
                     rightButton
                 }
                 .frame(height: height)
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 16) // 12px → 16px로 변경
 
                 // Center title overlay
                 Text(title)
@@ -50,7 +50,7 @@ struct MyProfileNavigationBar: View {
                     .foregroundColor(foreground)
                     .lineLimit(1)
                     .frame(height: height)
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, 16) // 12px → 16px로 변경
                     .allowsHitTesting(false)
                     .accessibilityAddTraits(.isHeader)
             }
@@ -76,13 +76,9 @@ struct MyProfileNavigationBar: View {
                 .font(.title6)
                 .foregroundColor(isEditEnabled ? foreground : Color("BackgroundDisabled"))
                 .frame(width: 52, height: 44)
-                .background(
-                    Capsule()
-                        .fill(Color.white)
-                        .glassEffect()
-                )
         }
         .buttonStyle(.plain)
+        .glassEffect()
         .disabled(!isEditEnabled)
         .accessibilityLabel("편집")
     }

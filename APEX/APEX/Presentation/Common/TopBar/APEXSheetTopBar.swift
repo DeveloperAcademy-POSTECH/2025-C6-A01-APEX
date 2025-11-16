@@ -112,20 +112,15 @@ struct APEXSheetTopBar: View {
                 }
                 .frame(height: 44)
                 .padding(.horizontal, 6)
-                .glassEffect()
             } else {
                 Text(rightTitle)
                     .font(.title6)
                     .foregroundColor(isEnabled ? .black : Color("BackgroundDisabled"))
                     .frame(width: 52, height: 44)
-                    .background(
-                        Capsule()
-                            .fill(Color.white)
-                            .glassEffect()
-                    )
             }
         }
         .buttonStyle(.plain)
+        .glassEffect()
         .disabled(!isEnabled)
         .accessibilityLabel(Text(rightTitle))
     }

@@ -95,7 +95,8 @@ struct MyProfileView: View {
                         onDeleteAccount: { router.push(.unsubscribe) }
                     )
                 }
-                .padding(16)
+                .padding(.horizontal, 16) // 좌우 16px 패딩
+                .padding(.vertical, 16)   // 상하 16px 패딩
             }
         }
         .background(Color("Background"))
