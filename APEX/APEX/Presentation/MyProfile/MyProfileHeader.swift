@@ -154,7 +154,7 @@ struct MyProfileHeaderView: View {
                     .foregroundColor(.black)
                     .lineLimit(1)
                 
-                Spacer().frame(height: 2)
+                Spacer().frame(height: 4)
                 
                 Text(subtitle)
                     .font(.body5)
@@ -164,7 +164,6 @@ struct MyProfileHeaderView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 16)
-        .padding(.bottom, 16)
         .onChange(of: pages.count) { _ in
             page = min(page, max(pages.count - 1, 0))
         }
