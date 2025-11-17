@@ -13,26 +13,29 @@ struct ContactsTopBar: View {
     // Colors (안전한 fallback 포함)  
     private var backgroundColor: Color { Color("Background") }
     private var titleColor: Color { Color.black } // 항상 검은색
-    private var plusNormalColor: Color { Color.blue } // 시스템 파란색
+    private var plusNormalColor: Color { Color("Primary") } // Primary 색상
     private var plusPressedColor: Color { Color.blue.opacity(0.8) } // 눌린 상태
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                // Center title
-                Text(title)
-                    .font(.title1) // 기본 시스템 폰트로 변경
-                    .fontWeight(.semibold)
-                    .foregroundColor(titleColor)
-
-                Spacer()
-
-                // Right + button (애플 기본 머티리얼 기반 원형)
-                PlusButton(
-                    normalColor: plusNormalColor,
-                    pressedColor: plusPressedColor,
-                    action: onPlus
-                )
+            ZStack {
+                // 버튼들 레이아웃
+                HStack {
+                    // 왼쪽에 타이틀 배치
+                    Text(title)
+                        .font(.title1)
+                        .fontWeight(.semibold)
+                        .foregroundColor(titleColor)
+                    
+                    Spacer()
+                    
+                    // Right + button (애플 기본 머티리얼 기반 원형)
+                    PlusButton(
+                        normalColor: plusNormalColor,
+                        pressedColor: plusPressedColor,
+                        action: onPlus
+                    )
+                }
             }
             .frame(height: height)
             .padding(.horizontal, horizontalPadding)
@@ -44,7 +47,7 @@ struct ContactsTopBar: View {
     }
 }
 
-// MARK: - Internal + Button (원형 머티리얼 + pressed 색상 반영)
+// MARK: - Internal + Button (NotesManagement 스타일)
 private struct PlusButton: View {
     let normalColor: Color
     let pressedColor: Color
@@ -56,20 +59,20 @@ private struct PlusButton: View {
     var body: some View {
         Button(action: action) {
             ZStack {
-                // 원형 머티리얼 배경 (애플 기본)
+                // 원형 배경 (처음부터 원형으로 렌더링)
                 Circle()
-                    .fill(.ultraThinMaterial)
-                    .frame(width: size, height: size)
-
+                    .fill(Color.background)
+                
                 // 아이콘
                 Image(systemName: "plus")
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundColor(isPressed ? pressedColor : normalColor)
+                
             }
+            .glassEffect()
             .frame(width: size, height: size)
             .contentShape(Circle())
         }
-        .buttonStyle(.plain)
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in

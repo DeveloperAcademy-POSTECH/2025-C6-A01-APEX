@@ -357,7 +357,15 @@ struct DMContactRow: View {
     var body: some View {
         Button(action: onDeleteTap) {
             HStack(spacing: 12) {
-                Profile(image: contact.image, initials: contact.initials, size: .small, fontSize: 30.72)
+                Profile(
+                    image: contact.image, 
+                    initials: contact.initials, 
+                    size: .extraSmall,
+                    fontSize: 30.72,
+                    backgroundColor: Color("PrimaryContainer"),
+                    textColor: .white,
+                    fontWeight: .semibold
+                )
                 Text(contact.name)
                     .font(.body2)
                     .foregroundColor(.primary)

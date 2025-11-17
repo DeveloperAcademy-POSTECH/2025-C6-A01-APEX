@@ -126,7 +126,7 @@ struct SearchView: View {
 			loadRecent()
 			reloadAllAggregates()
 		}
-		.navigationDestination(item: $archivePayload) { payload in
+		.fullScreenCover(item: $archivePayload) { payload in
 			ArchiveListView(
 				section: payload.section,
 				media: payload.media,
@@ -137,8 +137,6 @@ struct SearchView: View {
 				excludedClientIds: payload.excludedClientIds,
 				onClose: { archivePayload = nil }
 			)
-			.toolbar(.hidden, for: .navigationBar)
-			.toolbar(.hidden, for: .tabBar)
 		}
         .fullScreenCover(item: $recordPayload) { payload in
             RecordView(audioURL: payload.url)
@@ -155,6 +153,21 @@ private extension SearchView {
 					sectionHeader(title: "최근 검색", iconName: "clock.arrow.circlepath", iconColor: Color("Primary"), onTapArrow: {
 						// No destination; keep behavior as non-clickable header
 					}, showsArrow: false)
+					.overlay(alignment: .trailing) {
+						Button {
+							clearRecent()
+						} label: {
+							Text("초기화")
+								.font(.body3)
+								.foregroundStyle(Color("Primary"))
+								.padding(.horizontal, 8)
+								.padding(.vertical, 6)
+								.background(Color("BackgroundSecondary"))
+								.clipShape(Capsule())
+						}
+						.buttonStyle(.plain)
+                        .padding(.trailing, 16)
+					}
 					ScrollView(.horizontal, showsIndicators: false) {
 						HStack(spacing: 8) {
 							ForEach(recentQueries, id: \.self) { item in
@@ -183,7 +196,7 @@ private extension SearchView {
 	var globalMediaSection: some View {
 		VStack(alignment: .leading, spacing: 8) {
 			sectionHeader(title: "사진/동영상", iconName: "photo", iconColor: Color("Primary"), onTapArrow: {
-				archivePayload = ArchivePushPayload(section: .media, media: allMedia, files: [], links: [], audios: [], title: "모든 클라이언트", excludedClientIds: [])
+				archivePayload = ArchivePushPayload(section: .media, media: allMedia, files: allFiles, links: allLinks, audios: allAudios, title: "모든 클라이언트", excludedClientIds: [])
 			})
 			if !allMedia.isEmpty {
 				let shouldShowSeeAll = allMedia.count >= 9
@@ -194,8 +207,8 @@ private extension SearchView {
 							let owner = ownerForFlattenedMedia(item)
 							let payload = owner.flatMap { mediaPayloadForClient($0.client) }
 							let parsed = parseFlattenedMediaId(item.id)
-							let selectedIndex = payload.flatMap { p in
-								p.anchors.firstIndex(where: { $0.noteId == parsed?.noteId && $0.isImage == (parsed?.isImage ?? false) && $0.localIndex == (parsed?.localIndex ?? -1) })
+							let selectedIndex = payload.flatMap { payloadData in
+								payloadData.anchors.firstIndex(where: { $0.noteId == parsed?.noteId && $0.isImage == (parsed?.isImage ?? false) && $0.localIndex == (parsed?.localIndex ?? -1) })
 							} ?? 0
 							APEXMediaTile(
 								source: item.isVideo ? .video(item.videoURL!) : .image(item.imageData ?? Data()),
@@ -208,15 +221,31 @@ private extension SearchView {
 							.apexOpensMediaViewer(
 								items: payload?.items ?? [],
 								index: max(0, selectedIndex),
-								title: owner.map { "\($0.client.name) \($0.client.surname)" } ?? "Shared Media",
-								uploadedAt: nil,
+								title: owner.map { $0.client.autoFormattedName } ?? "Shared Media",
+								uploadedAt: item.uploadedAt,
 								excludedClientIds: owner.map { [$0.client.id] } ?? [],
 								onTitleTap: { current in
 									guard let owner, let payload, payload.anchors.indices.contains(current) else { return }
 									let anchor = payload.anchors[current]
-									router.push(.chat(owner.client.id))
-									DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-										NotificationCenter.default.post(name: .apexNavigateToNote, object: nil, userInfo: ["noteId": anchor.noteId])
+									// Delay slightly to ensure media viewer is dismissed before navigation.
+									DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+										// Pop to existing chat if present; else push
+										if let idx = router.path.lastIndex(where: {
+											if case let .chat(id) = $0 { return id == owner.client.id }
+											return false
+										}) {
+											let newPath = Array(router.path.prefix(idx + 1))
+											router.setPath(newPath)
+										} else {
+											router.push(.chat(owner.client.id))
+										}
+										// Post after chat mounted; then retry once
+										DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+											NotificationCenter.default.post(name: .apexNavigateToNote, object: nil, userInfo: ["noteId": anchor.noteId])
+										}
+										DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+											NotificationCenter.default.post(name: .apexNavigateToNote, object: nil, userInfo: ["noteId": anchor.noteId])
+										}
 									}
 								}
 							)
@@ -224,7 +253,7 @@ private extension SearchView {
 						if shouldShowSeeAll {
 							ChattingArchiveView.SeeAllTile(size: 121.67, title: "전체보기")
 								.onTapGesture {
-									archivePayload = ArchivePushPayload(section: .media, media: allMedia, files: [], links: [], audios: [], title: "모든 클라이언트", excludedClientIds: [])
+									archivePayload = ArchivePushPayload(section: .media, media: allMedia, files: allFiles, links: allLinks, audios: allAudios, title: "모든 클라이언트", excludedClientIds: [])
 								}
 						}
 					}
@@ -237,7 +266,7 @@ private extension SearchView {
 	var globalFilesSection: some View {
 		VStack(alignment: .leading, spacing: 8) {
 			sectionHeader(title: "파일", iconName: "document", iconColor: Color(hex: "00B22D"), onTapArrow: {
-				archivePayload = ArchivePushPayload(section: .files, media: [], files: allFiles, links: [], audios: [], title: "모든 클라이언트", excludedClientIds: [])
+				archivePayload = ArchivePushPayload(section: .files, media: allMedia, files: allFiles, links: allLinks, audios: allAudios, title: "모든 클라이언트", excludedClientIds: [])
 			})
 			if !allFiles.isEmpty {
 				let shouldShowSeeAll = allFiles.count >= 9
@@ -260,7 +289,7 @@ private extension SearchView {
 						if shouldShowSeeAll {
 							ChattingArchiveView.SeeAllTile(size: 121.67, title: "전체보기")
 								.onTapGesture {
-									archivePayload = ArchivePushPayload(section: .files, media: [], files: allFiles, links: [], audios: [], title: "모든 클라이언트", excludedClientIds: [])
+									archivePayload = ArchivePushPayload(section: .files, media: allMedia, files: allFiles, links: allLinks, audios: allAudios, title: "모든 클라이언트", excludedClientIds: [])
 								}
 						}
 					}
@@ -273,7 +302,7 @@ private extension SearchView {
 	var globalLinksSection: some View {
 		VStack(alignment: .leading, spacing: 8) {
 			sectionHeader(title: "링크", iconName: "link", iconColor: Color(hex: "BC0D59"), onTapArrow: {
-				archivePayload = ArchivePushPayload(section: .links, media: [], files: [], links: allLinks, audios: [], title: "모든 클라이언트", excludedClientIds: [])
+				archivePayload = ArchivePushPayload(section: .links, media: allMedia, files: allFiles, links: allLinks, audios: allAudios, title: "모든 클라이언트", excludedClientIds: [])
 			})
 			if !allLinks.isEmpty {
 				let shouldShowSeeAll = allLinks.count >= 9
@@ -286,7 +315,7 @@ private extension SearchView {
 						if shouldShowSeeAll {
 							ChattingArchiveView.SeeAllTile(size: 121.67, title: "전체보기")
 								.onTapGesture {
-									archivePayload = ArchivePushPayload(section: .links, media: [], files: [], links: allLinks, audios: [], title: "모든 클라이언트", excludedClientIds: [])
+									archivePayload = ArchivePushPayload(section: .links, media: allMedia, files: allFiles, links: allLinks, audios: allAudios, title: "모든 클라이언트", excludedClientIds: [])
 								}
 						}
 					}
@@ -299,7 +328,7 @@ private extension SearchView {
 	var globalAudioSection: some View {
 		VStack(alignment: .leading, spacing: 8) {
 			sectionHeader(title: "음성메모", iconName: "waveform", iconColor: Color(hex: "E28822"), onTapArrow: {
-				archivePayload = ArchivePushPayload(section: .audio, media: [], files: [], links: [], audios: allAudios, title: "모든 클라이언트", excludedClientIds: [])
+				archivePayload = ArchivePushPayload(section: .audio, media: allMedia, files: allFiles, links: allLinks, audios: allAudios, title: "모든 클라이언트", excludedClientIds: [])
 			})
 			if !allAudios.isEmpty {
 				let shouldShowSeeAll = allAudios.count >= 9
@@ -323,7 +352,7 @@ private extension SearchView {
 						if shouldShowSeeAll {
 							ChattingArchiveView.SeeAllTile(size: 121.67, title: "전체보기")
 								.onTapGesture {
-									archivePayload = ArchivePushPayload(section: .audio, media: [], files: [], links: [], audios: allAudios, title: "모든 클라이언트", excludedClientIds: [])
+									archivePayload = ArchivePushPayload(section: .audio, media: allMedia, files: allFiles, links: allLinks, audios: allAudios, title: "모든 클라이언트", excludedClientIds: [])
 								}
 						}
 					}
@@ -351,7 +380,7 @@ private extension SearchView {
 		return Group {
 			if !filtered.isEmpty {
 				VStack(alignment: .leading, spacing: 8) {
-					sectionHeader(title: "클라이언트", iconName: "person.2", iconColor: Color("Primary"), onTapArrow: {
+					sectionHeader(title: "연락처", iconName: "person.crop.circle.fill", iconColor: Color("Primary"), onTapArrow: {
 						// no-op
 					}, showsArrow: false)
 					VStack(spacing: 0) {
@@ -376,7 +405,7 @@ private extension SearchView {
 										fontWeight: .semibold
 									)
 									VStack(alignment: .leading, spacing: 0) {
-										highlightedText("\(client.name) \(client.surname)", highlight: trimmed)
+										highlightedText(client.autoFormattedName, highlight: trimmed)
 											.font(.body2)
 											.foregroundStyle(Color("BlackLabel"))
 										if !client.company.isEmpty {
@@ -411,7 +440,7 @@ private extension SearchView {
 		return Group {
 			if !pairs.isEmpty {
 				VStack(alignment: .leading, spacing: 8) {
-					sectionHeader(title: "텍스트 메모", iconName: "text.quote", iconColor: Color("Primary"), onTapArrow: {
+					sectionHeader(title: "텍스트", iconName: "text.quote", iconColor: Color("Primary"), onTapArrow: {
 						// no-op
 					}, showsArrow: false)
 					VStack(spacing: 8) {
@@ -419,6 +448,9 @@ private extension SearchView {
 							Button {
 								saveRecent(trimmed)
 								router.push(.chat(client.id))
+								DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+									NotificationCenter.default.post(name: .apexNavigateToNote, object: nil, userInfo: ["noteId": note.id])
+								}
 							} label: {
 								HStack(alignment: .top, spacing: 8) {
 									Profile(
@@ -431,7 +463,7 @@ private extension SearchView {
 										fontWeight: .semibold
 									)
 									VStack(alignment: .leading, spacing: 6) {
-                                        highlightedText("\(client.name) \(client.surname)", highlight: trimmed)
+                                        highlightedText(client.autoFormattedName, highlight: trimmed)
                                             .font(.caption1)
                                             .foregroundStyle(Color("BlackLabel"))
                                             .lineLimit(1)
@@ -474,7 +506,8 @@ private extension SearchView {
 			if !items.isEmpty {
 				VStack(alignment: .leading, spacing: 8) {
 					sectionHeader(title: title, iconName: "photo", iconColor: Color("Primary"), onTapArrow: {
-						archivePayload = ArchivePushPayload(section: .media, media: items, files: [], links: [], audios: [], title: "검색 결과", excludedClientIds: [])
+						let filtered = filteredAggregates(for: query)
+						archivePayload = ArchivePushPayload(section: .media, media: filtered.media, files: filtered.files, links: filtered.links, audios: filtered.audios, title: "검색 결과", excludedClientIds: [])
 					})
 					let shouldShowSeeAll = items.count >= 9
 					let previewItems = shouldShowSeeAll ? Array(items.prefix(8)) : items
@@ -484,8 +517,8 @@ private extension SearchView {
 								let owner = ownerForFlattenedMedia(item)
 								let payload = owner.flatMap { mediaPayloadForClient($0.client) }
 								let parsed = parseFlattenedMediaId(item.id)
-								let selectedIndex = payload.flatMap { p in
-									p.anchors.firstIndex(where: { $0.noteId == parsed?.noteId && $0.isImage == (parsed?.isImage ?? false) && $0.localIndex == (parsed?.localIndex ?? -1) })
+								let selectedIndex = payload.flatMap { payloadData in
+									payloadData.anchors.firstIndex(where: { $0.noteId == parsed?.noteId && $0.isImage == (parsed?.isImage ?? false) && $0.localIndex == (parsed?.localIndex ?? -1) })
 								} ?? 0
 								APEXMediaTile(
 									source: item.isVideo ? .video(item.videoURL!) : .image(item.imageData ?? Data()),
@@ -498,15 +531,28 @@ private extension SearchView {
 								.apexOpensMediaViewer(
 									items: payload?.items ?? [],
 									index: max(0, selectedIndex),
-									title: owner.map { "\($0.client.name) \($0.client.surname)" } ?? "Shared Media",
-									uploadedAt: nil,
+									title: owner.map { $0.client.autoFormattedName } ?? "Shared Media",
+									uploadedAt: item.uploadedAt,
 									excludedClientIds: owner.map { [$0.client.id] } ?? [],
 									onTitleTap: { current in
 										guard let owner, let payload, payload.anchors.indices.contains(current) else { return }
 										let anchor = payload.anchors[current]
-										router.push(.chat(owner.client.id))
-										DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-											NotificationCenter.default.post(name: .apexNavigateToNote, object: nil, userInfo: ["noteId": anchor.noteId])
+										DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+											if let idx = router.path.lastIndex(where: {
+												if case let .chat(id) = $0 { return id == owner.client.id }
+												return false
+											}) {
+												let newPath = Array(router.path.prefix(idx + 1))
+												router.setPath(newPath)
+											} else {
+												router.push(.chat(owner.client.id))
+											}
+											DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+												NotificationCenter.default.post(name: .apexNavigateToNote, object: nil, userInfo: ["noteId": anchor.noteId])
+											}
+											DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+												NotificationCenter.default.post(name: .apexNavigateToNote, object: nil, userInfo: ["noteId": anchor.noteId])
+											}
 										}
 									}
 								)
@@ -514,7 +560,8 @@ private extension SearchView {
 							if shouldShowSeeAll {
 								ChattingArchiveView.SeeAllTile(size: 121.67, title: "전체보기")
 									.onTapGesture {
-										archivePayload = ArchivePushPayload(section: .media, media: items, files: [], links: [], audios: [], title: "검색 결과", excludedClientIds: [])
+										let filtered = filteredAggregates(for: query)
+										archivePayload = ArchivePushPayload(section: .media, media: filtered.media, files: filtered.files, links: filtered.links, audios: filtered.audios, title: "검색 결과", excludedClientIds: [])
 									}
 							}
 						}
@@ -534,7 +581,8 @@ private extension SearchView {
 			if !items.isEmpty {
 				VStack(alignment: .leading, spacing: 8) {
 					sectionHeader(title: "파일", iconName: "document", iconColor: Color(hex: "00B22D"), onTapArrow: {
-						archivePayload = ArchivePushPayload(section: .files, media: [], files: items, links: [], audios: [], title: "검색 결과", excludedClientIds: [])
+						let filtered = filteredAggregates(for: query)
+						archivePayload = ArchivePushPayload(section: .files, media: filtered.media, files: filtered.files, links: filtered.links, audios: filtered.audios, title: "검색 결과", excludedClientIds: [])
 					})
 					let shouldShowSeeAll = items.count >= 9
 					let previewItems = shouldShowSeeAll ? Array(items.prefix(8)) : items
@@ -556,7 +604,8 @@ private extension SearchView {
 							if shouldShowSeeAll {
 								ChattingArchiveView.SeeAllTile(size: 121.67, title: "전체보기")
 									.onTapGesture {
-										archivePayload = ArchivePushPayload(section: .files, media: [], files: items, links: [], audios: [], title: "검색 결과", excludedClientIds: [])
+										let filtered = filteredAggregates(for: query)
+										archivePayload = ArchivePushPayload(section: .files, media: filtered.media, files: filtered.files, links: filtered.links, audios: filtered.audios, title: "검색 결과", excludedClientIds: [])
 									}
 							}
 						}
@@ -576,7 +625,8 @@ private extension SearchView {
 			if !items.isEmpty {
 				VStack(alignment: .leading, spacing: 8) {
 					sectionHeader(title: "링크", iconName: "link", iconColor: Color(hex: "BC0D59"), onTapArrow: {
-						archivePayload = ArchivePushPayload(section: .links, media: [], files: [], links: items, audios: [], title: "검색 결과", excludedClientIds: [])
+						let filtered = filteredAggregates(for: query)
+						archivePayload = ArchivePushPayload(section: .links, media: filtered.media, files: filtered.files, links: filtered.links, audios: filtered.audios, title: "검색 결과", excludedClientIds: [])
 					})
 					let shouldShowSeeAll = items.count >= 9
 					let previewItems = shouldShowSeeAll ? Array(items.prefix(8)) : items
@@ -588,7 +638,8 @@ private extension SearchView {
 							if shouldShowSeeAll {
 								ChattingArchiveView.SeeAllTile(size: 121.67, title: "전체보기")
 									.onTapGesture {
-										archivePayload = ArchivePushPayload(section: .links, media: [], files: [], links: items, audios: [], title: "검색 결과", excludedClientIds: [])
+										let filtered = filteredAggregates(for: query)
+										archivePayload = ArchivePushPayload(section: .links, media: filtered.media, files: filtered.files, links: filtered.links, audios: filtered.audios, title: "검색 결과", excludedClientIds: [])
 									}
 							}
 						}
@@ -609,7 +660,8 @@ private extension SearchView {
 			if !items.isEmpty {
 				VStack(alignment: .leading, spacing: 8) {
 					sectionHeader(title: "음성메모", iconName: "waveform", iconColor: Color(hex: "E28822"), onTapArrow: {
-						archivePayload = ArchivePushPayload(section: .audio, media: [], files: [], links: [], audios: items, title: "검색 결과", excludedClientIds: [])
+						let filtered = filteredAggregates(for: query)
+						archivePayload = ArchivePushPayload(section: .audio, media: filtered.media, files: filtered.files, links: filtered.links, audios: filtered.audios, title: "검색 결과", excludedClientIds: [])
 					})
 					let shouldShowSeeAll = items.count >= 9
 					let previewItems = shouldShowSeeAll ? Array(items.prefix(8)) : items
@@ -632,7 +684,8 @@ private extension SearchView {
 							if shouldShowSeeAll {
 								ChattingArchiveView.SeeAllTile(size: 121.67, title: "전체보기")
 									.onTapGesture {
-										archivePayload = ArchivePushPayload(section: .audio, media: [], files: [], links: [], audios: items, title: "검색 결과", excludedClientIds: [])
+										let filtered = filteredAggregates(for: query)
+										archivePayload = ArchivePushPayload(section: .audio, media: filtered.media, files: filtered.files, links: filtered.links, audios: filtered.audios, title: "검색 결과", excludedClientIds: [])
 									}
 							}
 						}
@@ -668,6 +721,11 @@ private extension SearchView {
 		allFiles = computeFileItems(from: notes)
 		allAudios = computeAudioItems(from: notes)
 		allLinks = computeLinkItems(from: notes)
+	}
+	
+	func clearRecent() {
+		recentQueries = []
+		recentQueriesStorage = ""
 	}
 	
 	func computeMediaItems(from notes: [Note]) -> [FlattenedMediaItem] {
@@ -766,6 +824,32 @@ private extension SearchView {
 		}
 		return extractedURLs
 	}
+
+	// Compute all filtered aggregates for the current query to show only search results in ArchiveListView
+	func filteredAggregates(for queryString: String) -> (media: [FlattenedMediaItem], files: [FlattenedFileItem], links: [FlattenedLinkItem], audios: [FlattenedAudioItem]) {
+		let trimmed = queryString.trimmingCharacters(in: .whitespacesAndNewlines)
+		guard !trimmed.isEmpty else { return ([], [], [], []) }
+		// Note IDs whose text matches the query (used for media filtering)
+		let noteIdsWithMatch: Set<UUID> = Set(allClientNotes().compactMap { (_, note) in
+			guard let text = note.text, !trimmed.isEmpty else { return nil }
+			return text.localizedCaseInsensitiveContains(trimmed) ? note.id : nil
+		})
+		let mediaFiltered = allMedia.filter { item in
+			guard let parsed = parseFlattenedMediaId(item.id) else { return false }
+			return noteIdsWithMatch.contains(parsed.noteId)
+		}
+		let filesFiltered = allFiles.filter { file in
+			file.url.lastPathComponent.localizedCaseInsensitiveContains(trimmed)
+		}
+		let linksFiltered = allLinks.filter { link in
+			link.url.absoluteString.localizedCaseInsensitiveContains(trimmed)
+		}
+		let audiosFiltered = allAudios.filter { audio in
+			let base = audio.url.deletingPathExtension().lastPathComponent
+			return base.localizedCaseInsensitiveContains(trimmed)
+		}
+		return (mediaFiltered, filesFiltered, linksFiltered, audiosFiltered)
+	}
 	
 	func allClientNotes() -> [(Client, Note)] {
 		var pairs: [(Client, Note)] = []
@@ -813,15 +897,15 @@ private extension SearchView {
         var notesForClient = ChatStore.shared.notes(for: client.id)
         if notesForClient.isEmpty { notesForClient = client.notes }
         let flattened = computeMediaItems(from: notesForClient)
-        let items: [MediaSource] = flattened.map { f in
-            if f.isVideo, let url = f.videoURL {
+        let items: [MediaSource] = flattened.map { flattenedItem in
+            if flattenedItem.isVideo, let url = flattenedItem.videoURL {
                 return .video(url)
             } else {
-                return .image(f.imageData ?? Data())
+                return .image(flattenedItem.imageData ?? Data())
             }
         }
-        let anchors: [(UUID, Bool, Int)] = flattened.compactMap { f in
-            guard let parsed = parseFlattenedMediaId(f.id) else { return nil }
+        let anchors: [(UUID, Bool, Int)] = flattened.compactMap { flattenedItem in
+            guard let parsed = parseFlattenedMediaId(flattenedItem.id) else { return nil }
             return (parsed.noteId, parsed.isImage, parsed.localIndex)
         }
         return (items, anchors)
@@ -838,15 +922,17 @@ private extension SearchView {
 					.foregroundStyle(Color("BlackLabel"))
 				Spacer()
 				if showsArrow {
-					Image(systemName: "chevron.right")
-						.font(.system(size: 16, weight: .semibold))
+					Image(systemName: "arrow.forward")
+						.font(.system(size: 16, weight: .regular))
 						.foregroundStyle(Color("Primary"))
-						.frame(width: 32, height: 32)
+						.frame(width: 19, height: 14)
 				}
 			}
 			.padding(.vertical, 10)
+			.frame(maxWidth: .infinity, alignment: .leading)
 		}
-		.buttonStyle(.plain)
+        .padding(.trailing, 16)
+		.buttonStyle(SectionHeaderPressedStyle())
 		.contentShape(Rectangle())
 	}
 	
@@ -865,6 +951,16 @@ private extension SearchView {
 			searchRange = NSRange(location: nextLoc, length: nsText.length - nextLoc)
 		}
 		return Text(AttributedString(mas))
+	}
+}
+
+#warning("Temporary duplication; consider moving to a shared file if reused further")
+private struct SectionHeaderPressedStyle: ButtonStyle {
+	func makeBody(configuration: Configuration) -> some View {
+		configuration.label
+			.background(configuration.isPressed ? Color("BackgroundSecondary") : Color.clear)
+			.contentShape(Rectangle())
+			.animation(.easeInOut(duration: 0.12), value: configuration.isPressed)
 	}
 }
 

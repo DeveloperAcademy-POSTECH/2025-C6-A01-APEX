@@ -12,14 +12,23 @@ final class LocalStore {
     private init() {}
     
     private let fileName = "clients.json"
+    private let appGroupId = "group.apex.StashShareExtension"
     
     // MARK: - Paths
     private func documentsDirectory() -> URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
     }
     
+    private func appGroupContainerDirectory() -> URL? {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupId)
+    }
+    
     private func clientsFileURL() -> URL {
         documentsDirectory().appendingPathComponent(fileName)
+    }
+    
+    private func clientsFileURLInAppGroup() -> URL? {
+        appGroupContainerDirectory()?.appendingPathComponent(fileName)
     }
     
     // MARK: - Load / Save
@@ -38,6 +47,21 @@ final class LocalStore {
         }
     }
     
+    func loadClientsFromAppGroup() -> [Client]? {
+        guard let url = clientsFileURLInAppGroup(),
+              FileManager.default.fileExists(atPath: url.path) else {
+            return nil
+        }
+        do {
+            let data = try Data(contentsOf: url)
+            let decoded = try JSONDecoder().decode([PClient].self, from: data)
+            return decoded.map { $0.toRuntime() }
+        } catch {
+            print("LocalStore (AppGroup) load error: \(error)")
+            return nil
+        }
+    }
+
     func saveClients(_ clients: [Client]) {
         let url = clientsFileURL()
         do {
@@ -49,6 +73,16 @@ final class LocalStore {
                 try FileManager.default.removeItem(at: url)
             }
             try FileManager.default.moveItem(at: tmp, to: url)
+            
+            // Mirror to App Group for Share Extension
+            if let groupURL = clientsFileURLInAppGroup() {
+                let tmpGroup = groupURL.appendingPathExtension("tmp")
+                try data.write(to: tmpGroup, options: .atomic)
+                if FileManager.default.fileExists(atPath: groupURL.path) {
+                    try FileManager.default.removeItem(at: groupURL)
+                }
+                try FileManager.default.moveItem(at: tmpGroup, to: groupURL)
+            }
         } catch {
             print("LocalStore save error: \(error)")
         }

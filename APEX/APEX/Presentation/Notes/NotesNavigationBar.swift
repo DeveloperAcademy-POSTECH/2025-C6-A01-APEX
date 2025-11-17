@@ -53,6 +53,7 @@ struct NotesNavigationBar: View {
 // MARK: - Menu Toolbar Button
 
 private struct MenuToolbarButton: View {
+    @EnvironmentObject private var router: NavigationRouter
     let size: CGFloat
     let iconSize: CGFloat
     let normalColor: Color
@@ -87,19 +88,23 @@ private struct MenuToolbarButton: View {
             }
 
             // 노트 관리
-            Button(action: { onMenuTap() }) {
+            Button(action: { router.push(.notesManagement)}) {
                 Text("노트 관리")
                     .font(.body2)
-                    .foregroundColor(.black)
+                    .foregroundColor(Color.blackLabel)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
             }
         } label: {
             ZStack {
+                // 원형 배경 (처음부터 원형으로 렌더링)
                 Circle()
-                    .fill(.ultraThinMaterial)
+                    .fill(Color.white)
                     .frame(width: size, height: size)
+                    .glassEffect()
+                
 
+                // 아이콘
                 Image(systemName: "ellipsis")
                     .font(.system(size: iconSize, weight: .semibold))
                     .foregroundColor(isPressed ? .black : .black)
@@ -107,8 +112,8 @@ private struct MenuToolbarButton: View {
             .frame(width: size, height: size)
             .contentShape(Circle())
         }
-        .menuStyle(.borderlessButton)
         .buttonStyle(.plain)
+        .menuIndicator(.hidden)
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in

@@ -121,7 +121,7 @@ struct ContactsView: View {
                     )
                 }
 
-                // MARK: - All / Ungrouped
+                // MARK: - All / Ungrouped (기존 디자인)
                 ContactsListSection(
                     title: "All",
                     count: allUngrouped.count,
@@ -321,7 +321,7 @@ struct ContactsView: View {
             return 
         }
         
-        print("🔄 되돌리기 실행: \(client.name) \(client.surname), 액션: \(action)")
+        print("🔄 되돌리기 실행: \(client.autoFormattedName), 액션: \(action)")
         
         // 저장소의 현재 값을 기준으로 favorite을 되돌림
         if let current = store.clients.first(where: { $0.id == client.id }) {
@@ -375,7 +375,6 @@ private extension View {
 #Preview { ContactsView() }
 
 // MARK: - Delete Confirmation Components
-
 // MARK: - Overlay Layer (dimmed bg + card)
 
 private struct ContactsOverlayLayer: View {

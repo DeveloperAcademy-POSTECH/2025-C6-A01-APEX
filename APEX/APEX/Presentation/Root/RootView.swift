@@ -18,31 +18,34 @@ struct RootView: View {
     @State private var notesQuery: String = ""
     
     var body: some View {
-        NavigationStack(path: $router.path) {
-            TabView(selection: $selection) {
-                
-                Tab("Contacts", systemImage: "person.crop.circle.fill", value: Tabs.contacts) {
-                    ContactsView()
-                }
+        APEXMediaViewerHost {
+            NavigationStack(path: $router.path) {
+                TabView(selection: $selection) {
+                    
+                    Tab("Contacts", systemImage: "person.crop.circle.fill", value: Tabs.contacts) {
+                        ContactsView()
+                    }
 
-                Tab("Notes", systemImage: "note.text", value: Tabs.notes) {
-                    NotesView()
-                }
+                    Tab("Notes", systemImage: "note.text", value: Tabs.notes) {
+                        NotesView()
+                    }
 
-                Tab("Search", systemImage: "magnifyingglass", value: Tabs.search, role: .search) {
-                    SearchView(onClose: { selection = lastNonSearchSelection })
+                    Tab("Search", systemImage: "magnifyingglass", value: Tabs.search, role: .search) {
+                        SearchView(onClose: { selection = lastNonSearchSelection })
+                    }
                 }
-            }
-            .tint(Color("Primary"))
-            .onChange(of: selection) { newValue in
-                if newValue != .search {
-                    lastNonSearchSelection = newValue
+                .tint(Color("Primary"))
+                .onChange(of: selection) { newValue in
+                    if newValue != .search {
+                        lastNonSearchSelection = newValue
+                    }
                 }
-            }
-            .navigationDestination(for: NavigationDestination.self) { route in
-                destination(for: route)
+                .navigationDestination(for: NavigationDestination.self) { route in
+                    destination(for: route)
+                }
             }
         }
+        .apexSwipeBack()
     }
 }
 
@@ -52,7 +55,7 @@ private extension RootView {
         switch route {
         case .chat(let id):
             if let client = ClientsStore.shared.clients.first(where: { $0.id == id }) {
-                ChattingView(clientId: id, chatTitle: "\(client.name) \(client.surname)", initialNotes: client.notes)
+                ChattingView(clientId: id, chatTitle: client.autoFormattedName, initialNotes: client.notes)
                     .toolbar(.hidden, for: .navigationBar)
                     .toolbar(.hidden, for: .tabBar)
             } else {
@@ -98,7 +101,7 @@ private extension RootView {
                     files: files,
                     links: links,
                     audios: audios,
-                    viewerTitle: client.map { "\($0.name) \($0.surname)" } ?? "Shared Media",
+                    viewerTitle: client.map { $0.autoFormattedName } ?? "Shared Media",
                     excludedClientIds: [clientId],
                     onClose: { router.pop() }
                 )
@@ -367,4 +370,5 @@ private struct ProfileDetailScreen: View {
 
 #Preview {
     RootView()
+        .environmentObject(NavigationRouter())
 }

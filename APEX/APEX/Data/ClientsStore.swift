@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import UIKit
 import Combine
 
 final class ClientsStore: ObservableObject {
@@ -18,16 +19,30 @@ final class ClientsStore: ObservableObject {
     @Published var clients: [Client]
 
     private init() {
-        if let persisted = localStore.loadClients() {
+        if let fromAppGroup = localStore.loadClientsFromAppGroup() {
+            self.clients = fromAppGroup
+            // Ensure my profile exists even after loading
+            injectMyProfileIfNeeded()
+            // Persist back to documents and mirror to App Group
+            localStore.saveClients(self.clients)
+            // Push notes into ChatStore so open chats reflect latest
+            syncAllNotesToChatStore()
+        } else if let persisted = localStore.loadClients() {
             self.clients = persisted
             // Ensure my profile exists even after loading
             injectMyProfileIfNeeded()
+            // Mirror to App Group so Share Extension can read recipients
+            localStore.saveClients(self.clients)
+            // Push notes into ChatStore so open chats reflect latest
+            syncAllNotesToChatStore()
         } else {
             // First run: seed ONLY my profile (no other sample clients)
             let me = ClientsStore.convertToClient(sampleMyProfileClient)
             self.clients = [me]
             // Seed the disk with initial data on first launch
             localStore.saveClients(self.clients)
+            // Push notes into ChatStore so open chats reflect latest
+            syncAllNotesToChatStore()
         }
 
         // Persist on any change
@@ -59,6 +74,25 @@ final class ClientsStore: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+
+        // When app returns to foreground, pull from App Group in case the Share Extension added notes
+        NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                if let fromAppGroup = self.localStore.loadClientsFromAppGroup() {
+                    self.clients = fromAppGroup
+                    self.injectMyProfileIfNeeded()
+                    self.localStore.saveClients(self.clients)
+                    self.syncAllNotesToChatStore()
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    private func syncAllNotesToChatStore() {
+        for client in clients {
+            ChatStore.shared.setNotes(client.notes, for: client.id)
+        }
     }
 
     func add(_ client: Client, atTop: Bool = true) {
