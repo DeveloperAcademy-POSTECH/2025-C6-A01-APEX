@@ -387,7 +387,8 @@ private extension SearchView {
 						ForEach(filtered) { client in
 							Button {
 								saveRecent(trimmed)
-								let isMe = (client.email ?? "") == sampleMyProfileClient.email
+								let myId = ClientsStore.shared.clients.first?.id
+								let isMe = (client.id == myId)
 								if isMe {
 									router.push(.myProfile)
 								} else {

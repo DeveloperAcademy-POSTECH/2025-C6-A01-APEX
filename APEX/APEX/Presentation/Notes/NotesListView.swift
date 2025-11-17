@@ -25,16 +25,15 @@ struct NotesListView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .padding(.top, 40)
             } else {
-                List {
-                    ForEach(filtered) { client in
-                        NotesRow(
-                            client: client,
-                            onTogglePin: { onTogglePin(client) },
-                            onDelete: { onDelete(client) },
-                            onTap: { onTapRow(client) }
-                        )
-                        .applyListRowCleaning()
-                    }
+                List(filtered, id: \.id) { client in
+                    NotesRow(
+                        client: client,
+                        onTogglePin: { onTogglePin(client) },
+                        onDelete: { onDelete(client) },
+                        onTap: { onTapRow(client) }
+                    )
+                    .equatable()
+                    .applyListRowCleaning()
                 }
                 .listStyle(.plain)
                 .listRowSpacing(0)
@@ -46,6 +45,7 @@ struct NotesListView: View {
             }
         }
         .background(Color("Background"))
+        .animation(nil)
     }
 }
 
@@ -163,6 +163,24 @@ private struct NotesRow: View {
         }
         .frame(width: 48, height: 48)
         .clipShape(Circle())
+    }
+}
+
+// MARK: - Equatable Optimization
+extension NotesRow: Equatable {
+    static func == (lhs: NotesRow, rhs: NotesRow) -> Bool {
+        // 동일 클라이언트 행이고, 표시값 기준으로 변동 없으면 재렌더링 방지
+        guard lhs.client.id == rhs.client.id else { return false }
+        // 텍스트/아이콘에 영향을 주는 필드 비교 (notes의 최신 시간까지)
+        let lhsLatest = lhs.client.notes.max(by: { $0.uploadedAt < $1.uploadedAt })?.uploadedAt
+        let rhsLatest = rhs.client.notes.max(by: { $0.uploadedAt < $1.uploadedAt })?.uploadedAt
+        return lhs.client.pin == rhs.client.pin
+        && lhs.client.favorite == rhs.client.favorite
+        && lhs.client.name == rhs.client.name
+        && lhs.client.surname == rhs.client.surname
+        && lhs.client.position == rhs.client.position
+        && lhs.client.company == rhs.client.company
+        && lhsLatest == rhsLatest
     }
 }
 

@@ -17,6 +17,8 @@ struct MyProfileView: View {
     @State private var alertMessage: String?
     @State private var currentPageIndex: Int = 0
     @State private var usedSizeText: String = "—"
+    @State private var isPurgeEnabledState: Bool = false
+    @State private var showPurgeConfirm: Bool = false
     // Removed local NavigationLink push states
 
     // 임시 어댑터: DummyClient -> Client (헤더뷰 연결용)
@@ -84,9 +86,9 @@ struct MyProfileView: View {
                 // 저장공간 섹션
                 MyProfileStorageSection(
                     usedText: usedSizeText,
-                    isPurgeEnabled: false,
+                    isPurgeEnabled: isPurgeEnabledState,
                     onManageTapped: { router.push(.dataManagement) },
-                    onPurgeTapped: { /* TODO */ }
+                    onPurgeTapped: { showPurgeConfirm = true }
                 )
                 .padding(.horizontal, 16)
                 .padding(.top, 32)
@@ -163,7 +165,17 @@ struct MyProfileView: View {
         }
         // Hidden NavigationLink removed; Router handles navigation
         .task {
+            refreshPurgeEnabled()
             await updateUsedSize()
+        }
+        .onAppear { refreshPurgeEnabled() }
+        .alert("임시 데이터를 삭제하겠습니까", isPresented: $showPurgeConfirm) {
+            Button("취소", role: .cancel) { }
+            Button("삭제", role: .destructive) {
+                purgeTemporaryData()
+            }
+        } message: {
+            Text("케시에 임시 저장된 기타 데이터를 삭제하고 정리합니다. 노트 내 텍스트, 사진, 동영상, 음성메시지 파일은 그대로 유지됩니다")
         }
     }
 
@@ -176,6 +188,43 @@ struct MyProfileView: View {
         case .link:  return "링크"
         case .none:  return ""
         }
+    }
+
+    // MARK: - Temporary Data Management
+    private func refreshPurgeEnabled() {
+        isPurgeEnabledState = hasTemporaryData()
+    }
+    
+    private func hasTemporaryData() -> Bool {
+        let fm = FileManager.default
+        let cacheDir = (try? fm.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true)) ?? fm.temporaryDirectory
+        let uploadsDir = cacheDir.appendingPathComponent("APEXUploads", isDirectory: true)
+        if let items = try? fm.contentsOfDirectory(at: uploadsDir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]), !items.isEmpty {
+            return true
+        }
+        // Only consider our app-owned temp subdirectory to avoid system temp noise
+        let apexTmpDir = fm.temporaryDirectory.appendingPathComponent("APEXTmp", isDirectory: true)
+        if let tmpItems = try? fm.contentsOfDirectory(at: apexTmpDir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]), !tmpItems.isEmpty {
+            return true
+        }
+        return false
+    }
+    
+    private func purgeTemporaryData() {
+        let fm = FileManager.default
+        let cacheDir = (try? fm.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true)) ?? fm.temporaryDirectory
+        let uploadsDir = cacheDir.appendingPathComponent("APEXUploads", isDirectory: true)
+        if fm.fileExists(atPath: uploadsDir.path) {
+            do { try fm.removeItem(at: uploadsDir) } catch { }
+        }
+        // Remove only our app-owned temp directory
+        let apexTmpDir = fm.temporaryDirectory.appendingPathComponent("APEXTmp", isDirectory: true)
+        if fm.fileExists(atPath: apexTmpDir.path) {
+            try? fm.removeItem(at: apexTmpDir)
+        }
+        URLCache.shared.removeAllCachedResponses()
+        LinkPreviewLoader.clearCache()
+        refreshPurgeEnabled()
     }
 
     @ViewBuilder

@@ -154,7 +154,23 @@ private extension RootView {
 // MARK: - Route Screens (wrappers to adapt bindings)
 private struct MyProfileScreen: View {
     @ObservedObject private var store = ClientsStore.shared
-    @State private var client: DummyClient = sampleMyProfileClient
+    @State private var client: DummyClient = DummyClient(
+        profile: nil,
+        nameCardFront: nil,
+        nameCardBack: nil,
+        surname: "",
+        name: "",
+        position: nil,
+        company: "",
+        email: nil,
+        phoneNumber: nil,
+        linkedinURL: nil,
+        memo: nil,
+        action: nil,
+        favorite: false,
+        pin: false,
+        notes: []
+    )
     var body: some View {
         MyProfileView(client: $client)
             .onAppear { syncFromStore() }
@@ -316,7 +332,23 @@ private extension RootView {
 
 private struct ProfileDetailScreen: View {
     let clientId: UUID
-    @State private var dummy: DummyClient = sampleMyProfileClient
+    @State private var dummy: DummyClient = DummyClient(
+        profile: nil,
+        nameCardFront: nil,
+        nameCardBack: nil,
+        surname: "",
+        name: "",
+        position: nil,
+        company: "",
+        email: nil,
+        phoneNumber: nil,
+        linkedinURL: nil,
+        memo: nil,
+        action: nil,
+        favorite: false,
+        pin: false,
+        notes: []
+    )
     
     init(clientId: UUID) {
         self.clientId = clientId
