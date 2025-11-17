@@ -46,13 +46,13 @@ struct MyProfileView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
-                // 상단 헤더 - 자체 패딩 사용 (16px)
+                // 상단 헤더
                 MyProfileHeaderView(
                     client: adaptedClient,
                     page: $currentPageIndex,
                     onCardTapped: { isShowingCardViewer = true }
                 )
-                .padding(.top, 4)
+                .border(.red)
 
                 // 나머지 컨텐츠를 하나의 VStack으로 묶고 패딩 적용
                 VStack(spacing: 32) {
@@ -65,6 +65,7 @@ struct MyProfileView: View {
                             height: 56
                         )
                     )
+                    .border(.red)
 
                     // 연락처 섹션
                     // 섹션 시그니처 변경에 맞춰 openExternal / copyToPasteboard 유틸 콜백을 전달
@@ -79,30 +80,34 @@ struct MyProfileView: View {
                             copyToPasteboard(text)
                         }
                     )
+                    .border(.red)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                    // 저장공간 섹션
+                    // 저장공간 섹션 - 24px 패딩 유지 (건드리지 않음)
                     MyProfileStorageSection(
                         usedText: usedSizeText,
                         isPurgeEnabled: false,
                         onManageTapped: { router.push(.dataManagement) },
                         onPurgeTapped: { /* TODO */ }
                     )
+                    .border(.red)
 
-                    // 앱 정보 섹션
+                    // 앱 정보 섹션 - 24px 패딩 유지 (건드리지 않음)
                     MyProfileAppInfoSection(
                         versionText: Bundle.main.apexVersionString(),
                         onTermsTapped: { /* TODO: 약관 화면/URL */ }
                     )
+                    .border(.red)
 
-                    // 위험 구역 섹션
+                    // 위험 구역 섹션 - 24px 패딩 유지 (건드리지 않음)
                     MyProfileDangerZoneSection(
                         onLogout: { /* TODO */ },
                         onDeleteAccount: { router.push(.unsubscribe) }
                     )
+                    
                 }
-                .padding(.horizontal, 16) // 컨텐츠에만 좌우 16px 패딩
                 .padding(.vertical, 16)   // 상하 16px 패딩
+                .padding(.horizontal, 16)   // 상하 16px 패딩
             }
         }
         .background(Color("Background"))

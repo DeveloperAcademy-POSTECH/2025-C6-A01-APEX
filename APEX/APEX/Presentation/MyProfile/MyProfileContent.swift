@@ -138,7 +138,6 @@ struct MyProfileContactsSection: View {
                 }
             }
         }
-        .padding(.vertical, 0)
         .padding(.horizontal, 8) // 섹션 내부 좌우 패딩
     }
 

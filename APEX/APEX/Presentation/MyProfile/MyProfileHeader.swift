@@ -18,7 +18,7 @@ struct MyProfileNavigationBar: View {
     // Theme - APEXSheetTopBar와 동일하게
     private var background: Color = Color("Background")
     private var foreground: Color = .black
-    private var height: CGFloat = 52
+    private var height: CGFloat = 44
 
     init(
         title: String,
@@ -49,11 +49,11 @@ struct MyProfileNavigationBar: View {
                     .font(.title5)
                     .foregroundColor(foreground)
                     .lineLimit(1)
-                    .frame(height: height)
-                    .padding(.horizontal, 16) // 12px → 16px로 변경
                     .allowsHitTesting(false)
                     .accessibilityAddTraits(.isHeader)
             }
+            .padding(.vertical, 8)
+            .border(.red)
         }
     }
 
@@ -83,6 +83,7 @@ struct MyProfileNavigationBar: View {
         .accessibilityLabel("편집")
     }
 }
+
 
 
 // MARK: - Profile Header View
@@ -135,7 +136,7 @@ public struct MyProfileHeaderView: View {
                 }
             }
             .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
-            .frame(height: 250)
+            .frame(height: 232)  // 아바타 크기에 맞춰서 232px로 설정
 
             Spacer().frame(height: 4)
             
@@ -152,13 +153,10 @@ public struct MyProfileHeaderView: View {
                     }
                 }
             }
-            .padding(.horizontal, 24)
             .padding(.vertical, 8)
             .background(items.count > 1 ? Color.white.opacity(0.8) : Color.clear)
             .cornerRadius(50)
             .opacity(items.count > 1 ? 1.0 : 0.0)
-            
-            Spacer().frame(height: 4)
             
             VStack(alignment: .center, spacing: 0) {
                 Text(client.autoFormattedName)
@@ -174,9 +172,11 @@ public struct MyProfileHeaderView: View {
                     .foregroundColor(.gray)
                     .lineLimit(1)
             }
+            .padding(.top, 4)      // 상단 4px 패딩 추가
+            .padding(.bottom, 8)   // 하단 8px 패딩 유지
         }
+        .padding(.top, 16)  // 네비게이션 바와의 간격 16px를 내부로 이동
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, 16)
         .onChange(of: pages.count) { _ in
             page = min(page, max(pages.count - 1, 0))
         }
@@ -207,7 +207,6 @@ public struct MyProfileHeaderView: View {
                 .aspectRatio(contentMode: .fit)
                 .frame(maxWidth: .infinity)
                 .frame(height: 214)
-                .background(Color("PrimaryContainer"))
                 .clipShape(RoundedRectangle(cornerRadius: 9.28, style: .continuous))
         case .avatar(let initials):
             Profile(image: nil, initials: initials, size: .large, fontSize: 128)

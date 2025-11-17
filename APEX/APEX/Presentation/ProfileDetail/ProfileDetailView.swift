@@ -52,7 +52,7 @@ struct ProfileDetailView: View {
                     page: $currentPageIndex,
                     onCardTapped: { isShowingCardViewer = true }
                 )
-                .padding(.top, 4)
+                .border(.red)
 
                 // 나머지 컨텐츠를 하나의 VStack으로 묶고 패딩 적용
                 VStack(spacing: 32) {
@@ -101,7 +101,11 @@ struct ProfileDetailView: View {
                 onClose: { router.pop() },
                 leftIconSystemName: "chevron.left"
             )
+            .padding(.horizontal, 4) // 12px + 4px = 16px
+            .padding(.vertical, 8)   // 상하 8px 패딩 추가
         }
+        .toolbar(.hidden, for: .navigationBar)
+        .toolbar(.hidden, for: .tabBar)
         .sheet(isPresented: $isPresentingEdit) {
             let isMe = (client.email ?? "") == sampleMyProfileClient.email
             MyProfileEditSheet(
@@ -116,8 +120,6 @@ struct ProfileDetailView: View {
                 showDeleteButton: !isMe  // 내 프로필이면 삭제 버튼 숨김
             )
         }
-        .toolbar(.hidden, for: .navigationBar)
-        .toolbar(.hidden, for: .tabBar)
         // 기존 액션시트 유지(컴파일/동작 보장). Menu 전환 후 제거 예정.
         .confirmationDialog(
             contactDialogTitle,
