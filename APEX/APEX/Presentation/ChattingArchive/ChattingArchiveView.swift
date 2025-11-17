@@ -242,6 +242,8 @@ struct ChattingArchiveView: View {
                                           let noteId = anchors[current] else { return }
                                     // Delay slightly to ensure MediaView route has been popped before navigation.
                                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                        // Set pending target so chat can position immediately without visible scrolling
+                                        router.pendingScrollToNoteId = noteId
                                         // If a chat for this client already exists in the stack, pop back to it; otherwise push.
                                         if let idx = router.path.lastIndex(where: {
                                             if case let .chat(id) = $0 { return id == clientId }
@@ -252,22 +254,7 @@ struct ChattingArchiveView: View {
                                         } else {
                                             router.push(.chat(clientId))
                                         }
-                                        // Post after chat has mounted to guarantee ScrollViewReader is ready
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                            NotificationCenter.default.post(
-                                                name: .apexNavigateToNote,
-                                                object: nil,
-                                                userInfo: ["noteId": noteId]
-                                            )
-                                        }
-                                        // Retry once more to cover edge cases where initial post races with mount/data load
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                                            NotificationCenter.default.post(
-                                                name: .apexNavigateToNote,
-                                                object: nil,
-                                                userInfo: ["noteId": noteId]
-                                            )
-                                        }
+                                        // Keep notification fallback for legacy flows if needed (optional)
                                     }
                                 }
                             )
@@ -471,9 +458,14 @@ struct ChattingArchiveView: View {
                     .foregroundStyle(Color("BlackLabel"))
                 
                 Spacer()
+                Image(systemName: "arrow.forward")
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundStyle(Color("Primary"))
+                    .frame(width: 19, height: 14)
             }
             .padding(.vertical, 10)
         }
+        .padding(.trailing, 16)
         .buttonStyle(SectionHeaderPressedStyle())
     }
 

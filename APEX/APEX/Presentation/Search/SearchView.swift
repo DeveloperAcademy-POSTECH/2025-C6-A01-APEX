@@ -922,15 +922,17 @@ private extension SearchView {
 					.foregroundStyle(Color("BlackLabel"))
 				Spacer()
 				if showsArrow {
-					Image(systemName: "chevron.right")
-						.font(.system(size: 16, weight: .semibold))
+					Image(systemName: "arrow.forward")
+						.font(.system(size: 16, weight: .regular))
 						.foregroundStyle(Color("Primary"))
-						.frame(width: 32, height: 32)
+						.frame(width: 19, height: 14)
 				}
 			}
 			.padding(.vertical, 10)
+			.frame(maxWidth: .infinity, alignment: .leading)
 		}
-		.buttonStyle(.plain)
+        .padding(.trailing, 16)
+		.buttonStyle(SectionHeaderPressedStyle())
 		.contentShape(Rectangle())
 	}
 	
@@ -949,6 +951,16 @@ private extension SearchView {
 			searchRange = NSRange(location: nextLoc, length: nsText.length - nextLoc)
 		}
 		return Text(AttributedString(mas))
+	}
+}
+
+#warning("Temporary duplication; consider moving to a shared file if reused further")
+private struct SectionHeaderPressedStyle: ButtonStyle {
+	func makeBody(configuration: Configuration) -> some View {
+		configuration.label
+			.background(configuration.isPressed ? Color("BackgroundSecondary") : Color.clear)
+			.contentShape(Rectangle())
+			.animation(.easeInOut(duration: 0.12), value: configuration.isPressed)
 	}
 }
 
