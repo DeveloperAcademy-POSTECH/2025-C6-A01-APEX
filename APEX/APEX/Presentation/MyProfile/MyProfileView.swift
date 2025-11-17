@@ -45,31 +45,27 @@ struct MyProfileView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 0) {
-                // 네비게이션 바
-                MyProfileNavigationBar(
-                    title: "\(client.surname)\(client.name)",
-                    onBack: { router.pop() },
-                    onEdit: { isPresentingEdit = true }
-                )
-                .background(Color("Background"))
-
-                // 상단 헤더
+            LazyVStack(spacing: 0, pinnedViews: []) {
+                // 헤더 섹션 (패딩 없음 - 전체 화면 너비 사용)
                 MyProfileHeaderView(
                     client: adaptedClient,
                     page: $currentPageIndex,
                     onCardTapped: { isShowingCardViewer = true }
                 )
-                .padding(.top, 4)
-
+                
                 // 프라이머리 액션
                 MyProfilePrimaryActionView(title: "메모하기") { openMyChat() }
-                .padding(.horizontal, 16)
-                .padding(.top, 0)
-                .accessibilityLabel("메모하기")
+                    .accessibilityLabel("메모하기")
+                    .apexButtonTheme(
+                        APEXButtonTheme(
+                            cornerRadius: 15,
+                            height: 56
+                        )
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
 
                 // 연락처 섹션
-                // 섹션 시그니처 변경에 맞춰 openExternal / copyToPasteboard 유틸 콜백을 전달
                 MyProfileContactsSection(
                     email: client.email,
                     phone: client.phoneNumber,
@@ -110,9 +106,17 @@ struct MyProfileView: View {
                 )
                 .padding(.horizontal, 16)
                 .padding(.top, 32)
+                .padding(.bottom, 16)  // 마지막 여백
             }
         }
         .background(Color("Background"))
+        .safeAreaBar(edge: .top) {
+            MyProfileNavigationBar(
+                title: "\(client.surname)\(client.name)",
+                onBack: { router.pop() },
+                onEdit: { isPresentingEdit = true }
+            )
+        }
         .sheet(isPresented: $isPresentingEdit) {
             MyProfileEditSheet(
                 client: client,

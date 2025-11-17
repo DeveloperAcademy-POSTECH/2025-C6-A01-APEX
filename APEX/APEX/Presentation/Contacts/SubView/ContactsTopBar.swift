@@ -11,7 +11,7 @@ struct ContactsTopBar: View {
     private let horizontalPadding: CGFloat = 16
 
     // Colors (안전한 fallback 포함)  
-    private var backgroundColor: Color { Color("Background") }
+    private var backgroundColor: Color { Color.clear } // 투명한 배경으로 변경
     private var titleColor: Color { Color.black } // 항상 검은색
     private var plusNormalColor: Color { Color("Primary") } // Primary 색상
     private var plusPressedColor: Color { Color.blue.opacity(0.8) } // 눌린 상태

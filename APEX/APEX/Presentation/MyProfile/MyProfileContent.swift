@@ -138,7 +138,6 @@ struct MyProfileContactsSection: View {
                 }
             }
         }
-        .padding(.vertical, 0)
         .padding(.horizontal, 8) // 섹션 내부 좌우 패딩
     }
 
@@ -178,14 +177,12 @@ struct MyProfileContactsSection: View {
     }
 }
 
-// MARK: - Contact Menu with Hover State (피그마 스펙 기반)
+// MARK: - Contact Menu with Clean Style (호버 효과 제거)
 
 private struct ContactMenuWithHover<MenuContent: View>: View {
     let value: String
     let valueTint: Color
     @ViewBuilder var menu: () -> MenuContent
-    
-    @State private var isMenuPresented = false
     
     var body: some View {
         Menu {
@@ -196,30 +193,9 @@ private struct ContactMenuWithHover<MenuContent: View>: View {
                 .frame(height: 40, alignment: .center)
                 .contentShape(Rectangle())
         }
+        .buttonStyle(.plain) // 기본 버튼 효과 제거
         .menuStyle(.button) // 라벨 유지하는 버튼 스타일
         .menuActionDismissBehavior(.disabled) // 액션 후 자동 닫힘 방지
-        .background(
-            // 피그마 스펙: 호버 시 RGB(0.952, 0.952, 0.96) 배경
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .fill(isMenuPresented ? Color.hoverBackground : .clear)
-                .frame(height: 64) // 피그마 스펙 높이
-        )
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in
-                    withAnimation(.easeInOut(duration: 0.12)) {
-                        isMenuPresented = true
-                    }
-                }
-                .onEnded { _ in
-                    // 메뉴가 열린 동안 호버 상태 유지 (더 긴 지연)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                        withAnimation(.easeInOut(duration: 0.12)) {
-                            isMenuPresented = false
-                        }
-                    }
-                }
-        )
     }
 }
 
@@ -250,14 +226,12 @@ private struct ContactCard<Content: View>: View {
     }
 }
 
-// MARK: - Menu Action (개별 호버 상태 포함)
+// MARK: - Menu Action (호버 효과 제거)
 
 private struct MenuActionButton: View {
     let title: String
     let systemImage: String
     let action: () -> Void
-    
-    @State private var isPressed = false
 
     var body: some View {
         Button(action: action) {
@@ -265,24 +239,8 @@ private struct MenuActionButton: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
                 .padding(.horizontal, 12)
-                .background(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(isPressed ? Color.hoverBackground.opacity(0.7) : .clear)
-                )
         }
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in
-                    withAnimation(.easeInOut(duration: 0.1)) {
-                        isPressed = true
-                    }
-                }
-                .onEnded { _ in
-                    withAnimation(.easeInOut(duration: 0.1)) {
-                        isPressed = false
-                    }
-                }
-        )
+        .buttonStyle(.plain) // 기본 효과 제거
     }
 }
 
