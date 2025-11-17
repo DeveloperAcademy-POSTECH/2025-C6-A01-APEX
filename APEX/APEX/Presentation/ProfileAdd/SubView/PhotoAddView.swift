@@ -165,6 +165,9 @@ struct PhotoAddView: View {
                 }, label: {
                     VStack(spacing: 8) {
                         Image("Camera")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 40, height: 40)
                             .padding(.horizontal, 17)
                             .padding(.vertical, 22)
                             .frame(width: 64, height: 64)
@@ -179,6 +182,9 @@ struct PhotoAddView: View {
                 Button(action: { handleLibraryTap() }) {
                     VStack(spacing: 4) {
                         Image("Photo")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 40, height: 40)
                             .padding(.horizontal, 17)
                             .padding(.vertical, 22)
                             .frame(width: 64, height: 64)

@@ -238,28 +238,54 @@ struct MyProfileView: View {
     }
     
     private func persistClientUpdate(_ updated: DummyClient, previousEmail: String?) {
+        // Prefer updating by email when possible
         let candidates = [updated.email, previousEmail].compactMap { $0 }.filter { !$0.isEmpty }
-        guard let key = candidates.first else { return }
-        guard let existing = ClientsStore.shared.clients.first(where: { ($0.email ?? "") == key }) else { return }
-        let newClient = Client(
-            id: existing.id,
-            profile: updated.profile,
-            nameCardFront: updated.nameCardFront,
-            nameCardBack: updated.nameCardBack,
-            surname: updated.surname,
-            name: updated.name,
-            position: updated.position,
-            company: updated.company,
-            email: updated.email,
-            phoneNumber: updated.phoneNumber,
-            linkedinURL: updated.linkedinURL,
-            memo: updated.memo,
-            action: existing.action,
-            favorite: existing.favorite,
-            pin: existing.pin,
-            notes: existing.notes
-        )
-        ClientsStore.shared.update(newClient)
+        if let key = candidates.first,
+           let existing = ClientsStore.shared.clients.first(where: { ($0.email ?? "") == key }) {
+            let newClient = Client(
+                id: existing.id,
+                profile: updated.profile,
+                nameCardFront: updated.nameCardFront,
+                nameCardBack: updated.nameCardBack,
+                surname: updated.surname,
+                name: updated.name,
+                position: updated.position,
+                company: updated.company,
+                email: updated.email,
+                phoneNumber: updated.phoneNumber,
+                linkedinURL: updated.linkedinURL,
+                memo: updated.memo,
+                action: existing.action,
+                favorite: existing.favorite,
+                pin: existing.pin,
+                notes: existing.notes
+            )
+            ClientsStore.shared.update(newClient)
+            return
+        }
+        
+        // Fallback: update the reserved "my profile" slot (index 0) by id
+        if let first = ClientsStore.shared.clients.first {
+            let newClient = Client(
+                id: first.id,
+                profile: updated.profile,
+                nameCardFront: updated.nameCardFront,
+                nameCardBack: updated.nameCardBack,
+                surname: updated.surname,
+                name: updated.name,
+                position: updated.position,
+                company: updated.company,
+                email: updated.email,
+                phoneNumber: updated.phoneNumber,
+                linkedinURL: updated.linkedinURL,
+                memo: updated.memo,
+                action: first.action,
+                favorite: first.favorite,
+                pin: first.pin,
+                notes: first.notes
+            )
+            ClientsStore.shared.update(newClient)
+        }
     }
 }
 
