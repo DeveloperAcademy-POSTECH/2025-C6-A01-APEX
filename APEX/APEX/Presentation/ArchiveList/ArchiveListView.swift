@@ -210,7 +210,7 @@ struct ArchiveListView: View {
 											},
 											index: idx,
 											title: ownerNameForFlattenedMedia(item) ?? viewerTitle,
-											uploadedAt: nil,
+											uploadedAt: group.items[idx].uploadedAt,
                                             excludedClientIds: excludedClientIds,
                                             onDelete: { removedIndex, _ in
                                                 let flat = group.items

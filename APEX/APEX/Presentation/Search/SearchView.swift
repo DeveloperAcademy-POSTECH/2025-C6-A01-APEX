@@ -222,7 +222,7 @@ private extension SearchView {
 								items: payload?.items ?? [],
 								index: max(0, selectedIndex),
 								title: owner.map { $0.client.autoFormattedName } ?? "Shared Media",
-								uploadedAt: nil,
+								uploadedAt: item.uploadedAt,
 								excludedClientIds: owner.map { [$0.client.id] } ?? [],
 								onTitleTap: { current in
 									guard let owner, let payload, payload.anchors.indices.contains(current) else { return }
@@ -532,7 +532,7 @@ private extension SearchView {
 									items: payload?.items ?? [],
 									index: max(0, selectedIndex),
 									title: owner.map { $0.client.autoFormattedName } ?? "Shared Media",
-									uploadedAt: nil,
+									uploadedAt: item.uploadedAt,
 									excludedClientIds: owner.map { [$0.client.id] } ?? [],
 									onTitleTap: { current in
 										guard let owner, let payload, payload.anchors.indices.contains(current) else { return }
