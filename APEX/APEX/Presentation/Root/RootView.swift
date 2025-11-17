@@ -164,27 +164,8 @@ private struct MyProfileScreen: View {
     }
     
     private func syncFromStore() {
-        // Prefer the seeded sample email as the key for "me"
-        let myEmailKey = sampleMyProfileClient.email
-        if let me = store.clients.first(where: { ($0.email ?? "") == myEmailKey }) {
-            client = DummyClient(
-                profile: me.profile,
-                nameCardFront: me.nameCardFront,
-                nameCardBack: me.nameCardBack,
-                surname: me.surname,
-                name: me.name,
-                position: me.position,
-                company: me.company,
-                email: me.email,
-                phoneNumber: me.phoneNumber,
-                linkedinURL: me.linkedinURL,
-                memo: me.memo,
-                action: me.action,
-                favorite: me.favorite,
-                pin: me.pin,
-                notes: []
-            )
-        } else if let first = store.clients.first {
+        // Always treat index 0 as the reserved "my profile"
+        if let first = store.clients.first {
             client = DummyClient(
                 profile: first.profile,
                 nameCardFront: first.nameCardFront,

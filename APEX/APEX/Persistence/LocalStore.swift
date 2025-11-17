@@ -87,6 +87,24 @@ final class LocalStore {
             print("LocalStore save error: \(error)")
         }
     }
+
+    // MARK: - Clear
+    func clearClients() {
+        // Remove documents file
+        let url = clientsFileURL()
+        if FileManager.default.fileExists(atPath: url.path) {
+            do { try FileManager.default.removeItem(at: url) } catch {
+                print("LocalStore clear (documents) error: \(error)")
+            }
+        }
+        // Remove App Group file
+        if let groupURL = clientsFileURLInAppGroup(),
+           FileManager.default.fileExists(atPath: groupURL.path) {
+            do { try FileManager.default.removeItem(at: groupURL) } catch {
+                print("LocalStore clear (app group) error: \(error)")
+            }
+        }
+    }
 }
 
 

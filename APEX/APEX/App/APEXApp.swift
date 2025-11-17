@@ -10,13 +10,13 @@ import SwiftUI
 @main
 struct APEXApp: App {
     @Environment(\.scenePhase) private var scenePhase
-    @StateObject private var router = NavigationRouter()
-    
+    @StateObject private var router = NavigationRouter() // router instance for navigation
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
     private var isPreviewEnv: Bool {
         let env = ProcessInfo.processInfo.environment
-        return env["XCODE_RUNNING_FOR_PLAYGROUNDS"] == "1" || env["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+        return env["XCODE_RUNNING_FOR_PLAYGROUNDS"] == "1" || env["XCODE_RUNNING_FOR_PREVIEWS"] == "1" // preview flags
     }
-    
+
     var body: some Scene {
         WindowGroup {
 //            ChattingView()
@@ -33,8 +33,33 @@ struct APEXApp: App {
 //                        CameraManager.shared.prewarmIfPossible()
 //                    }
 //                }
-            RootView()
-                .environmentObject(router)
+            if hasCompletedOnboarding {
+                RootView()
+                    .environmentObject(router)
+                    .onReceive(NotificationCenter.default.publisher(for: .apexRequestOnboarding)) { _ in
+                        hasCompletedOnboarding = false
+                        router.path = []
+                    }
+            } else {
+                OnBoardingView(
+                    onComplete: {
+                        hasCompletedOnboarding = true
+                    },
+                    onGuest: {
+                        // Guest should persist across restarts like a completed onboarding
+                        hasCompletedOnboarding = true
+                    }
+                )
+                .onReceive(NotificationCenter.default.publisher(for: .apexRequestOnboarding)) { _ in
+                    hasCompletedOnboarding = false
+                    router.path = []
+                }
+            }
         }
     }
+}
+
+// MARK: - App-wide Notifications
+extension Notification.Name {
+    static let apexRequestOnboarding = Notification.Name("apex.requestOnboarding")
 }

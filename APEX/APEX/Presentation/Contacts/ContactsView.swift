@@ -10,12 +10,10 @@ import SwiftUI
 struct ContactsView: View {
     @ObservedObject private var store = ClientsStore.shared
     private var favorites: [Client] {
-        let myEmail = sampleMyProfileClient.email
-        return store.clients.filter { ($0.email ?? "") != myEmail && $0.favorite }
+        return Array(store.clients.dropFirst()).filter { $0.favorite }
     }
     private var allUngrouped: [Client] {
-        let myEmail = sampleMyProfileClient.email
-        return store.clients.filter { ($0.email ?? "") != myEmail }
+        return Array(store.clients.dropFirst())
     }
 
     @State private var isFavoritesExpanded: Bool = true

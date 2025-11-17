@@ -45,8 +45,7 @@ struct CardViewer: View {
                             .tag(index)
                     }
                 }
-                .tabViewStyle(.page(indexDisplayMode: .automatic))
-                .indexViewStyle(.page(backgroundDisplayMode: .always))
+                .tabViewStyle(.page(indexDisplayMode: .never))
                 
                 Spacer()
                 
@@ -268,7 +267,7 @@ struct MyProfileEditSheet: View {
                 isRightEnabled: true,
                 onRightTap: {
                     let updated = DummyClient(
-                        profile: profileUIImage,
+                        profile: profileUIImage ?? client.profile,
                         nameCardFront: (cardFrontUIImage.map { Image(uiImage: $0) }) ?? client.nameCardFront,
                         nameCardBack: (cardBackUIImage.map { Image(uiImage: $0) }) ?? client.nameCardBack,
                         surname: surname,

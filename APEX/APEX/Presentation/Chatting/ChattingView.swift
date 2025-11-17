@@ -73,6 +73,9 @@ struct ChattingView: View {
         var videos: [URL] = []
     }
     @State private var shareSeed: ShareSeed?
+    // Initial target scroll support
+    @State private var didApplyInitialTargetScroll: Bool = false
+    @State private var initialTargetNoteId: UUID?
     // Parent-scoped record viewer state
     private struct RecordPayload: Identifiable { let id = UUID(); let url: URL }
     @State private var recordPayload: RecordPayload?
@@ -117,12 +120,18 @@ struct ChattingView: View {
                                     if isDeleteSelecting {
                                         let isChecked = selectedNoteIds.contains(note.id)
                                         Button {
-                                            toggleSelection(for: note.id)
+                                            var tx = Transaction()
+                                            tx.disablesAnimations = true
+                                            withTransaction(tx) {
+                                                toggleSelection(for: note.id)
+                                            }
                                         } label: {
                                             Image(systemName: isChecked ? "checkmark.circle.fill" : "circle")
                                                 .font(.system(size: 24, weight: .medium))
                                                 .foregroundStyle(isChecked ? Color("Primary") : .gray)
                                                 .frame(width: 24, height: 24, alignment: .center)
+                                                .contentTransition(.identity)
+                                                .animation(nil, value: selectedNoteIds)
                                         }
                                         .buttonStyle(.plain)
                                     } else {
@@ -131,6 +140,7 @@ struct ChattingView: View {
                                     }
                                 }
                                 .padding(.horizontal, 6.5)
+                                .animation(nil, value: selectedNoteIds)
                                 
                                 HStack {
                                     Spacer(minLength: 0)
@@ -207,7 +217,11 @@ struct ChattingView: View {
                                     .contentShape(Rectangle())
                                     .onTapGesture {
                                         if isDeleteSelecting {
-                                            toggleSelection(for: note.id)
+                                            var tx = Transaction()
+                                            tx.disablesAnimations = true
+                                            withTransaction(tx) {
+                                                toggleSelection(for: note.id)
+                                            }
                                         }
                                     }
                                 }
@@ -251,6 +265,11 @@ struct ChattingView: View {
                 }
                 .onAppear {
                     DispatchQueue.main.async {
+                        // Capture pending initial target (if any) from router once
+                        if initialTargetNoteId == nil, let pending = router.pendingScrollToNoteId {
+                            initialTargetNoteId = pending
+                            router.pendingScrollToNoteId = nil
+                        }
                         if notes.isEmpty {
                             let persisted = ChatStore.shared.notes(for: clientId)
                             if persisted.isEmpty {
@@ -261,7 +280,16 @@ struct ChattingView: View {
                                 notes = persisted
                             }
                         }
-                        if !suppressAutoScroll {
+                        // Apply initial non-animated target scroll if available
+                        if let target = initialTargetNoteId, !didApplyInitialTargetScroll {
+                            suppressAutoScroll = true
+                            var transaction = Transaction()
+                            transaction.disablesAnimations = true
+                            withTransaction(transaction) {
+                                proxy.scrollTo(target, anchor: .center)
+                            }
+                            didApplyInitialTargetScroll = true
+                        } else if !suppressAutoScroll {
                             proxy.scrollTo(bottomSentinelId, anchor: .bottom)
                         }
                         // If any incoming notes carry pending progress, kick off simulations
