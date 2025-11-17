@@ -224,7 +224,7 @@ struct ChattingArchiveView: View {
                                 },
                                 index: idx,
                                 title: client.map { "\($0.name) \($0.surname)"} ?? "Shared Media",
-                                uploadedAt: nil,
+                                uploadedAt: previewItems[idx].uploadedAt,
                                 excludedClientIds: client.map { [$0.id] } ?? [],
                                 onDelete: { removedIndex, _ in
                                     guard previewItems.indices.contains(removedIndex),

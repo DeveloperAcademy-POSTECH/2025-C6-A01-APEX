@@ -36,6 +36,7 @@ struct MediaView: View {
     @State private var selectedIndex: Int
     @State private var pages: [MediaSource]
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var router: NavigationRouter
     @State private var showChrome: Bool = true
     @State private var isVideoPlaying: Bool = false
     @State private var showDeleteAlert: Bool = false
@@ -100,7 +101,14 @@ struct MediaView: View {
                     title: title,
                     uploadedAt: uploadedAt,
                     onBack: { dismiss() },
-                    onGrid: { },
+                    onGrid: {
+                        // Navigate to the client's ChattingArchiveView if we know the owner
+                        guard excludedClientIds.count == 1, let clientId = excludedClientIds.first else { return }
+                        dismiss()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            router.push(.chatArchive(clientId))
+                        }
+                    },
                     onTitleTap: {
                         // Dismiss first to avoid pushing a new route that gets popped immediately.
                         let currentIndex = selectedIndex
