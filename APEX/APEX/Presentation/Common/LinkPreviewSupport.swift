@@ -15,6 +15,10 @@ final class LinkPreviewLoader: ObservableObject {
 	private static let cache = NSCache<NSURL, LPLinkMetadata>()
 	private let provider = LPMetadataProvider()
 	private let url: URL
+    
+    static func clearCache() {
+        cache.removeAllObjects()
+    }
 
 	init(url: URL) {
 		self.url = url
@@ -32,7 +36,7 @@ final class LinkPreviewLoader: ObservableObject {
 		}
 	}
 }
-
+ 
 struct LPImageFromProvider: View {
 	let provider: NSItemProvider?
 	@State private var image: UIImage?

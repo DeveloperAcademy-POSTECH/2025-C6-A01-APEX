@@ -71,11 +71,15 @@ struct PhotoAddView: View {
                 Group {
                     if isProfile {
                         if let img = pickedProfileImage {
-                            Image(uiImage: img)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 232, height: 232)
-                                .cornerRadius(8)
+                            ZStack {
+                                // Ensure transparent areas of the cropped image do not show as black
+                                Circle().fill(Color("BackgroundSecondary"))
+                                Image(uiImage: img)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .clipShape(Circle())
+                            }
+                            .frame(width: 232, height: 232)
                         } else {
                             Image("ProfileL")
                         }

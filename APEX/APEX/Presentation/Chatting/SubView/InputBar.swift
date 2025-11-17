@@ -23,7 +23,11 @@ private struct PickedVideo: Transferable {
         } importing: { received in
             let src = received.file
             let ext = src.pathExtension.isEmpty ? "mov" : src.pathExtension
-            let tmp = FileManager.default.temporaryDirectory
+            // Store under dedicated temp subdirectory so app can purge safely
+            let fm = FileManager.default
+            let apexTmpDir = fm.temporaryDirectory.appendingPathComponent("APEXTmp", isDirectory: true)
+            try? fm.createDirectory(at: apexTmpDir, withIntermediateDirectories: true)
+            let tmp = apexTmpDir
                 .appendingPathComponent(UUID().uuidString)
                 .appendingPathExtension(ext)
 
@@ -86,6 +90,42 @@ private extension InputBar {
                 return target
             }
             // Fallback: return original URL if copy failed
+            return originalURL
+        }
+    }
+    func persistDataToAppCache(data: Data, preferredExtension: String) -> URL {
+        let fm = FileManager.default
+        let cacheDir = (try? fm.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true))
+            ?? fm.temporaryDirectory
+        let dir = cacheDir.appendingPathComponent("APEXUploads", isDirectory: true)
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        let filename = UUID().uuidString
+        let url = dir.appendingPathComponent(filename).appendingPathExtension(preferredExtension)
+        try? data.write(to: url, options: .atomic)
+        return url
+    }
+    func persistVideoToAppTmp(originalURL: URL) -> URL {
+        let fm = FileManager.default
+        let apexTmpDir = fm.temporaryDirectory.appendingPathComponent("APEXTmp", isDirectory: true)
+        try? fm.createDirectory(at: apexTmpDir, withIntermediateDirectories: true)
+        if originalURL.path.hasPrefix(apexTmpDir.path) {
+            return originalURL
+        }
+        let ext = originalURL.pathExtension.isEmpty ? "mov" : originalURL.pathExtension
+        var target = apexTmpDir.appendingPathComponent(UUID().uuidString).appendingPathExtension(ext)
+        var tries = 0
+        while fm.fileExists(atPath: target.path), tries < 3 {
+            target = apexTmpDir.appendingPathComponent(UUID().uuidString).appendingPathExtension(ext)
+            tries += 1
+        }
+        do {
+            try fm.copyItem(at: originalURL, to: target)
+            return target
+        } catch {
+            if let data = try? Data(contentsOf: originalURL) {
+                try? data.write(to: target, options: .atomic)
+                return target
+            }
             return originalURL
         }
     }
@@ -152,6 +192,7 @@ private extension InputBar {
             switch item.kind {
             case .image(let uiImage):
                 if let data = uiImage.jpegData(compressionQuality: 0.9) ?? uiImage.pngData() {
+                    _ = persistDataToAppCache(data: data, preferredExtension: "jpg")
                     images.append(ImageAttachment(data: data, progress: 0, orderIndex: orderCounter))
                     orderCounter += 1
                 }
@@ -217,11 +258,15 @@ private extension InputBar {
             // 2) If not handled as video, try raw Data (image most common; can also be video data in some cases)
             if !handled, let data = try? await item.loadTransferable(type: Data.self) {
                 if UIImage(data: data) != nil {
+                    _ = persistDataToAppCache(data: data, preferredExtension: "jpg")
                     images.append(ImageAttachment(data: data, progress: 0, orderIndex: selectionIndex))
                     handled = true
                 } else {
                     // Data that isn't an image: treat as movie by writing to tmp (best-effort)
-                    let tmp = FileManager.default.temporaryDirectory
+                    let fm = FileManager.default
+                    let apexTmpDir = fm.temporaryDirectory.appendingPathComponent("APEXTmp", isDirectory: true)
+                    try? fm.createDirectory(at: apexTmpDir, withIntermediateDirectories: true)
+                    let tmp = apexTmpDir
                         .appendingPathComponent(UUID().uuidString)
                         .appendingPathExtension("mov")
                     do {
@@ -245,7 +290,10 @@ private extension InputBar {
 
                 if ["mov", "mp4", "m4v", "avi", "hevc", "heif", "heic"].contains(ext) {
                     // Treat as video; copy to tmp to avoid sandbox issues later
-                    let tmp = FileManager.default.temporaryDirectory
+                    let fm = FileManager.default
+                    let apexTmpDir = fm.temporaryDirectory.appendingPathComponent("APEXTmp", isDirectory: true)
+                    try? fm.createDirectory(at: apexTmpDir, withIntermediateDirectories: true)
+                    let tmp = apexTmpDir
                         .appendingPathComponent(UUID().uuidString)
                         .appendingPathExtension(ext.isEmpty ? "mov" : ext)
                     do {
@@ -701,11 +749,13 @@ struct InputBar: View {
                 var videos: [VideoAttachment] = []
                 var orderCounter = 0
                 if let img = image, let data = img.jpegData(compressionQuality: 0.9) {
+                    _ = persistDataToAppCache(data: data, preferredExtension: "jpg")
                     images.append(ImageAttachment(data: data, progress: 0, orderIndex: orderCounter))
                     orderCounter += 1
                 }
                 if let url = videoURL {
-                    videos.append(VideoAttachment(url: url, progress: 0, orderIndex: orderCounter))
+                    let persisted = persistFileToAppCache(originalURL: url)
+                    videos.append(VideoAttachment(url: persisted, progress: 0, orderIndex: orderCounter))
                     orderCounter += 1
                 }
                 guard !images.isEmpty || !videos.isEmpty else { return }

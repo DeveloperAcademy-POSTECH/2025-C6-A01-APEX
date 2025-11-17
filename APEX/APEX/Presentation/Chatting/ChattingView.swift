@@ -866,7 +866,8 @@ struct ChattingView: View {
 private extension ChattingView {
     func onTapTitleNavigate() {
         guard let client = ClientsStore.shared.clients.first(where: { $0.id == clientId }) else { return }
-        let isMe = (client.email ?? "") == sampleMyProfileClient.email
+        let myId = ClientsStore.shared.clients.first?.id
+        let isMe = (client.id == myId)
         if isMe {
             router.push(.myProfile)
         } else {

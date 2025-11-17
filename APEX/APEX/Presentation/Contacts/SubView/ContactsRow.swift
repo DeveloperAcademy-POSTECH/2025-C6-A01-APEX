@@ -23,8 +23,8 @@ struct ContactsRow: View {
         static let trailingSpacerMin: CGFloat = 8
     }
 
-    // 임시 디폴트(직책 없음 표시)
-    private static let placeholderSubtitle = "Designer"
+    // 직책이 없을 때는 빈 문자열 표시
+    private static let placeholderSubtitle = ""
 
     var body: some View {
         Button {
@@ -153,6 +153,7 @@ private struct BackgroundHoverRowStyle: ButtonStyle {
     }
 }
 
+#if DEBUG
 #Preview {
     ContactsRow(
         client: sampleClients.first!,
@@ -162,4 +163,21 @@ private struct BackgroundHoverRowStyle: ButtonStyle {
         rowHeight: 76,
         subtitleOverride: "My Profile"
     )
+}
+#endif
+
+// MARK: - Equatable Optimization
+extension ContactsRow: Equatable {
+    static func == (lhs: ContactsRow, rhs: ContactsRow) -> Bool {
+        // 동일 클라이언트 행이고, 렌더링에 영향을 주는 표시값이 바뀌지 않았을 때만 동일로 간주
+        lhs.client.id == rhs.client.id
+        && lhs.client.favorite == rhs.client.favorite
+        && lhs.client.pin == rhs.client.pin
+        && lhs.client.name == rhs.client.name
+        && lhs.client.surname == rhs.client.surname
+        && lhs.client.position == rhs.client.position
+        && lhs.client.company == rhs.client.company
+        && lhs.rowHeight == rhs.rowHeight
+        && lhs.subtitleOverride == rhs.subtitleOverride
+    }
 }

@@ -241,7 +241,11 @@ struct ChatMediaPickerSheet: View {
                 DispatchQueue.main.async { completion(nil) }
                 return
             }
-            let tmp = FileManager.default.temporaryDirectory
+            // Store exported temp video under app-owned tmp subdirectory so it can be detected/purged
+            let fm = FileManager.default
+            let apexTmpDir = fm.temporaryDirectory.appendingPathComponent("APEXTmp", isDirectory: true)
+            try? fm.createDirectory(at: apexTmpDir, withIntermediateDirectories: true)
+            let tmp = apexTmpDir
                 .appendingPathComponent(UUID().uuidString)
                 .appendingPathExtension("mov")
             PHAssetResourceManager.default().writeData(for: resource, toFile: tmp, options: nil) { error in

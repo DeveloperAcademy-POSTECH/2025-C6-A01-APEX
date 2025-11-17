@@ -193,11 +193,10 @@ struct NotesView: View {
     }
     
     private func deleteClient(_ client: Client) {
-
-        clientsStore.clients.removeAll { $0.id == client.id }
+        // 노트만 모두 삭제 (연락처는 유지)
+        ChatStore.shared.setNotes([], for: client.id)
         
-        // 현재 필터가 삭제된 회사면 전체로 변경
-
+        // 회사 필터가 더 이상 노트를 가진 항목이 없다면 전체로 변경
         if case .company(let name) = selectedFilter,
            !companyNamesWithNotes.contains(name) {
             selectedFilter = .all

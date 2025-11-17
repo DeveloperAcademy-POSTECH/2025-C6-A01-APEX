@@ -34,7 +34,6 @@ struct ContactsView: View {
     @State private var clientToDelete: Client?
     // 내 프로필 상세로 네비게이션 제어
     @State private var showMyProfileView: Bool = false
-    @State private var myProfileDummy: DummyClient = sampleMyProfileClient
     
     // 타인 프로필 상세로 네비게이션 제어
     @State private var showProfileDetailView: Bool = false
@@ -91,32 +90,29 @@ struct ContactsView: View {
             // MARK: - My Profile (TopBar와 0 간격, Favorites와는 8 간격)
             // My Profile Row (DummyClient -> Client 변환해 표시)
             ContactsRow(
-                client: (store.clients.first { ($0.email ?? "") == sampleMyProfileClient.email }) ?? convertToClient(myProfileDummy),
+                client: store.clients.first ?? convertToClient(blankDummy()),
                 onToggleFavorite: nil,
                 onDelete: nil,
                 onTap: { navigateToMyProfile() },
                 rowHeight: Metrics.myProfileRowHeight,
                 subtitleOverride: "My Profile"
             )
+            .equatable()
             .applyListRowCleaning()
 
-            if !favorites.isEmpty {
-                gapRow() // Favorites와 8 간격
-            }
+            gapRow() // Favorites와 8 간격(빈 경우에도 고정 간격 유지)
 
             // MARK: - Favorites
-            if !favorites.isEmpty {
-                ContactsListSection(
-                    title: "Favorites",
-                    count: favorites.count,
-                    isExpanded: $isFavoritesExpanded,
-                    clients: favorites,
-                    onToggleFavorite: { toggleFavorite($0) },
-                    onDelete: { showDeleteConfirmation($0) },
-                    onTapRow: { navigateToProfileDetail($0) },
-                    showsSeparatorBelowHeader: true
-                )
-            }
+            ContactsListSection(
+                title: "Favorites",
+                count: favorites.count,
+                isExpanded: $isFavoritesExpanded,
+                clients: favorites,
+                onToggleFavorite: { toggleFavorite($0) },
+                onDelete: { showDeleteConfirmation($0) },
+                onTapRow: { navigateToProfileDetail($0) },
+                showsSeparatorBelowHeader: true
+            )
 
             // MARK: - All / Ungrouped (기존 디자인)
             ContactsListSection(
@@ -268,6 +264,26 @@ struct ContactsView: View {
             action: client.action,
             favorite: client.favorite,
             pin: client.pin,
+            notes: []
+        )
+    }
+    
+    private func blankDummy() -> DummyClient {
+        DummyClient(
+            profile: nil,
+            nameCardFront: nil,
+            nameCardBack: nil,
+            surname: "",
+            name: "",
+            position: nil,
+            company: "",
+            email: nil,
+            phoneNumber: nil,
+            linkedinURL: nil,
+            memo: nil,
+            action: nil,
+            favorite: false,
+            pin: false,
             notes: []
         )
     }
