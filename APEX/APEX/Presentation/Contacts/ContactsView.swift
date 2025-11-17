@@ -54,13 +54,11 @@ struct ContactsView: View {
 
     @EnvironmentObject private var router: NavigationRouter
     var body: some View {
-        ZStack {
-            mainContent
-            if showDeleteDialog {
+        mainContent
+            .toolbar(.hidden, for: .navigationBar)
+            .windowOverlay(isPresented: $showDeleteDialog) {
                 deleteOverlay
             }
-        }
-        .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $isProfileAddPresented) {
             ProfileAddView(onComplete: { newClient in
                 ClientsStore.shared.add(newClient, atTop: true)

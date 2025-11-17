@@ -17,13 +17,10 @@ struct NotesManagementView: View {
     @State private var notes: [NoteItem] = []
     
     var body: some View {
-        ZStack {
-            mainContent
-            
-            if showDeleteConfirmation {
+        mainContent
+            .windowOverlay(isPresented: $showDeleteConfirmation) {
                 deleteConfirmationOverlay
             }
-        }
         .background(Color("Background"))
         .safeAreaInset(edge: .top) {
             NotesManagementNavigationBar(
