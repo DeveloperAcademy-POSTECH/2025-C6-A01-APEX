@@ -71,7 +71,10 @@ struct ContactsRow: View {
         // 우측 스와이프: 삭제
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             // Hide delete for my profile row
-            let isMe = (client.email ?? "") == sampleMyProfileClient.email
+            let isMe: Bool = {
+                guard let first = ClientsStore.shared.clients.first else { return false }
+                return first.id == client.id
+            }()
             if !isMe, let onDelete {
                 Button(role: .destructive) {
                     onDelete()

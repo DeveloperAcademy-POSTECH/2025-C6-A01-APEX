@@ -152,6 +152,9 @@ struct MediaView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.hidden)
         }
+        .apexSwipeBackDisabled(true)
+        .onAppear { ApexSwipeBackState.shared.isDisabled = true }
+        .onDisappear { ApexSwipeBackState.shared.isDisabled = false }
     }
 
     @ViewBuilder

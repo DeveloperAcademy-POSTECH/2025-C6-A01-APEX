@@ -120,12 +120,18 @@ struct ChattingView: View {
                                     if isDeleteSelecting {
                                         let isChecked = selectedNoteIds.contains(note.id)
                                         Button {
-                                            toggleSelection(for: note.id)
+                                            var tx = Transaction()
+                                            tx.disablesAnimations = true
+                                            withTransaction(tx) {
+                                                toggleSelection(for: note.id)
+                                            }
                                         } label: {
                                             Image(systemName: isChecked ? "checkmark.circle.fill" : "circle")
                                                 .font(.system(size: 24, weight: .medium))
                                                 .foregroundStyle(isChecked ? Color("Primary") : .gray)
                                                 .frame(width: 24, height: 24, alignment: .center)
+                                                .contentTransition(.identity)
+                                                .animation(nil, value: selectedNoteIds)
                                         }
                                         .buttonStyle(.plain)
                                     } else {
@@ -134,6 +140,7 @@ struct ChattingView: View {
                                     }
                                 }
                                 .padding(.horizontal, 6.5)
+                                .animation(nil, value: selectedNoteIds)
                                 
                                 HStack {
                                     Spacer(minLength: 0)
@@ -210,7 +217,11 @@ struct ChattingView: View {
                                     .contentShape(Rectangle())
                                     .onTapGesture {
                                         if isDeleteSelecting {
-                                            toggleSelection(for: note.id)
+                                            var tx = Transaction()
+                                            tx.disablesAnimations = true
+                                            withTransaction(tx) {
+                                                toggleSelection(for: note.id)
+                                            }
                                         }
                                     }
                                 }
