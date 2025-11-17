@@ -44,8 +44,86 @@ struct ProfileDetailView: View {
     }
 
     var body: some View {
-        mainContent
+        List {
+            // 헤더 섹션 (패딩 없음 - 전체 화면 너비 사용)
+            Section {
+                MyProfileHeaderView(
+                    client: adaptedClient,
+                    page: $currentPageIndex,
+                    onCardTapped: { isShowingCardViewer = true }
+                )
+            }
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            
+            // 각 컴포넌트를 개별 Section으로 분리 (MyProfileView와 동일한 방식)
+            
+            // 프라이머리 액션
+            Section {
+                MyProfilePrimaryActionView(title: "메모하기") { openChatForClient() }
+                    .accessibilityLabel("메모하기")
+                    .apexButtonTheme(
+                        APEXButtonTheme(
+                            cornerRadius: 15,
+                            height: 56
+                        )
+                    )
+                    .buttonStyle(.plain)  // 기본 스타일 제거
+                    .scaleEffect(1.0)  // 빠른 호버 효과를 위한 기본 스케일
+                    .animation(.easeInOut(duration: 0.1), value: false)  // 빠른 애니메이션
+            }
+            .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 0, trailing: 16))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+
+            // 연락처 섹션
+            Section {
+                MyProfileContactsSection(
+                    email: client.email,
+                    phone: client.phoneNumber,
+                    linkedin: client.linkedinURL,
+                    openExternal: { url in
+                        openExternal(url)
+                    },
+                    copyToPasteboard: { text in
+                        copyToPasteboard(text)
+                    }
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .allowsHitTesting(true)  // 내부 터치만 허용
+                .contentShape(Rectangle())  // 명시적 터치 영역 정의
+            }
+            .listRowInsets(EdgeInsets(top: 32, leading: 16, bottom: 0, trailing: 16))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .buttonStyle(.plain)  // List Row의 기본 터치 효과 비활성화
+            .onTapGesture { }  // 빈 탭 제스처로 List Row 선택 방지
+            
+            // 메모 섹션
+            Section {
+                ProfileDetailMemoSection(
+                    memo: client.memo ?? ""
+                )
+            }
+            .listRowInsets(EdgeInsets(top: 32, leading: 16, bottom: 16, trailing: 16))  // 마지막이라 bottom 16
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
         .background(Color("Background"))
+        .environment(\.defaultMinListRowHeight, 0)  // 최소 높이 제거
+        .listRowSpacing(0)  // Row 간격 제거
+        .safeAreaBar(edge: .top) {
+            MyProfileNavigationBar(
+                title: client.autoFormattedName,
+                onBack: { router.pop() },
+                onEdit: { isPresentingEdit = true }
+            )
+        }
+        .toolbar(.hidden, for: .navigationBar)
+        .toolbar(.hidden, for: .tabBar)
         .sheet(isPresented: $isPresentingEdit) {
             let isMe = (client.email ?? "") == sampleMyProfileClient.email
             MyProfileEditSheet(
@@ -60,8 +138,6 @@ struct ProfileDetailView: View {
                 showDeleteButton: !isMe  // 내 프로필이면 삭제 버튼 숨김
             )
         }
-        .toolbar(.hidden, for: .navigationBar)
-        .toolbar(.hidden, for: .tabBar)
         // 기존 액션시트 유지(컴파일/동작 보장). Menu 전환 후 제거 예정.
         .confirmationDialog(
             contactDialogTitle,
@@ -96,64 +172,7 @@ struct ProfileDetailView: View {
         // Hidden NavigationLink removed; Router handles navigation
     }
 
-    // MARK: - Main Content
-    
-    private var mainContent: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                // 네비게이션 바
-                MyProfileNavigationBar(
-                    title: client.autoFormattedName,
-                    onBack: { router.pop() },
-                    onEdit: { isPresentingEdit = true }
-                )
-                .background(Color("Background"))
-
-                // 상단 헤더
-                MyProfileHeaderView(
-                    client: adaptedClient,
-                    page: $currentPageIndex,
-                    onCardTapped: { isShowingCardViewer = true }
-                )
-                .padding(.top, 4)
-
-                // 프라이머리 액션
-                MyProfilePrimaryActionView(title: "메모하기") {
-                    openChatForClient()
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 0)
-                .accessibilityLabel("메모하기")
-
-                // 연락처 섹션
-                MyProfileContactsSection(
-                    email: client.email,
-                    phone: client.phoneNumber,
-                    linkedin: client.linkedinURL,
-                    openExternal: { url in
-                        openExternal(url)
-                    },
-                    copyToPasteboard: { text in
-                        copyToPasteboard(text)
-                    }
-                )
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.top, 32)
-                
-
-                // 메모 섹션
-                ProfileDetailMemoSection(
-                    memo: client.memo ?? ""
-                )
-                .padding(.horizontal, 24)
-                .padding(.top, 24)
-            
-            }
-        }
-        .toolbar(.hidden, for: .navigationBar)
-        .toolbar(.hidden, for: .tabBar)
-    }
+    // MARK: - Helpers
     
     private func deleteClient() {
         // 실제 삭제 로직 (원본 ID로 삭제)

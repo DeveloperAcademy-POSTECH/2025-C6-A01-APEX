@@ -9,10 +9,14 @@ import SwiftUI
 
 struct CompanyManagementSheet: View {
     @Binding var isPresented: Bool
+    @EnvironmentObject private var clientsStore: ClientsStore
     @State private var sortByAlphabet: Bool = true
-    @State private var enabledCompanies: Set<String> = ["Apple", "Apex", "Google (Alphabet Inc.)"]
-    @State private var availableCompanies: Set<String> = ["BMW Group", "Disney", "ExxonMobil", "Ford Motor Company", "Huawei Technologies", "IKEA", "Johnson & Johnson"]
-    @State private var companyOrder: [String] = ["Apple", "Apex", "Google (Alphabet Inc.)"]
+    @State private var enabledCompanies: Set<String> = []
+    @State private var companyOrder: [String] = []
+    
+    // MARK: - Persistence Keys
+    private let enabledCompaniesDefaultsKey = "apex.notes.enabledCompanies"
+    private let companyOrderDefaultsKey = "apex.notes.companyOrder"
     
     var body: some View {
         ZStack {
@@ -28,6 +32,10 @@ struct CompanyManagementSheet: View {
                 
                 // 회사 리스트
                 companyListSection
+                    .onAppear {
+                        loadPreferencesIfNeeded()
+                        reconcileEnabledWithAllCompanies()
+                    }
                 
                 Spacer()
             }
@@ -41,7 +49,7 @@ struct CompanyManagementSheet: View {
                 // 닫기 버튼
                 Button(action: {
                     isPresented = false
-                }) {
+                }, label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 20, weight: .medium, design: .default))
                         .foregroundColor(.black)
@@ -52,7 +60,7 @@ struct CompanyManagementSheet: View {
                                 .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
                         )
                         .contentShape(Circle())
-                }
+                })
                 .buttonStyle(.plain)
                 .padding(.leading, 16)
                 
@@ -61,7 +69,7 @@ struct CompanyManagementSheet: View {
                 // 완료 버튼
                 Button(action: {
                     isPresented = false
-                }) {
+                }, label: {
                     Text("완료")
                         .font(.title6)
                         .foregroundColor(.black)
@@ -71,7 +79,7 @@ struct CompanyManagementSheet: View {
                                 .fill(Color.white)
                                 .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
                         )
-                }
+                })
                 .buttonStyle(.plain)
                 .padding(.trailing, 16)
             }
@@ -112,12 +120,12 @@ struct CompanyManagementSheet: View {
                         withAnimation(.easeInOut(duration: 0.3)) {
                             sortByAlphabet = true
                         }
-                    }) {
+                    }, label: {
                         Text("가나다 순")
                             .font(.caption1)
                             .foregroundColor(sortByAlphabet ? Color("BlackLabel") : Color("GrayLabel"))
                             .frame(width: 96, height: 38)
-                    }
+                    })
                     .buttonStyle(.plain)
                     
                     // 사용자 설정 순 버튼  
@@ -125,12 +133,12 @@ struct CompanyManagementSheet: View {
                         withAnimation(.easeInOut(duration: 0.3)) {
                             sortByAlphabet = false
                         }
-                    }) {
+                    }, label: {
                         Text("사용자 설정 순")
                             .font(.caption1)
                             .foregroundColor(!sortByAlphabet ? Color("BlackLabel") : Color("GrayLabel"))
                             .frame(width: 96, height: 38)
-                    }
+                    })
                     .buttonStyle(.plain)
                 }
             }
@@ -177,6 +185,16 @@ struct CompanyManagementSheet: View {
         .background(Color(.systemBackground))
     }
     
+    // MARK: - Derived Data
+    private var allCompanies: Set<String> {
+        Set(
+            clientsStore.clients.compactMap { client in
+                let trimmed = client.company.trimmingCharacters(in: .whitespacesAndNewlines)
+                return trimmed.isEmpty ? nil : trimmed
+            }
+        )
+    }
+    
     private var sortedEnabledCompanies: [String] {
         let companies = Array(enabledCompanies)
         if sortByAlphabet {
@@ -187,25 +205,67 @@ struct CompanyManagementSheet: View {
     }
     
     private var sortedAvailableCompanies: [String] {
-        let companies = Array(availableCompanies)
-        return companies.sorted { $0.localizedCompare($1) == .orderedAscending }
+        let available = allCompanies.subtracting(enabledCompanies)
+        return Array(available).sorted { $0.localizedCompare($1) == .orderedAscending }
     }
     
     private func toggleCompany(_ company: String) {
         if enabledCompanies.contains(company) {
             enabledCompanies.remove(company)
-            availableCompanies.insert(company)
             companyOrder.removeAll { $0 == company }
         } else {
-            availableCompanies.remove(company)
             enabledCompanies.insert(company)
-            companyOrder.append(company)
+            // Append to order only if using manual order; otherwise will be sorted by alpha
+            if !companyOrder.contains(company) {
+                companyOrder.append(company)
+            }
         }
+        persistPreferences()
     }
     
     private func moveEnabledCompany(from source: IndexSet, to destination: Int) {
         guard !sortByAlphabet else { return }
         companyOrder.move(fromOffsets: source, toOffset: destination)
+        persistPreferences()
+    }
+    
+    // MARK: - Persistence
+    private func loadPreferencesIfNeeded() {
+        // Load enabled companies
+        if let rawEnabled = UserDefaults.standard.array(forKey: enabledCompaniesDefaultsKey) as? [String] {
+            enabledCompanies = Set(rawEnabled)
+        } else {
+            // Default: enable all companies on first run
+            enabledCompanies = allCompanies
+        }
+        
+        // Load order
+        if let rawOrder = UserDefaults.standard.array(forKey: companyOrderDefaultsKey) as? [String] {
+            companyOrder = rawOrder
+        } else {
+            companyOrder = Array(allCompanies).sorted { $0.localizedCompare($1) == .orderedAscending }
+        }
+    }
+    
+    private func persistPreferences() {
+        let enabledArray = Array(enabledCompanies)
+        UserDefaults.standard.set(enabledArray, forKey: enabledCompaniesDefaultsKey)
+        UserDefaults.standard.set(companyOrder, forKey: companyOrderDefaultsKey)
+    }
+    
+    private func reconcileEnabledWithAllCompanies() {
+        // Remove non-existing companies from enabled/order
+        let removed = enabledCompanies.subtracting(allCompanies)
+        if !removed.isEmpty {
+            enabledCompanies.subtract(removed)
+        }
+        companyOrder = companyOrder.filter { allCompanies.contains($0) }
+        // Add new companies discovered to the end of order
+        let newOnes = allCompanies.subtracting(Set(companyOrder))
+        if !newOnes.isEmpty {
+            companyOrder.append(contentsOf: newOnes.sorted { $0.localizedCompare($1) == .orderedAscending })
+        }
+        persistPreferences()
     }
 }
 
@@ -224,11 +284,11 @@ struct CompanyRowView: View {
             Spacer()
             
             // 토글 버튼
-            Button(action: onToggle) {
+            Button(action: onToggle, label: {
                 Image(systemName: isEnabled ? "minus.circle.fill" : "plus.circle.fill")
                     .font(.system(size: 22))
                     .foregroundColor(isEnabled ? Color("Error") : Color("GreenLabel"))
-            }
+            })
             .buttonStyle(.plain)
             
             // 드래그 핸들 (사용자 설정 순이고 활성화된 회사만) - +/- 버튼 우측에 배치
@@ -244,4 +304,5 @@ struct CompanyRowView: View {
 
 #Preview {
     CompanyManagementSheet(isPresented: .constant(true))
+        .environmentObject(ClientsStore.shared)
 }

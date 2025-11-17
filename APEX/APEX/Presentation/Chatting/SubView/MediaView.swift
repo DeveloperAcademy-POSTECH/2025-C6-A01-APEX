@@ -36,6 +36,7 @@ struct MediaView: View {
     @State private var selectedIndex: Int
     @State private var pages: [MediaSource]
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var router: NavigationRouter
     @State private var showChrome: Bool = true
     @State private var isVideoPlaying: Bool = false
     @State private var showDeleteAlert: Bool = false
@@ -75,14 +76,13 @@ struct MediaView: View {
     }
 
     var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-
+        Group {
             if !pages.isEmpty {
                 TabView(selection: $selectedIndex, content: {
                     ForEach(pages.indices, id: \.self) { idx in
                         pageView(for: pages[idx])
                             .tag(idx)
+                            
                     }
                 })
                 .tabViewStyle(.page(indexDisplayMode: .never))
@@ -93,34 +93,46 @@ struct MediaView: View {
                     }
                 )
             }
-
+        }
+        .ignoresSafeArea()
+        .safeAreaBar(edge: .top) {
             if showChrome {
-                VStack(spacing: 0) {
-                    MediaHeaderBar(
-                        title: title,
-                        uploadedAt: uploadedAt,
-                        onBack: { dismiss() },
-                        onGrid: { },
-                        onTitleTap: {
-                            if let onTitleTap { onTitleTap(selectedIndex) }
-                            dismiss()
+                MediaHeaderBar(
+                    title: title,
+                    uploadedAt: uploadedAt,
+                    onBack: { dismiss() },
+                    onGrid: {
+                        // Navigate to the client's ChattingArchiveView if we know the owner
+                        guard excludedClientIds.count == 1, let clientId = excludedClientIds.first else { return }
+                        dismiss()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            router.push(.chatArchive(clientId))
                         }
-                    )
-                    Spacer()
-                }
+                    },
+                    onTitleTap: {
+                        // Dismiss first to avoid pushing a new route that gets popped immediately.
+                        let currentIndex = selectedIndex
+                        dismiss()
+                        if let onTitleTap {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                onTitleTap(currentIndex)
+                            }
+                        }
+                    }
+                )
                 .transition(.move(edge: .top).combined(with: .opacity))
                 .allowsHitTesting(!isVideoPlaying)
-
-                VStack(spacing: 0) {
-                    Spacer()
-                    MediaBottomBar(
-                        index: selectedIndex,
-                        total: pages.count,
-                        onShare: { handleShareTapped() },
-                        onSave: { handleSave() },
-                        onDelete: { showDeleteAlert = true }
-                    )
-                }
+            }
+        }
+        .safeAreaBar(edge: .bottom) {
+            if showChrome {
+                MediaBottomBar(
+                    index: selectedIndex,
+                    total: pages.count,
+                    onShare: { handleShareTapped() },
+                    onSave: { handleSave() },
+                    onDelete: { showDeleteAlert = true }
+                )
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .allowsHitTesting(!isVideoPlaying)
             }
@@ -140,6 +152,9 @@ struct MediaView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.hidden)
         }
+        .apexSwipeBackDisabled(true)
+        .onAppear { ApexSwipeBackState.shared.isDisabled = true }
+        .onDisappear { ApexSwipeBackState.shared.isDisabled = false }
     }
 
     @ViewBuilder

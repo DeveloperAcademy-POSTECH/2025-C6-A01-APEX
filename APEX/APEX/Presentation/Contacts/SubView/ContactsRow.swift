@@ -34,7 +34,7 @@ struct ContactsRow: View {
                 avatar
 
                 VStack(alignment: .leading, spacing: Metrics.nameSubtitleSpacing) {
-                    Text("\(client.name) \(client.surname)")
+                    Text(client.autoFormattedName)
                         .font(.body2)
                         .foregroundColor(.primary)
                         .lineLimit(1)
@@ -71,7 +71,10 @@ struct ContactsRow: View {
         // 우측 스와이프: 삭제
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             // Hide delete for my profile row
-            let isMe = (client.email ?? "") == sampleMyProfileClient.email
+            let isMe: Bool = {
+                guard let first = ClientsStore.shared.clients.first else { return false }
+                return first.id == client.id
+            }()
             if !isMe, let onDelete {
                 Button(role: .destructive) {
                     onDelete()
@@ -82,7 +85,7 @@ struct ContactsRow: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(client.name) \(client.surname), \(subtitle)")
+        .accessibilityLabel("\(client.autoFormattedName), \(subtitle)")
         .accessibilityAddTraits(.isButton) // 행이 버튼 역할임을 명확히
     }
 

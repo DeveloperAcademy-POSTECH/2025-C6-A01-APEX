@@ -23,11 +23,23 @@ struct ArchiveListView: View {
 	let viewerTitle: String
 	let excludedClientIds: [UUID]
 	var onClose: () -> Void
+    @EnvironmentObject private var router: NavigationRouter
 	@State private var selectedTab: ArchiveSection = .media
+    private struct MediaViewerHandle: Identifiable { let id: UUID }
+    @State private var mediaViewer: MediaViewerHandle?
     // Record viewer
     private struct ArchiveRecordPayload: Identifiable { let id = UUID(); let url: URL }
     @State private var recordPayload: ArchiveRecordPayload?
-
+    
+    private enum Metrics {
+        static let horizontalPadding: CGFloat = 12
+        static let tapBetweenContentGap: CGFloat = 16
+        static let groupMonthMediaGap: CGFloat = 16
+        static let monthAndMediaGap: CGFloat = 6
+        static let mediaGap: CGFloat = 2
+        static let mediaSize: CGFloat = 121.67
+    }
+    
 	var body: some View {
 		VStack(spacing: 0) {
 			APEXSheetTopBar(
@@ -38,9 +50,8 @@ struct ArchiveListView: View {
 				onClose: { onClose() },
 				rightIconSystemName: nil,
                 showsRightButton: false,
-                leftIconSystemName: "chevron.left"
+                leftIconSystemName: "xmark"
 			)
-			.padding(.bottom, 4)
 
 			APEXUnderlineTabs(
 				items: ["사진/동영상", "파일", "링크", "음성메모"],
@@ -52,12 +63,63 @@ struct ArchiveListView: View {
 			.background(Color("Background"))
 
 			content
-				.padding(.horizontal, 12)
-				.padding(.bottom, 16)
+                .padding(.vertical, Metrics.tapBetweenContentGap)
+                .padding(.horizontal, Metrics.horizontalPadding)
 				.background(Color("Background"))
 				.ignoresSafeArea(edges: .bottom)
 		}
+		.contentShape(Rectangle())
+		.simultaneousGesture(
+			DragGesture(minimumDistance: 20)
+				.onEnded { value in
+					let dx = value.translation.width
+					let dy = value.translation.height
+					guard abs(dx) > abs(dy), abs(dx) > 40 else { return }
+					let currentIndex = tabIndex(from: selectedTab)
+					if dx < 0 {
+						let next = min(3, currentIndex + 1)
+						if next != currentIndex {
+							withAnimation(.easeInOut(duration: 0.25)) {
+								selectedTab = indexToTab(next)
+							}
+						}
+					} else {
+						let prev = max(0, currentIndex - 1)
+						if prev != currentIndex {
+							withAnimation(.easeInOut(duration: 0.25)) {
+								selectedTab = indexToTab(prev)
+							}
+						}
+					}
+				}
+		)
 		.background(Color("Background"))
+        // Present MediaView above this list locally so it doesn't appear behind this fullScreen cover
+        .environment(\.apexOpenMediaViewer, { payload in
+            APEXMediaViewerStore.shared.put(payload)
+            mediaViewer = MediaViewerHandle(id: payload.id)
+        })
+        .fullScreenCover(item: $mediaViewer) { handle in
+            if let payload = APEXMediaViewerStore.shared.get(handle.id) {
+                MediaView(
+                    items: payload.items,
+                    selectedIndex: payload.index,
+                    title: payload.title,
+                    uploadedAt: payload.uploadedAt,
+                    excludedClientIds: payload.excludedClientIds,
+                    onSave: payload.onSave,
+                    onDelete: payload.onDelete,
+                    onTitleTap: payload.onTitleTap
+                )
+                .onDisappear {
+                    APEXMediaViewerStore.shared.remove(handle.id)
+                }
+                .toolbar(.hidden, for: .navigationBar)
+                .toolbar(.hidden, for: .tabBar)
+            } else {
+                Color.clear
+            }
+        }
         .fullScreenCover(item: $recordPayload) { payload in
             RecordView(audioURL: payload.url)
         }
@@ -106,18 +168,18 @@ struct ArchiveListView: View {
 	@ViewBuilder
 	private var content: some View {
 		ScrollView {
-			LazyVStack(alignment: .leading, spacing: 16) {
+            LazyVStack(alignment: .leading, spacing: Metrics.groupMonthMediaGap) {
 				switch selectedTab {
 				case .media:
 					let groups = groupByMonth(media, date: { $0.uploadedAt })
 					ForEach(groups.indices, id: \.self) { gIdx in
 						let group = groups[gIdx]
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: Metrics.monthAndMediaGap) {
                             sectionHeader(group.keyDate)
-                        let columns = [GridItem(.flexible(minimum: 121.67), spacing: 2),
-                                       GridItem(.flexible(minimum: 121.67), spacing: 2),
-                                       GridItem(.flexible(minimum: 121.67), spacing: 2)]
-                        LazyVGrid(columns: columns, spacing: 2) {
+                            let columns = [GridItem(.flexible(minimum: Metrics.mediaSize), spacing: Metrics.mediaGap),
+                                       GridItem(.flexible(minimum: Metrics.mediaSize), spacing: Metrics.mediaGap),
+                                       GridItem(.flexible(minimum: Metrics.mediaSize), spacing: Metrics.mediaGap)]
+                        LazyVGrid(columns: columns, spacing: Metrics.mediaGap) {
                                 ForEach(Array(group.items.enumerated()), id: \.element.id) { idx, item in
                                 APEXMediaTile(
                                     source: item.isVideo
@@ -127,8 +189,8 @@ struct ArchiveListView: View {
                                     variant: .grid,
                                     showsDuration: false
                                 )
-                                    .frame(height: 121.67)
-                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                .frame(width: Metrics.mediaSize, height: Metrics.mediaSize)
+                                        .clipShape(Rectangle())
                                         // Keep duration always visible on top for videos
                                         .overlay(alignment: .bottomLeading) {
                                             if item.isVideo, let url = item.videoURL {
@@ -147,8 +209,8 @@ struct ArchiveListView: View {
 												}
 											},
 											index: idx,
-											title: viewerTitle,
-											uploadedAt: nil,
+											title: ownerNameForFlattenedMedia(item) ?? viewerTitle,
+											uploadedAt: group.items[idx].uploadedAt,
                                             excludedClientIds: excludedClientIds,
                                             onDelete: { removedIndex, _ in
                                                 let flat = group.items
@@ -156,6 +218,57 @@ struct ArchiveListView: View {
                                                 // Try to infer clientId from excludedClientIds first (ChatDetail passes single client id)
                                                 if let clientId = excludedClientIds.first {
                                                     deleteFlattenedMedia(item: flat[removedIndex], clientId: clientId)
+                                                }
+                                            },
+                                            onTitleTap: { current in
+                                                // Map current index to owning client and note id, then navigate
+                                                let anchors: [(clientId: UUID, noteId: UUID)?] = group.items.map { mediaItem in
+                                                    if let parsed = parseFlattenedMediaId(mediaItem.id) {
+                                                        if let owner = ownerForFlattenedMedia(mediaItem) {
+                                                            return (owner.clientId, parsed.noteId)
+                                                        }
+                                                    }
+                                                    return nil
+                                                }
+                                                guard anchors.indices.contains(current),
+                                                      let anchor = anchors[current] else { return }
+                                                // Dismiss ArchiveListView first, then push chat to ensure it appears on top
+                                                onClose()
+                                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                                    // If a chat for this client already exists in the stack, pop back to it; otherwise push.
+                                                    if let idx = router.path.lastIndex(where: {
+                                                        if case let .chat(id) = $0 { return id == anchor.clientId }
+                                                        return false
+                                                    }) {
+                                                        let newPath = Array(router.path.prefix(idx + 1))
+                                                        router.setPath(newPath)
+                                                    } else {
+                                                        router.push(.chat(anchor.clientId))
+                                                    }
+                                                    // Post after chat has mounted to guarantee ScrollViewReader is ready
+                                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                                        NotificationCenter.default.post(
+                                                            name: .apexNavigateToNote,
+                                                            object: nil,
+                                                            userInfo: ["noteId": anchor.noteId]
+                                                        )
+                                                    }
+                                                    // Retry once more to cover edge cases where initial post races with mount/data load
+                                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                                                        NotificationCenter.default.post(
+                                                            name: .apexNavigateToNote,
+                                                            object: nil,
+                                                            userInfo: ["noteId": anchor.noteId]
+                                                        )
+                                                    }
+                                                    // Extra retry for slower mount paths (e.g., presented from Search)
+                                                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                                                        NotificationCenter.default.post(
+                                                            name: .apexNavigateToNote,
+                                                            object: nil,
+                                                            userInfo: ["noteId": anchor.noteId]
+                                                        )
+                                                    }
                                                 }
                                             }
 										)
@@ -167,18 +280,18 @@ struct ArchiveListView: View {
 					let groups = groupByMonth(files, date: { $0.uploadedAt })
 					ForEach(groups.indices, id: \.self) { gIdx in
 						let group = groups[gIdx]
-                        VStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: Metrics.monthAndMediaGap) {
                             sectionHeader(group.keyDate)
-                            let columns = [GridItem(.flexible(minimum: 100), spacing: 8),
-                                           GridItem(.flexible(minimum: 100), spacing: 8),
-                                           GridItem(.flexible(minimum: 100), spacing: 8)]
-                            LazyVGrid(columns: columns, spacing: 8) {
+                            let columns = [GridItem(.flexible(minimum: 100), spacing: Metrics.mediaGap),
+                                           GridItem(.flexible(minimum: Metrics.mediaSize), spacing: Metrics.mediaGap),
+                                           GridItem(.flexible(minimum: Metrics.mediaSize), spacing: Metrics.mediaGap)]
+                            LazyVGrid(columns: columns, spacing: Metrics.mediaGap) {
                                 ForEach(group.items, id: \.id) { item in
                                     APEXFileTile(
                                         url: item.url,
                                         contentType: item.contentType,
                                         highlightQuery: nil,
-                                        size: 119,
+                                        size: Metrics.mediaSize,
                                         onTap: {
                                             if FileManager.default.fileExists(atPath: item.url.path) {
                                                 UIApplication.shared.open(item.url, options: [:], completionHandler: nil)
@@ -191,15 +304,14 @@ struct ArchiveListView: View {
 					}
 				case .links:
 					let groups = groupByMonth(links, date: { $0.uploadedAt })
-					let spacing: CGFloat = 8
-					let colWidth = (UIScreen.main.bounds.width - 32 - spacing) / 2.0
+                    let colWidth = (UIScreen.main.bounds.width - Metrics.horizontalPadding * 2 - Metrics.mediaGap) / 2.0
 					ForEach(groups.indices, id: \.self) { gIdx in
 						let group = groups[gIdx]
-                        VStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: Metrics.monthAndMediaGap) {
                             sectionHeader(group.keyDate)
-                            let columns = [GridItem(.flexible(minimum: colWidth), spacing: spacing),
-                                           GridItem(.flexible(minimum: colWidth), spacing: spacing)]
-                            LazyVGrid(columns: columns, spacing: spacing) {
+                            let columns = [GridItem(.flexible(minimum: colWidth), spacing: Metrics.mediaGap),
+                                           GridItem(.flexible(minimum: colWidth), spacing: Metrics.mediaGap)]
+                            LazyVGrid(columns: columns, spacing: Metrics.mediaGap) {
                                 ForEach(group.items, id: \.id) { item in
                                     LinkPreviewCard(url: item.url, width: colWidth)
                                 }
@@ -210,23 +322,23 @@ struct ArchiveListView: View {
 					let groups = groupByMonth(audios, date: { $0.uploadedAt })
 					ForEach(groups.indices, id: \.self) { gIdx in
 						let group = groups[gIdx]
-                        VStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: Metrics.monthAndMediaGap) {
                             sectionHeader(group.keyDate)
-                            let columns = [GridItem(.flexible(minimum: 100), spacing: 8),
-                                           GridItem(.flexible(minimum: 100), spacing: 8),
-                                           GridItem(.flexible(minimum: 100), spacing: 8)]
-                            LazyVGrid(columns: columns, spacing: 8) {
+                            let columns = [
+                                GridItem(.flexible(minimum: Metrics.mediaSize), spacing: Metrics.mediaGap),
+                                GridItem(.flexible(minimum: Metrics.mediaSize), spacing: Metrics.mediaGap),
+                                GridItem(.flexible(minimum: Metrics.mediaSize), spacing: Metrics.mediaGap)
+                            ]
+                            LazyVGrid(columns: columns, spacing: Metrics.mediaGap) {
                                 ForEach(group.items, id: \.id) { item in
-                                    ZStack {
-                                        AudioSquareTile(
-                                            url: item.url,
-                                            duration: item.duration,
-                                            preferredLength: 119,
-                                            titleOverride: nil,
-                                            highlightQuery: nil
-                                        )
-                                        .allowsHitTesting(false)
-                                    }
+                                    AudioSquareTile(
+                                        url: item.url,
+                                        duration: item.duration,
+                                        preferredLength: 121.67,
+                                        titleOverride: nil,
+                                        highlightQuery: nil
+                                    )
+                                    .allowsHitTesting(false)
                                     .contentShape(Rectangle())
                                     .onTapGesture { recordPayload = ArchiveRecordPayload(url: item.url) }
                                 }
@@ -346,6 +458,27 @@ private func parseFlattenedMediaId(_ id: String) -> (noteId: UUID, isImage: Bool
     } else {
         return nil
     }
+}
+
+// MARK: - Owner resolvers for media items
+private func ownerForFlattenedMedia(_ item: FlattenedMediaItem) -> (clientId: UUID, noteId: UUID)? {
+    guard let parsed = parseFlattenedMediaId(item.id) else { return nil }
+    for client in ClientsStore.shared.clients {
+        var notesForClient = ChatStore.shared.notes(for: client.id)
+        if notesForClient.isEmpty { notesForClient = client.notes }
+        if notesForClient.contains(where: { $0.id == parsed.noteId }) {
+            return (client.id, parsed.noteId)
+        }
+    }
+    return nil
+}
+
+private func ownerNameForFlattenedMedia(_ item: FlattenedMediaItem) -> String? {
+    guard let owner = ownerForFlattenedMedia(item) else { return nil }
+    if let client = ClientsStore.shared.clients.first(where: { $0.id == owner.clientId }) {
+        return client.autoFormattedName
+    }
+    return nil
 }
 
 #Preview {

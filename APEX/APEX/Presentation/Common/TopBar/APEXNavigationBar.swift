@@ -55,7 +55,6 @@ struct APEXNavigationBar: View {
             Button(action: onBack) {
                 Image(systemName: "chevron.left")
                     .font(.title4)
-                    .foregroundColor(foreground)
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
@@ -64,7 +63,6 @@ struct APEXNavigationBar: View {
             Button(action: onBack) {
                 Image(systemName: "chevron.left")
                     .font(.title4)
-                    .foregroundColor(foreground)
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
@@ -81,7 +79,6 @@ struct APEXNavigationBar: View {
             Button(action: onTitleTap) {
                 Text(title)
                     .font(.title3)
-                    .foregroundColor(foreground)
                     .lineLimit(1)
             }
             .buttonStyle(.plain)
@@ -98,7 +95,6 @@ struct APEXNavigationBar: View {
                 Button(action: onSearch) {
                     Image(systemName: "magnifyingglass")
                         .font(.title4)
-                        .foregroundColor(foreground)
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
@@ -107,7 +103,6 @@ struct APEXNavigationBar: View {
                 Button(action: onMenu) {
                     Image(systemName: "square.grid.2x2")
                         .font(.title4)
-                        .foregroundColor(foreground)
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }

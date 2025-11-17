@@ -34,6 +34,12 @@ final class ChatStore {
         lock.unlock()
         NotificationCenter.default.post(name: .apexChatNotesUpdated, object: nil, userInfo: ["clientId": clientId])
     }
+
+    func clear() {
+        lock.lock()
+        clientIdToNotes.removeAll()
+        lock.unlock()
+    }
 }
 
 extension Notification.Name {

@@ -23,7 +23,7 @@ struct APEXSheetTopBar: View {
     private var background: Color = Color("Background")
     private var separator: Color = Color("BackgroundDisabled")
     private var foreground: Color = .black
-    private var height: CGFloat = 52
+    private var height: CGFloat = 44
 
     init(
         title: String,
@@ -59,7 +59,7 @@ struct APEXSheetTopBar: View {
                     }
                 }
                 .frame(height: height)
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 16)
 
             // Center title overlay with optional subtitle
                 VStack(spacing: 2) {
@@ -75,10 +75,10 @@ struct APEXSheetTopBar: View {
                     }
                 }
                 .frame(height: height)
-                .padding(.horizontal, 12)
                 .allowsHitTesting(false)
             }
         }
+        .padding(.vertical, 8)   // 상하 8px 패딩 추가
     }
 
     private var subtitleColor: Color {
@@ -112,22 +112,15 @@ struct APEXSheetTopBar: View {
                 }
                 .frame(height: 44)
                 .padding(.horizontal, 6)
-                .glassEffect()
             } else {
                 Text(rightTitle)
                     .font(.title6)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.85)
-                    .frame(height: 44)
-                    .padding(.horizontal, 8)
-                    .glassEffect()
+                    .foregroundColor(isEnabled ? .black : Color("BackgroundDisabled"))
+                    .frame(width: 52, height: 44)
             }
         }
-        .buttonStyle(
-            TopBarTextButtonStyle(
-                isEnabled: isEnabled
-            )
-        )
+        .buttonStyle(.plain)
+        .glassEffect()
         .disabled(!isEnabled)
         .accessibilityLabel(Text(rightTitle))
     }

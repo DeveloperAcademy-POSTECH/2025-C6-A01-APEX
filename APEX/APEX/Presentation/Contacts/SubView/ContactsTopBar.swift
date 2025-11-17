@@ -11,9 +11,9 @@ struct ContactsTopBar: View {
     private let horizontalPadding: CGFloat = 16
 
     // Colors (안전한 fallback 포함)  
-    private var backgroundColor: Color { Color("Background") }
+    private var backgroundColor: Color { Color.clear } // 투명한 배경으로 변경
     private var titleColor: Color { Color.black } // 항상 검은색
-    private var plusNormalColor: Color { Color.blue } // 시스템 파란색
+    private var plusNormalColor: Color { Color("Primary") } // Primary 색상
     private var plusPressedColor: Color { Color.blue.opacity(0.8) } // 눌린 상태
 
     var body: some View {
@@ -21,9 +21,11 @@ struct ContactsTopBar: View {
             ZStack {
                 // 버튼들 레이아웃
                 HStack {
-                    // 왼쪽 공간 (빈 공간)
-                    Spacer()
-                        .frame(width: 44) // 오른쪽 버튼과 동일한 크기
+                    // 왼쪽에 타이틀 배치
+                    Text(title)
+                        .font(.title1)
+                        .fontWeight(.semibold)
+                        .foregroundColor(titleColor)
                     
                     Spacer()
                     
@@ -34,12 +36,6 @@ struct ContactsTopBar: View {
                         action: onPlus
                     )
                 }
-                
-                // 제목을 절대 가운데에 배치
-                Text(title)
-                    .font(.title1)
-                    .fontWeight(.semibold)
-                    .foregroundColor(titleColor)
             }
             .frame(height: height)
             .padding(.horizontal, horizontalPadding)
@@ -51,7 +47,7 @@ struct ContactsTopBar: View {
     }
 }
 
-// MARK: - Internal + Button (원형 머티리얼 + pressed 색상 반영)
+// MARK: - Internal + Button (NotesManagement 스타일)
 private struct PlusButton: View {
     let normalColor: Color
     let pressedColor: Color
@@ -63,20 +59,20 @@ private struct PlusButton: View {
     var body: some View {
         Button(action: action) {
             ZStack {
-                // 원형 머티리얼 배경 (애플 기본)
+                // 원형 배경 (처음부터 원형으로 렌더링)
                 Circle()
-                    .fill(.ultraThinMaterial)
-                    .frame(width: size, height: size)
-
+                    .fill(Color.background)
+                
                 // 아이콘
                 Image(systemName: "plus")
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundColor(isPressed ? pressedColor : normalColor)
+                
             }
+            .glassEffect()
             .frame(width: size, height: size)
             .contentShape(Circle())
         }
-        .buttonStyle(.plain)
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in

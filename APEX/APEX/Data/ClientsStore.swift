@@ -36,8 +36,8 @@ final class ClientsStore: ObservableObject {
             // Push notes into ChatStore so open chats reflect latest
             syncAllNotesToChatStore()
         } else {
-            // First run: seed ONLY my profile (no other sample clients)
-            let me = ClientsStore.convertToClient(sampleMyProfileClient)
+            // First run: seed ONLY a blank my profile (no sample personal data)
+            let me = ClientsStore.makeBlankMyProfile()
             self.clients = [me]
             // Seed the disk with initial data on first launch
             localStore.saveClients(self.clients)
@@ -97,7 +97,9 @@ final class ClientsStore: ObservableObject {
 
     func add(_ client: Client, atTop: Bool = true) {
         if atTop {
-            clients.insert(client, at: 0)
+            // Keep index 0 reserved for 'my profile'
+            let insertIndex = clients.isEmpty ? 0 : 1
+            clients.insert(client, at: insertIndex)
         } else {
             clients.append(client)
         }
@@ -117,15 +119,12 @@ final class ClientsStore: ObservableObject {
 
     // MARK: - Helpers
     private func injectMyProfileIfNeeded() {
-        // Use email as a stable key for de-duplication
-        let myEmail = sampleMyProfileClient.email
-        let exists = clients.contains { ($0.email ?? "") == myEmail }
-        if !exists {
-            clients.insert(ClientsStore.convertToClient(sampleMyProfileClient), at: 0)
-        }
+        // Only inject a sample "my profile" when there are no clients at all
+        guard clients.isEmpty else { return }
+        clients.insert(ClientsStore.makeBlankMyProfile(), at: 0)
     }
 
-    private static func convertToClient(_ dummy: DummyClient) -> Client {
+    static func convertToClient(_ dummy: DummyClient) -> Client {
         Client(
             profile: dummy.profile,
             nameCardFront: dummy.nameCardFront,
@@ -141,6 +140,38 @@ final class ClientsStore: ObservableObject {
             action: dummy.action,
             favorite: dummy.favorite,
             pin: dummy.pin,
+            notes: []
+        )
+    }
+
+    // MARK: - Reset
+    func resetToInitial() {
+        // Reset in-memory clients to initial "my profile only" state
+        let me = ClientsStore.makeBlankMyProfile()
+        self.clients = [me]
+        // Persist cleared state (also mirrors to App Group)
+        localStore.saveClients(self.clients)
+        // Clear in-memory chats
+        ChatStore.shared.clear()
+    }
+
+    // MARK: - Blank my profile
+    private static func makeBlankMyProfile() -> Client {
+        Client(
+            profile: nil,
+            nameCardFront: nil,
+            nameCardBack: nil,
+            surname: "",
+            name: "",
+            position: nil,
+            company: "",
+            email: nil,
+            phoneNumber: nil,
+            linkedinURL: nil,
+            memo: nil,
+            action: nil,
+            favorite: false,
+            pin: false,
             notes: []
         )
     }

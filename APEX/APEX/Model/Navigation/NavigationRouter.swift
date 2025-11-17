@@ -11,6 +11,8 @@ import Combine
 @MainActor
 final class NavigationRouter: ObservableObject {
 	@Published var path: [NavigationDestination] = []
+    // Pending target note to scroll when opening a chat
+    @Published var pendingScrollToNoteId: UUID?
 	
 	// MARK: - Navigation API
 	func push(_ route: NavigationDestination) {

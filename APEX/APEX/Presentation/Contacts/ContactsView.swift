@@ -10,12 +10,10 @@ import SwiftUI
 struct ContactsView: View {
     @ObservedObject private var store = ClientsStore.shared
     private var favorites: [Client] {
-        let myEmail = sampleMyProfileClient.email
-        return store.clients.filter { ($0.email ?? "") != myEmail && $0.favorite }
+        return Array(store.clients.dropFirst()).filter { $0.favorite }
     }
     private var allUngrouped: [Client] {
-        let myEmail = sampleMyProfileClient.email
-        return store.clients.filter { ($0.email ?? "") != myEmail }
+        return Array(store.clients.dropFirst())
     }
 
     @State private var isFavoritesExpanded: Bool = true
@@ -62,7 +60,6 @@ struct ContactsView: View {
                 deleteOverlay
             }
         }
-        .scrollEdgeEffectStyle(.soft, for: .top)
         .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $isProfileAddPresented) {
             ProfileAddView(onComplete: { newClient in
@@ -72,7 +69,9 @@ struct ContactsView: View {
                     navigateToProfileDetail(newClient)
                 }
             })
-            .padding(.top, 30)
+            .presentationDragIndicator(.hidden)
+            .presentationBackground(.clear)
+            .padding(.top, 10)
         }
         .apexToast(
             isPresented: $showToast,
@@ -88,78 +87,62 @@ struct ContactsView: View {
     // MARK: - Main Content
     
     private var mainContent: some View {
-        ZStack(alignment: .top) {
-            // List를 ZStack의 배경으로 이동
-            List {
-                // MARK: - My Profile (TopBar와 0 간격, Favorites와는 8 간격)
-                // My Profile Row (DummyClient -> Client 변환해 표시)
-                ContactsRow(
-                    client: (store.clients.first { ($0.email ?? "") == sampleMyProfileClient.email }) ?? convertToClient(myProfileDummy),
-                    onToggleFavorite: nil,
-                    onDelete: nil,
-                    onTap: { navigateToMyProfile() },
-                    rowHeight: Metrics.myProfileRowHeight,
-                    subtitleOverride: "My Profile"
-                )
-                .applyListRowCleaning()
+        List {
+            // MARK: - My Profile (TopBar와 0 간격, Favorites와는 8 간격)
+            // My Profile Row (DummyClient -> Client 변환해 표시)
+            ContactsRow(
+                client: (store.clients.first { ($0.email ?? "") == sampleMyProfileClient.email }) ?? convertToClient(myProfileDummy),
+                onToggleFavorite: nil,
+                onDelete: nil,
+                onTap: { navigateToMyProfile() },
+                rowHeight: Metrics.myProfileRowHeight,
+                subtitleOverride: "My Profile"
+            )
+            .applyListRowCleaning()
 
-                if !favorites.isEmpty {
-                    gapRow() // Favorites와 8 간격
-                }
+            if !favorites.isEmpty {
+                gapRow() // Favorites와 8 간격
+            }
 
-                // MARK: - Favorites
-                if !favorites.isEmpty {
-                    ContactsListSection(
-                        title: "Favorites",
-                        count: favorites.count,
-                        isExpanded: $isFavoritesExpanded,
-                        clients: favorites,
-                        onToggleFavorite: { toggleFavorite($0) },
-                        onDelete: { showDeleteConfirmation($0) },
-                        onTapRow: { navigateToProfileDetail($0) },
-                        showsSeparatorBelowHeader: true
-                    )
-                }
-
-                // MARK: - All / Ungrouped (기존 디자인)
+            // MARK: - Favorites
+            if !favorites.isEmpty {
                 ContactsListSection(
-                    title: "All",
-                    count: allUngrouped.count,
-                    isExpanded: $isAllExpanded,
-                    clients: allUngrouped,
-                    groupHeaderTitle: nil,
-                    groupByCompany: true,
+                    title: "Favorites",
+                    count: favorites.count,
+                    isExpanded: $isFavoritesExpanded,
+                    clients: favorites,
                     onToggleFavorite: { toggleFavorite($0) },
                     onDelete: { showDeleteConfirmation($0) },
                     onTapRow: { navigateToProfileDetail($0) },
-                    showsSeparatorBelowHeader: false
+                    showsSeparatorBelowHeader: true
                 )
             }
-            .listStyle(.plain)
-            .listRowSpacing(0)
-            .environment(\.defaultMinListRowHeight, 1)
-            .scrollContentBackground(.hidden)
-            .safeAreaInset(edge: .top, spacing: 0) {
-                // TopBar 높이만큼 투명한 영역 확보
-                Color.clear.frame(height: 68)
-            }
-            
-            // TopBar를 ZStack 상단에 오버레이로 배치
-            if !showMyProfileView && !showProfileDetailView {
-                VStack {
-                    ContactsTopBar(
-                        title: "Contacts",
-                        onPlus: onPlusTap
-                    )
-                    Spacer()
-                }
-            }
+
+            // MARK: - All / Ungrouped (기존 디자인)
+            ContactsListSection(
+                title: "All",
+                count: allUngrouped.count,
+                isExpanded: $isAllExpanded,
+                clients: allUngrouped,
+                groupHeaderTitle: nil,
+                groupByCompany: true,
+                onToggleFavorite: { toggleFavorite($0) },
+                onDelete: { showDeleteConfirmation($0) },
+                onTapRow: { navigateToProfileDetail($0) },
+                showsSeparatorBelowHeader: false
+            )
         }
-        // Removed hidden NavigationLinks; Router handles navigation
+        .listStyle(.plain)
+        .listRowSpacing(0)
+        .environment(\.defaultMinListRowHeight, 1)
+        .scrollContentBackground(.hidden)
         .background(Color("Background"))
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(Color("Background"), for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .safeAreaBar(edge: .top) {
+            ContactsTopBar(
+                title: "Contacts",
+                onPlus: onPlusTap
+            )
+        }
         // Removed duplicate hidden links
         .onChange(of: selectedDummy) { newValue in
             guard let base = selectedClient, let updated = newValue else { return }

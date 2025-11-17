@@ -46,9 +46,7 @@ struct MediaPlaybackBar: View {
                 .foregroundStyle(timeColor)
 
             Button(action: { volume = (volume == 0) ? 1.0 : 0.0 }, label: {
-                Image(systemName: volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                    .foregroundStyle(Color("Primary"))
-                    .font(.system(size: 15, weight: .medium))
+                Image(systemName: volume == 0 ? "Silent" : "sound")
             })
             .accessibilityLabel(Text(volume == 0 ? "소리 켜기" : "음소거"))
         }

@@ -49,6 +49,8 @@ struct ChattingView: View {
     @State private var searchText: String = ""
     @State private var matchedNoteIds: [UUID] = []
     @State private var currentMatchIndex: Int = 0
+    // Suppress auto-scroll-to-bottom when navigating to a specific note
+    @State private var suppressAutoScroll: Bool = false
     @State private var sheetModeBeforeSearch: BottomSheetMode? = nil
     // Date search
     @State private var showDatePicker: Bool = false
@@ -71,6 +73,9 @@ struct ChattingView: View {
         var videos: [URL] = []
     }
     @State private var shareSeed: ShareSeed?
+    // Initial target scroll support
+    @State private var didApplyInitialTargetScroll: Bool = false
+    @State private var initialTargetNoteId: UUID?
     // Parent-scoped record viewer state
     private struct RecordPayload: Identifiable { let id = UUID(); let url: URL }
     @State private var recordPayload: RecordPayload?
@@ -115,12 +120,18 @@ struct ChattingView: View {
                                     if isDeleteSelecting {
                                         let isChecked = selectedNoteIds.contains(note.id)
                                         Button {
-                                            toggleSelection(for: note.id)
+                                            var tx = Transaction()
+                                            tx.disablesAnimations = true
+                                            withTransaction(tx) {
+                                                toggleSelection(for: note.id)
+                                            }
                                         } label: {
                                             Image(systemName: isChecked ? "checkmark.circle.fill" : "circle")
                                                 .font(.system(size: 24, weight: .medium))
                                                 .foregroundStyle(isChecked ? Color("Primary") : .gray)
                                                 .frame(width: 24, height: 24, alignment: .center)
+                                                .contentTransition(.identity)
+                                                .animation(nil, value: selectedNoteIds)
                                         }
                                         .buttonStyle(.plain)
                                     } else {
@@ -129,6 +140,7 @@ struct ChattingView: View {
                                     }
                                 }
                                 .padding(.horizontal, 6.5)
+                                .animation(nil, value: selectedNoteIds)
                                 
                                 HStack {
                                     Spacer(minLength: 0)
@@ -205,7 +217,11 @@ struct ChattingView: View {
                                     .contentShape(Rectangle())
                                     .onTapGesture {
                                         if isDeleteSelecting {
-                                            toggleSelection(for: note.id)
+                                            var tx = Transaction()
+                                            tx.disablesAnimations = true
+                                            withTransaction(tx) {
+                                                toggleSelection(for: note.id)
+                                            }
                                         }
                                     }
                                 }
@@ -239,9 +255,21 @@ struct ChattingView: View {
                         )
                     }
                 )
-                .onTapGesture { UIApplication.apexDismissKeyboard() }
+                .onTapGesture {
+                    UIApplication.apexDismissKeyboard()
+                    if sheetMode == .collapsed {
+                        withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
+                            sheetMode = .hidden
+                        }
+                    }
+                }
                 .onAppear {
                     DispatchQueue.main.async {
+                        // Capture pending initial target (if any) from router once
+                        if initialTargetNoteId == nil, let pending = router.pendingScrollToNoteId {
+                            initialTargetNoteId = pending
+                            router.pendingScrollToNoteId = nil
+                        }
                         if notes.isEmpty {
                             let persisted = ChatStore.shared.notes(for: clientId)
                             if persisted.isEmpty {
@@ -252,16 +280,26 @@ struct ChattingView: View {
                                 notes = persisted
                             }
                         }
-                        proxy.scrollTo(bottomSentinelId, anchor: .bottom)
+                        // Apply initial non-animated target scroll if available
+                        if let target = initialTargetNoteId, !didApplyInitialTargetScroll {
+                            suppressAutoScroll = true
+                            var transaction = Transaction()
+                            transaction.disablesAnimations = true
+                            withTransaction(transaction) {
+                                proxy.scrollTo(target, anchor: .center)
+                            }
+                            didApplyInitialTargetScroll = true
+                        } else if !suppressAutoScroll {
+                            proxy.scrollTo(bottomSentinelId, anchor: .bottom)
+                        }
                         // If any incoming notes carry pending progress, kick off simulations
                         kickOffPendingUploadsIfNeeded()
                     }
                 }
                 .onChange(of: notes.count) { _ in
                     DispatchQueue.main.async {
-                        withAnimation(.easeOut(duration: 0.2)) {
-                            proxy.scrollTo(bottomSentinelId, anchor: .bottom)
-                        }
+                        guard !suppressAutoScroll else { return }
+                        withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(bottomSentinelId, anchor: .bottom) }
                         // 확실히 맨 아래로 이동했을 때 버튼 숨김 (metrics 업데이트 전 선반영)
                         self.showScrollToBottom = false
                     }
@@ -269,12 +307,11 @@ struct ChattingView: View {
                 .onChange(of: bottomBarOffsetY) { _ in
                     // 사용자가 위로 올려본 상태면(auto-scroll off) 건드리지 않음
                     guard !showScrollToBottom else { return }
+                    guard !suppressAutoScroll else { return }
                     // 키보드/레이아웃 반영 직후에 센티널로 스크롤
                     keyboardScrollWork?.cancel()
                     let work = DispatchWorkItem {
-                        withAnimation(.easeOut(duration: 0.2)) {
-                            proxy.scrollTo(bottomSentinelId, anchor: .bottom)
-                        }
+                        withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(bottomSentinelId, anchor: .bottom) }
                     }
                     keyboardScrollWork = work
                     // 레이아웃 적용 직후 실행하여 위치 튐 방지
@@ -282,26 +319,22 @@ struct ChattingView: View {
                 }
                 .onChange(of: bottomInsetHeight) { _ in
                     guard !showScrollToBottom else { return }
+                    guard !suppressAutoScroll else { return }
                     keyboardScrollWork?.cancel()
                     DispatchQueue.main.async {
-                        withAnimation(.easeOut(duration: 0.2)) {
-                            proxy.scrollTo(bottomSentinelId, anchor: .bottom)
-                        }
+                        withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(bottomSentinelId, anchor: .bottom) }
                         self.showScrollToBottom = false
                     }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .apexInputFocused)) { _ in
+                    guard !suppressAutoScroll else { return }
                     keyboardScrollWork?.cancel()
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        proxy.scrollTo(bottomSentinelId, anchor: .bottom)
-                    }
+                    withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(bottomSentinelId, anchor: .bottom) }
                     self.isEditorCurrentlyFocused = true
                     self.showScrollToBottom = false
 
                     let work = DispatchWorkItem {
-                        withAnimation(.easeOut(duration: 0.2)) {
-                            proxy.scrollTo(bottomSentinelId, anchor: .bottom)
-                        }
+                        withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(bottomSentinelId, anchor: .bottom) }
                     }
                     keyboardScrollWork = work
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.06, execute: work)
@@ -311,10 +344,14 @@ struct ChattingView: View {
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .apexNavigateToNote)) { notif in
                     if let noteId = notif.userInfo?["noteId"] as? UUID {
+                        suppressAutoScroll = true
                         withAnimation(.easeInOut(duration: 0.25)) {
                             proxy.scrollTo(noteId, anchor: .center)
                         }
                         self.showScrollToBottom = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            suppressAutoScroll = false
+                        }
                     }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .apexNavigateToDate)) { notif in
@@ -573,71 +610,83 @@ struct ChattingView: View {
                 )
             }
         }
-        
+        .safeAreaBar(edge: .bottom) {
+            if isDeleteSelecting {
+                // Bottom action bar for selection delete
+                Button {
+                    showSelectionDeleteAlert = true
+                } label: {
+                    Text("\(selectedNoteIds.count) 삭제하기")
+                        .font(.body2)
+                        .foregroundColor(selectedNoteIds.isEmpty ? Color("BackgroundDisabled") : Color("Error"))
+                        .frame(maxWidth: .infinity, minHeight: 56)
+                        .background(selectedNoteIds.isEmpty ? Color("BackgroundSecondary") : Color("ErrorContainer"))
+                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 24)
+                .disabled(selectedNoteIds.isEmpty)
+            }
+        }
         .safeAreaInset(edge: .bottom) {
-            VStack(spacing: 8) {
-                if isSearchActive {
-                    APEXSearchBar(
-                        text: $searchText,
-                        isFocused: _isSearchFieldFocused,
-                        onPrev: { navigateToPrevMatch() },
-                        onNext: { navigateToNextMatch() },
-                        onClose: {
-                            isSearchFieldFocused = false
-                            withAnimation { isSearchActive = false }
-                            searchText = ""
-                            matchedNoteIds.removeAll()
-                        },
-                        onTextChange: { _ in
-                            recomputeMatches()
-                            scrollToCurrentMatch()
-                        }
-                    )
-                } else if isDeleteSelecting {
-                    // Bottom action bar for selection delete
-                    Button {
-                        showSelectionDeleteAlert = true
-                    } label: {
-                        Text("\(selectedNoteIds.count) 삭제하기")
-                            .font(.body2)
-                            .foregroundColor(selectedNoteIds.isEmpty ? Color("BackgroundDisabled") : Color("Error"))
-                            .frame(maxWidth: .infinity, minHeight: 56)
-                            .background(selectedNoteIds.isEmpty ? Color("BackgroundSecondary") : Color("ErrorContainer"))
-                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 24)
-                    .disabled(selectedNoteIds.isEmpty)
-                } else {
-                    if !stagedAttachments.isEmpty {
-                        AttachBar(items: stagedAttachments) { removed in
-                            stagedAttachments.removeAll { $0.id == removed.id }
-                        }
-                    }
-
-                    InputBar({ note in
-                        handleIncoming(note: note)
-                    }, onSheetVisibilityChanged: { visible in
-                        // Map InputBar left button toggle to our custom sheet modes
-                        withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
-                            if visible {
-                                sheetMode = .collapsed
-                            } else {
-                                sheetMode = (sheetMode == .expanded) ? .collapsed : .hidden
+            if !isDeleteSelecting {
+                VStack(spacing: 8) {
+                    if isSearchActive {
+                        APEXSearchBar(
+                            text: $searchText,
+                            isFocused: _isSearchFieldFocused,
+                            onPrev: { navigateToPrevMatch() },
+                            onNext: { navigateToNextMatch() },
+                            onClose: {
+                                isSearchFieldFocused = false
+                                withAnimation { isSearchActive = false }
+                                searchText = ""
+                                matchedNoteIds.removeAll()
+                            },
+                            onTextChange: { _ in
+                                recomputeMatches()
+                                scrollToCurrentMatch()
+                            }
+                        )
+                    } else {
+                        if !stagedAttachments.isEmpty {
+                            AttachBar(items: stagedAttachments) { removed in
+                                stagedAttachments.removeAll { $0.id == removed.id }
                             }
                         }
-                    }, stagedAttachments: $stagedAttachments, onBarOffsetChanged: { offset in
-                        bottomBarOffsetY = offset
-                    })
+
+                        InputBar({ note in
+                            handleIncoming(note: note)
+                        }, onSheetVisibilityChanged: { visible in
+                         // If in delete selection mode, force sheet hidden and ignore requests
+                         if isDeleteSelecting {
+                             withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
+                                 sheetMode = .hidden
+                                 bottomBarOffsetY = 0
+                             }
+                             return
+                         }
+                         // Map InputBar left button toggle to our custom sheet modes
+                         withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
+                             if visible {
+                                 sheetMode = .collapsed
+                             } else {
+                                 sheetMode = (sheetMode == .expanded) ? .collapsed : .hidden
+                             }
+                         }
+                        }, stagedAttachments: $stagedAttachments, onBarOffsetChanged: { offset in
+                            bottomBarOffsetY = offset
+                        })
+                    }
                 }
+                .offset(y: bottomBarOffsetY)
+                .animation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2), value: bottomBarOffsetY)
+                .background(
+                    GeometryReader { geo in
+                        Color.clear.preference(key: BottomInsetHeightKey.self, value: geo.size.height)
+                    }
+                )
             }
-            .offset(y: bottomBarOffsetY)
-            .animation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2), value: bottomBarOffsetY)
-            .background(
-                GeometryReader { geo in
-                    Color.clear.preference(key: BottomInsetHeightKey.self, value: geo.size.height)
-                }
-            )
         }
         // Custom overlay sheet (replaces system .sheet for media picker)
         .overlay(alignment: .bottom) {
@@ -706,6 +755,14 @@ struct ChattingView: View {
                 object: nil,
                 userInfo: ["visible": visible]
             )
+        }
+        .onChange(of: isDeleteSelecting) { _, selecting in
+            if selecting {
+                withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
+                    sheetMode = .hidden
+                    bottomBarOffsetY = 0
+                }
+            }
         }
         .onPreferenceChange(BottomInsetHeightKey.self) { height in bottomInsetHeight = height }
         .alert("\(selectedNoteIds.count)개의 노트를 삭제하겠습니까?", isPresented: $showSelectionDeleteAlert) {
@@ -1600,7 +1657,7 @@ private struct MediaGrid: View {
             }
 
             // Last row special spanning when bundle count >= 4
-            if merged.count >= 4, !tail.isEmpty {
+            if !tail.isEmpty {
                 GeometryReader { geo in
                     let totalWidth = geo.size.width
                     let spacing = Metrics.spacing
@@ -2068,15 +2125,27 @@ private struct BottomSheetHost<Content: View>: View {
             .onEnded { value in
                 switch mode {
                 case .collapsed:
-                    // Upward drag expands
-                    if value.translation.height < -threshold || value.predictedEndTranslation.height < -threshold {
+                    // Smooth snap based on where the user ended and momentum
+                    let base = collapsedHeight
+                    // Allow both directions while deciding snap target
+                    let offset = -value.translation.height * 0.9
+                    let endHeight = min(max(base + offset, 0), expandedHeight)
+                    let towardExpanded = (value.predictedEndTranslation.height < -threshold) || (endHeight > (collapsedHeight + expandedHeight) / 2)
+                    let towardHidden = (value.predictedEndTranslation.height > threshold) || (endHeight < collapsedHeight * 0.45)
+                    if towardExpanded {
                         mode = .expanded
+                    } else if towardHidden {
+                        mode = .hidden
+                    } else {
+                        mode = .collapsed
                     }
                 case .expanded:
                     // Downward drag collapses
-                    if value.translation.height > threshold || value.predictedEndTranslation.height > threshold {
-                        mode = .collapsed
-                    }
+                    let base = expandedHeight
+                    let offset = -max(0, value.translation.height) * 1.0
+                    let endHeight = min(max(base + offset, collapsedHeight), expandedHeight)
+                    let towardCollapsed = (value.predictedEndTranslation.height > threshold) || (endHeight < (collapsedHeight + expandedHeight) / 2)
+                    mode = towardCollapsed ? .collapsed : .expanded
                 case .hidden:
                     break
                 }
@@ -2086,9 +2155,14 @@ private struct BottomSheetHost<Content: View>: View {
         let interactiveOffset: CGFloat = {
             switch mode {
             case .collapsed:
-                // allow only upward drag (negative), increase height up to expanded
-                let allowed = min(0, dragY)
-                return -allowed * 0.9 // soften tracking
+                // Allow both: upward to expand, downward to reduce toward hidden
+                let upward = min(0, dragY)     // negative or zero
+                let downward = max(0, dragY)   // positive or zero
+                if downward > 0 {
+                    return -downward * 0.9
+                } else {
+                    return -upward * 0.9
+                }
             case .expanded:
                 // allow only downward drag (positive), decrease height down to collapsed
                 let allowed = max(0, dragY)
@@ -2102,8 +2176,8 @@ private struct BottomSheetHost<Content: View>: View {
         let displayedHeight: CGFloat = {
             switch mode {
             case .collapsed:
-                // Allow interactive growth up to expanded while dragging
-                return min(max(unclampedHeight, collapsedHeight), expandedHeight)
+                // Allow interactive growth up to expanded and reduction down to 0 while dragging
+                return min(max(unclampedHeight, 0), expandedHeight)
             case .expanded:
                 return min(max(unclampedHeight, collapsedHeight), expandedHeight)
             case .hidden:
