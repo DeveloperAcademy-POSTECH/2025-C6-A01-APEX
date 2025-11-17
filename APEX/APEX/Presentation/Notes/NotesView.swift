@@ -30,27 +30,24 @@ struct NotesView: View {
     }
     
     var body: some View {
-        ZStack {
-            mainContent
-            if showDeleteDialog {
+        mainContent
+            .apexToast(
+                isPresented: $showToast,
+                image: Image(systemName: "pin"),
+                text: toastText,
+                buttonTitle: "되돌리기",
+                duration: 1.6,
+                onButtonTap: undoPinAction
+            )
+            .scrollEdgeEffectStyle(.soft, for: .top)
+            .safeAreaBar(edge: .top) {
+                NotesNavigationBar { print("Notes menu tapped") }
+                    .background(Color("Background"))
+            }
+            .toolbar(.hidden, for: .navigationBar)
+            .windowOverlay(isPresented: $showDeleteDialog) {
                 deleteOverlay
             }
-        }
-        .apexToast(
-            isPresented: $showToast,
-            image: Image(systemName: "pin"),
-            text: toastText,
-            buttonTitle: "되돌리기",
-            duration: 1.6,
-            onButtonTap: undoPinAction
-        )
-        
-        .scrollEdgeEffectStyle(.soft, for: .top)
-        .safeAreaBar(edge: .top) {
-            NotesNavigationBar { print("Notes menu tapped") }
-                .background(Color("Background"))
-        }
-        .toolbar(.hidden, for: .navigationBar)
         .onReceive(NotificationCenter.default.publisher(for: .apexChatNotesUpdated)) { notif in
             guard let clientId = notif.userInfo?["clientId"] as? UUID,
                   let idx = clientsStore.clients.firstIndex(where: { $0.id == clientId }) else { return }
