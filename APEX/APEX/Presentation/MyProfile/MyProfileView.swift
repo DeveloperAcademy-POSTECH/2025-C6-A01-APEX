@@ -44,23 +44,16 @@ struct MyProfileView: View {
     }
 
     var body: some View {
-        List {
-            // 헤더 섹션 (패딩 없음 - 전체 화면 너비 사용)
-            Section {
+        ScrollView {
+            LazyVStack(spacing: 0, pinnedViews: []) {
+                // 헤더 섹션 (패딩 없음 - 전체 화면 너비 사용)
                 MyProfileHeaderView(
                     client: adaptedClient,
                     page: $currentPageIndex,
                     onCardTapped: { isShowingCardViewer = true }
                 )
-            }
-            .listRowInsets(EdgeInsets())
-            .listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
-            
-            // 각 컴포넌트를 개별 Section으로 분리 (ContactsView 방식)
-            
-            // 프라이머리 액션
-            Section {
+                
+                // 프라이머리 액션
                 MyProfilePrimaryActionView(title: "메모하기") { openMyChat() }
                     .accessibilityLabel("메모하기")
                     .apexButtonTheme(
@@ -69,13 +62,10 @@ struct MyProfileView: View {
                             height: 56
                         )
                     )
-            }
-            .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 0, trailing: 16))
-            .listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
 
-            // 연락처 섹션
-            Section {
+                // 연락처 섹션
                 MyProfileContactsSection(
                     email: client.email,
                     phone: client.phoneNumber,
@@ -88,55 +78,38 @@ struct MyProfileView: View {
                     }
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .allowsHitTesting(true)  // 내부 터치만 허용
-                .contentShape(Rectangle())  // 명시적 터치 영역 정의
-            }
-            .listRowInsets(EdgeInsets(top: 32, leading: 16, bottom: 0, trailing: 16))
-            .listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
-            .buttonStyle(.plain)  // List Row의 기본 터치 효과 비활성화
-            .onTapGesture { }  // 빈 탭 제스처로 List Row 선택 방지
+                .padding(.horizontal, 16)
+                .padding(.top, 32)
 
-            // 저장공간 섹션
-            Section {
+                // 저장공간 섹션
                 MyProfileStorageSection(
                     usedText: usedSizeText,
                     isPurgeEnabled: false,
                     onManageTapped: { router.push(.dataManagement) },
                     onPurgeTapped: { /* TODO */ }
                 )
-            }
-            .listRowInsets(EdgeInsets(top: 32, leading: 16, bottom: 0, trailing: 16))
-            .listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
+                .padding(.horizontal, 16)
+                .padding(.top, 32)
 
-            // 앱 정보 섹션
-            Section {
+                // 앱 정보 섹션
                 MyProfileAppInfoSection(
                     versionText: Bundle.main.apexVersionString(),
                     onTermsTapped: { /* TODO: 약관 화면/URL */ }
                 )
-            }
-            .listRowInsets(EdgeInsets(top: 32, leading: 16, bottom: 0, trailing: 16))
-            .listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
+                .padding(.horizontal, 16)
+                .padding(.top, 32)
 
-            // 위험 구역 섹션
-            Section {
+                // 위험 구역 섹션
                 MyProfileDangerZoneSection(
                     onLogout: { /* TODO */ },
                     onDeleteAccount: { router.push(.unsubscribe) }
                 )
+                .padding(.horizontal, 16)
+                .padding(.top, 32)
+                .padding(.bottom, 16)  // 마지막 여백
             }
-            .listRowInsets(EdgeInsets(top: 32, leading: 16, bottom: 16, trailing: 16))  // 마지막이라 bottom 16
-            .listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
         .background(Color("Background"))
-        .environment(\.defaultMinListRowHeight, 0)  // 최소 높이 제거
-        .listRowSpacing(0)  // Row 간격 제거
         .safeAreaBar(edge: .top) {
             MyProfileNavigationBar(
                 title: "\(client.surname)\(client.name)",
