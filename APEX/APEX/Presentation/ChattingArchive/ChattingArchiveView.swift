@@ -181,7 +181,7 @@ struct ChattingArchiveView: View {
 
     private var sharedMediaSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            sectionHeader(title: "사진/동영상", iconName: "photo", iconColor: Color("Primary"), action: {
+            sectionHeader(title: "사진/동영상", iconName: "Photo", iconColor: Color("Primary"), action: {
                 archiveSheet = .init(section: .media)
             })
             let allItems = mediaItems
@@ -272,7 +272,7 @@ struct ChattingArchiveView: View {
 
     private var sharedLinksSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader(title: "링크", iconName: "link", iconColor: Color(hex: "BC0D59"), action: {
+            sectionHeader(title: "링크", iconName: "URL", iconColor: Color(hex: "BC0D59"), action: {
                 archiveSheet = .init(section: .links)
             })
             ScrollView(.horizontal, showsIndicators: false) {
@@ -295,7 +295,7 @@ struct ChattingArchiveView: View {
 
     private var sharedFilesSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            sectionHeader(title: "파일", iconName: "document", iconColor: Color(hex: "00B22D"), action: {
+            sectionHeader(title: "파일", iconName: "File", iconColor: Color(hex: "00B22D"), action: {
                 archiveSheet = .init(section: .files)
             })
             ScrollView(.horizontal, showsIndicators: false) {
@@ -328,7 +328,7 @@ struct ChattingArchiveView: View {
 
     private var sharedAudioSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader(title: "음성메모", iconName: "waveform", iconColor: Color(hex: "E28822"), action: {
+            sectionHeader(title: "음성메모", iconName: "Waveform", iconColor: Color(hex: "E28822"), action: {
                 archiveSheet = .init(section: .audio)
             })
             ScrollView(.horizontal, showsIndicators: false) {
@@ -433,7 +433,8 @@ struct ChattingArchiveView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
         }
-        .padding(.horizontal, 24)
+        .padding(.leading, 8)
+        .padding(.trailing, 24)
         .padding(.top, 24)
         .padding(.bottom, 8)
         // Confirmations
@@ -449,7 +450,7 @@ struct ChattingArchiveView: View {
     private func sectionHeader(title: String, iconName: String, iconColor: Color, action: @escaping (() -> Void)) -> some View {
         Button(action: action) {
             HStack(alignment: .center, spacing: 8) {
-                Image(systemName: iconName)
+                Image(iconName)
                     .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(iconColor)
                 

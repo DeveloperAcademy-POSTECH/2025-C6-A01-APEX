@@ -10,12 +10,10 @@ import SwiftUI
 struct ContactsView: View {
     @ObservedObject private var store = ClientsStore.shared
     private var favorites: [Client] {
-        let myEmail = sampleMyProfileClient.email
-        return store.clients.filter { ($0.email ?? "") != myEmail && $0.favorite }
+        return Array(store.clients.dropFirst()).filter { $0.favorite }
     }
     private var allUngrouped: [Client] {
-        let myEmail = sampleMyProfileClient.email
-        return store.clients.filter { ($0.email ?? "") != myEmail }
+        return Array(store.clients.dropFirst())
     }
 
     @State private var isFavoritesExpanded: Bool = true
@@ -94,7 +92,7 @@ struct ContactsView: View {
                 // MARK: - My Profile (TopBar와 0 간격, Favorites와는 8 간격)
                 // My Profile Row (DummyClient -> Client 변환해 표시)
                 ContactsRow(
-                    client: (store.clients.first { ($0.email ?? "") == sampleMyProfileClient.email }) ?? convertToClient(myProfileDummy),
+                    client: store.clients.first ?? convertToClient(myProfileDummy),
                     onToggleFavorite: nil,
                     onDelete: nil,
                     onTap: { navigateToMyProfile() },

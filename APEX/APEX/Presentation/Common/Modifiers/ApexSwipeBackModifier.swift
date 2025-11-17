@@ -36,7 +36,7 @@ private struct ApexSwipeBackModifier: ViewModifier {
 			.simultaneousGesture(
 				DragGesture(minimumDistance: 20)
 					.onEnded { value in
-						guard !isDisabled else { return }
+						guard !isDisabled && !ApexSwipeBackState.shared.isDisabled else { return }
 						let dx = value.translation.width
 						let dy = value.translation.height
 						guard abs(dx) > abs(dy) else { return }

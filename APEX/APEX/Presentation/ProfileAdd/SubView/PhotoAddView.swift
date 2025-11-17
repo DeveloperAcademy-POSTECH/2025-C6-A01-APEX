@@ -117,7 +117,7 @@ struct PhotoAddView: View {
             .padding(.bottom, 16)
             Text(isProfile ? "프로필" : (selectedCardSide == .front ? "명함 앞" : "명함 뒤"))
                 .font(.title2)
-                .padding(.vertical, 16)
+                .padding(.top, 16)
             if !isProfile {
                 HStack(spacing: 8) {
                     ForEach(CardSide.allCases, id: \.self) { side in
@@ -129,6 +129,21 @@ struct PhotoAddView: View {
                 }
                 .padding(.top, 8)
             }
+            // Reset button under preview - reserve space always to prevent layout jump
+            Button {
+                resetImages()
+            } label: {
+                Text("초기화")
+                    .font(.body5)
+                    .foregroundColor(Color("GrayLabel"))
+                    .padding(.vertical, 4)
+                    .padding(.horizontal, 16)
+                    .background(Color("BackgroundSecondary"))
+                    .clipShape(Capsule())
+            }
+            .padding(.top, 16)
+            .opacity((isProfile && pickedProfileImage != nil) || (!isProfile && (pickedFrontImage != nil || pickedBackImage != nil)) ? 1 : 0)
+            .disabled(!((isProfile && pickedProfileImage != nil) || (!isProfile && (pickedFrontImage != nil || pickedBackImage != nil))))
 
             Spacer(minLength: 0)
 
@@ -149,7 +164,7 @@ struct PhotoAddView: View {
                     }
                 }, label: {
                     VStack(spacing: 8) {
-                        Image(systemName: "camera.fill")
+                        Image("Camera")
                             .padding(.horizontal, 17)
                             .padding(.vertical, 22)
                             .frame(width: 64, height: 64)
@@ -160,11 +175,10 @@ struct PhotoAddView: View {
                     }
                     .foregroundColor(.black)
                 })
-                
-                
+
                 Button(action: { handleLibraryTap() }) {
                     VStack(spacing: 4) {
-                        Image(systemName: "photo")
+                        Image("Photo")
                             .padding(.horizontal, 17)
                             .padding(.vertical, 22)
                             .frame(width: 64, height: 64)
@@ -501,6 +515,20 @@ private extension PhotoAddView {
         if UIApplication.shared.canOpenURL(url) {
             UIApplication.shared.open(url, options: [:], completionHandler: nil)
         }
+    }
+
+    func resetImages() {
+        if isProfile {
+            pickedProfileImage = nil
+        } else {
+            pickedFrontImage = nil
+            pickedBackImage = nil
+            selectedCardSide = .front
+        }
+        // Clear any in-progress editing state
+        editingImage = nil
+        editingSide = nil
+        isEditing = false
     }
 }
 

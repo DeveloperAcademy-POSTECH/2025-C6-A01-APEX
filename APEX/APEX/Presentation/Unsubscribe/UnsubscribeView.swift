@@ -10,6 +10,7 @@ import SwiftUI
 struct UnsubscribeView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var router: NavigationRouter
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
     @State private var agreed = false
 
     var body: some View {
@@ -114,8 +115,7 @@ struct UnsubscribeView: View {
     // 4. 탈퇴하기 버튼
     private var unsubscribeButton: some View {
         APEXButton("탈퇴하기", isEnabled: agreed) {
-            // 더미
-            dismiss()
+            performUnsubscribe()
         }
         .apexButtonTheme(
             .init(
@@ -172,4 +172,24 @@ struct UnsubscribeView: View {
 
 #Preview {
     UnsubscribeView()
+}
+
+// MARK: - Actions
+private extension UnsubscribeView {
+    func performUnsubscribe() {
+        guard agreed else { return }
+        // 1) Clear persisted data
+        LocalStore.shared.clearClients()
+        ChatStore.shared.clear()
+        ClientsStore.shared.resetToInitial()
+        // Optionally clear app-specific preferences
+        UserDefaults.standard.removeObject(forKey: "apex.notes.enabledCompanies")
+        UserDefaults.standard.removeObject(forKey: "apex.notes.companyOrder")
+        // 2) Reset onboarding state
+        hasCompletedOnboarding = false
+        // 3) Request app to present onboarding immediately
+        NotificationCenter.default.post(name: .apexRequestOnboarding, object: nil)
+        // 4) Dismiss current view
+        dismiss()
+    }
 }
