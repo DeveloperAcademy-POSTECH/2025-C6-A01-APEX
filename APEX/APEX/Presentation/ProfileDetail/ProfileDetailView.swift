@@ -44,22 +44,24 @@ struct ProfileDetailView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                // 상단 헤더
+        List {
+            // 헤더 섹션 (패딩 없음 - 전체 화면 너비 사용)
+            Section {
                 MyProfileHeaderView(
                     client: adaptedClient,
                     page: $currentPageIndex,
                     onCardTapped: { isShowingCardViewer = true }
                 )
-                .border(.red)
-
-                // 나머지 컨텐츠를 하나의 VStack으로 묶고 패딩 적용
-                VStack(spacing: 32) {
-                    // 프라이머리 액션 - 56px 높이, 15px 코너라운드 적용
-                    MyProfilePrimaryActionView(title: "메모하기") {
-                        openChatForClient()
-                    }
+            }
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            
+            // 각 컴포넌트를 개별 Section으로 분리 (MyProfileView와 동일한 방식)
+            
+            // 프라이머리 액션
+            Section {
+                MyProfilePrimaryActionView(title: "메모하기") { openChatForClient() }
                     .accessibilityLabel("메모하기")
                     .apexButtonTheme(
                         APEXButtonTheme(
@@ -67,42 +69,58 @@ struct ProfileDetailView: View {
                             height: 56
                         )
                     )
-
-                    // 연락처 섹션
-                    MyProfileContactsSection(
-                        email: client.email,
-                        phone: client.phoneNumber,
-                        linkedin: client.linkedinURL,
-                        openExternal: { url in
-                            openExternal(url)
-                        },
-                        copyToPasteboard: { text in
-                            copyToPasteboard(text)
-                        }
-                    )
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    // 메모 섹션
-                    ProfileDetailMemoSection(
-                        memo: client.memo ?? ""
-                    )
-                    .padding(.horizontal, 8) // 다른 섹션과의 패딩 일관성을 위해 조정
-                }
-                .padding(16)
+                    .buttonStyle(.plain)  // 기본 스타일 제거
+                    .scaleEffect(1.0)  // 빠른 호버 효과를 위한 기본 스케일
+                    .animation(.easeInOut(duration: 0.1), value: false)  // 빠른 애니메이션
             }
+            .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 0, trailing: 16))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+
+            // 연락처 섹션
+            Section {
+                MyProfileContactsSection(
+                    email: client.email,
+                    phone: client.phoneNumber,
+                    linkedin: client.linkedinURL,
+                    openExternal: { url in
+                        openExternal(url)
+                    },
+                    copyToPasteboard: { text in
+                        copyToPasteboard(text)
+                    }
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .allowsHitTesting(true)  // 내부 터치만 허용
+                .contentShape(Rectangle())  // 명시적 터치 영역 정의
+            }
+            .listRowInsets(EdgeInsets(top: 32, leading: 16, bottom: 0, trailing: 16))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .buttonStyle(.plain)  // List Row의 기본 터치 효과 비활성화
+            .onTapGesture { }  // 빈 탭 제스처로 List Row 선택 방지
+            
+            // 메모 섹션
+            Section {
+                ProfileDetailMemoSection(
+                    memo: client.memo ?? ""
+                )
+            }
+            .listRowInsets(EdgeInsets(top: 32, leading: 16, bottom: 16, trailing: 16))  // 마지막이라 bottom 16
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
         }
-        .scrollEdgeEffectStyle(.soft, for: .all)
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
         .background(Color("Background"))
+        .environment(\.defaultMinListRowHeight, 0)  // 최소 높이 제거
+        .listRowSpacing(0)  // Row 간격 제거
         .safeAreaBar(edge: .top) {
-            APEXSheetTopBar(
+            MyProfileNavigationBar(
                 title: client.autoFormattedName,
-                rightTitle: "편집",
-                onRightTap: { isPresentingEdit = true },
-                onClose: { router.pop() },
-                leftIconSystemName: "chevron.left"
+                onBack: { router.pop() },
+                onEdit: { isPresentingEdit = true }
             )
-            .padding(.horizontal, 4) // 12px + 4px = 16px
-            .padding(.vertical, 8)   // 상하 8px 패딩 추가
         }
         .toolbar(.hidden, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)

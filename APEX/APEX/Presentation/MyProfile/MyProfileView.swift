@@ -44,20 +44,24 @@ struct MyProfileView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                // 상단 헤더
+        List {
+            // 헤더 섹션 (패딩 없음 - 전체 화면 너비 사용)
+            Section {
                 MyProfileHeaderView(
                     client: adaptedClient,
                     page: $currentPageIndex,
                     onCardTapped: { isShowingCardViewer = true }
                 )
-                .border(.red)
-
-                // 나머지 컨텐츠를 하나의 VStack으로 묶고 패딩 적용
-                VStack(spacing: 32) {
-                    // 프라이머리 액션 - 56px 높이, 15px 코너라운드 적용
-                    MyProfilePrimaryActionView(title: "메모하기") { openMyChat() }
+            }
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            
+            // 각 컴포넌트를 개별 Section으로 분리 (ContactsView 방식)
+            
+            // 프라이머리 액션
+            Section {
+                MyProfilePrimaryActionView(title: "메모하기") { openMyChat() }
                     .accessibilityLabel("메모하기")
                     .apexButtonTheme(
                         APEXButtonTheme(
@@ -65,52 +69,74 @@ struct MyProfileView: View {
                             height: 56
                         )
                     )
-                    .border(.red)
-
-                    // 연락처 섹션
-                    // 섹션 시그니처 변경에 맞춰 openExternal / copyToPasteboard 유틸 콜백을 전달
-                    MyProfileContactsSection(
-                        email: client.email,
-                        phone: client.phoneNumber,
-                        linkedin: client.linkedinURL,
-                        openExternal: { url in
-                            openExternal(url)
-                        },
-                        copyToPasteboard: { text in
-                            copyToPasteboard(text)
-                        }
-                    )
-                    .border(.red)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    // 저장공간 섹션 - 24px 패딩 유지 (건드리지 않음)
-                    MyProfileStorageSection(
-                        usedText: usedSizeText,
-                        isPurgeEnabled: false,
-                        onManageTapped: { router.push(.dataManagement) },
-                        onPurgeTapped: { /* TODO */ }
-                    )
-                    .border(.red)
-
-                    // 앱 정보 섹션 - 24px 패딩 유지 (건드리지 않음)
-                    MyProfileAppInfoSection(
-                        versionText: Bundle.main.apexVersionString(),
-                        onTermsTapped: { /* TODO: 약관 화면/URL */ }
-                    )
-                    .border(.red)
-
-                    // 위험 구역 섹션 - 24px 패딩 유지 (건드리지 않음)
-                    MyProfileDangerZoneSection(
-                        onLogout: { /* TODO */ },
-                        onDeleteAccount: { router.push(.unsubscribe) }
-                    )
-                    
-                }
-                .padding(.vertical, 16)   // 상하 16px 패딩
-                .padding(.horizontal, 16)   // 상하 16px 패딩
             }
+            .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 0, trailing: 16))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+
+            // 연락처 섹션
+            Section {
+                MyProfileContactsSection(
+                    email: client.email,
+                    phone: client.phoneNumber,
+                    linkedin: client.linkedinURL,
+                    openExternal: { url in
+                        openExternal(url)
+                    },
+                    copyToPasteboard: { text in
+                        copyToPasteboard(text)
+                    }
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .allowsHitTesting(true)  // 내부 터치만 허용
+                .contentShape(Rectangle())  // 명시적 터치 영역 정의
+            }
+            .listRowInsets(EdgeInsets(top: 32, leading: 16, bottom: 0, trailing: 16))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .buttonStyle(.plain)  // List Row의 기본 터치 효과 비활성화
+            .onTapGesture { }  // 빈 탭 제스처로 List Row 선택 방지
+
+            // 저장공간 섹션
+            Section {
+                MyProfileStorageSection(
+                    usedText: usedSizeText,
+                    isPurgeEnabled: false,
+                    onManageTapped: { router.push(.dataManagement) },
+                    onPurgeTapped: { /* TODO */ }
+                )
+            }
+            .listRowInsets(EdgeInsets(top: 32, leading: 16, bottom: 0, trailing: 16))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+
+            // 앱 정보 섹션
+            Section {
+                MyProfileAppInfoSection(
+                    versionText: Bundle.main.apexVersionString(),
+                    onTermsTapped: { /* TODO: 약관 화면/URL */ }
+                )
+            }
+            .listRowInsets(EdgeInsets(top: 32, leading: 16, bottom: 0, trailing: 16))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+
+            // 위험 구역 섹션
+            Section {
+                MyProfileDangerZoneSection(
+                    onLogout: { /* TODO */ },
+                    onDeleteAccount: { router.push(.unsubscribe) }
+                )
+            }
+            .listRowInsets(EdgeInsets(top: 32, leading: 16, bottom: 16, trailing: 16))  // 마지막이라 bottom 16
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
         .background(Color("Background"))
+        .environment(\.defaultMinListRowHeight, 0)  // 최소 높이 제거
+        .listRowSpacing(0)  // Row 간격 제거
         .safeAreaBar(edge: .top) {
             MyProfileNavigationBar(
                 title: "\(client.surname)\(client.name)",

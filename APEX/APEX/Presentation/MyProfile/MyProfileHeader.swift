@@ -53,7 +53,6 @@ struct MyProfileNavigationBar: View {
                     .accessibilityAddTraits(.isHeader)
             }
             .padding(.vertical, 8)
-            .border(.red)
         }
     }
 
@@ -123,8 +122,8 @@ public struct MyProfileHeaderView: View {
                 ForEach(Array(items.indices), id: \.self) { index in
                     content(for: items[index])
                         .tag(index)
-                        .frame(maxWidth: .infinity, alignment: .center)
                         .contentShape(Rectangle())
+                        .background(Color.clear)  // 개별 컨텐츠 배경 투명 처리
                         .onTapGesture {
                             let current = items[index]
                             if case .cardFront(_) = current {
@@ -137,6 +136,7 @@ public struct MyProfileHeaderView: View {
             }
             .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
             .frame(height: 232)  // 아바타 크기에 맞춰서 232px로 설정
+            .background(Color.clear)  // TabView 배경 투명 처리
 
             Spacer().frame(height: 4)
             
@@ -172,11 +172,11 @@ public struct MyProfileHeaderView: View {
                     .foregroundColor(.gray)
                     .lineLimit(1)
             }
+            .padding(.horizontal, 16)  // 이름 섹션에만 16px 좌우 패딩
             .padding(.top, 4)      // 상단 4px 패딩 추가
-            .padding(.bottom, 8)   // 하단 8px 패딩 유지
+            .padding(.bottom, 8)   // 하단 8px 패딩만 유지
         }
         .padding(.top, 16)  // 네비게이션 바와의 간격 16px를 내부로 이동
-        .frame(maxWidth: .infinity)
         .onChange(of: pages.count) { _ in
             page = min(page, max(pages.count - 1, 0))
         }
@@ -205,9 +205,14 @@ public struct MyProfileHeaderView: View {
             image
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .frame(maxWidth: .infinity)
-                .frame(height: 214)
-                .clipShape(RoundedRectangle(cornerRadius: 9.28, style: .continuous))
+                .frame(maxWidth: 358, maxHeight: 214)   // 최대 크기 제한으로 비율 유지
+                .background(Color.clear)  // 투명 배경 명시
+                .clipped()  // 경계 밖 콘텐츠 제거
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(Color.clear, lineWidth: 0)  // 투명 스트로크로 기본 테두리 제거
+                )
         case .avatar(let initials):
             Profile(image: nil, initials: initials, size: .large, fontSize: 128)
         }
