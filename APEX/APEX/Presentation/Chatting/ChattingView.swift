@@ -73,6 +73,9 @@ struct ChattingView: View {
         var videos: [URL] = []
     }
     @State private var shareSeed: ShareSeed?
+    // Initial target scroll support
+    @State private var didApplyInitialTargetScroll: Bool = false
+    @State private var initialTargetNoteId: UUID?
     // Parent-scoped record viewer state
     private struct RecordPayload: Identifiable { let id = UUID(); let url: URL }
     @State private var recordPayload: RecordPayload?
@@ -251,6 +254,11 @@ struct ChattingView: View {
                 }
                 .onAppear {
                     DispatchQueue.main.async {
+                        // Capture pending initial target (if any) from router once
+                        if initialTargetNoteId == nil, let pending = router.pendingScrollToNoteId {
+                            initialTargetNoteId = pending
+                            router.pendingScrollToNoteId = nil
+                        }
                         if notes.isEmpty {
                             let persisted = ChatStore.shared.notes(for: clientId)
                             if persisted.isEmpty {
@@ -261,7 +269,16 @@ struct ChattingView: View {
                                 notes = persisted
                             }
                         }
-                        if !suppressAutoScroll {
+                        // Apply initial non-animated target scroll if available
+                        if let target = initialTargetNoteId, !didApplyInitialTargetScroll {
+                            suppressAutoScroll = true
+                            var transaction = Transaction()
+                            transaction.disablesAnimations = true
+                            withTransaction(transaction) {
+                                proxy.scrollTo(target, anchor: .center)
+                            }
+                            didApplyInitialTargetScroll = true
+                        } else if !suppressAutoScroll {
                             proxy.scrollTo(bottomSentinelId, anchor: .bottom)
                         }
                         // If any incoming notes carry pending progress, kick off simulations
