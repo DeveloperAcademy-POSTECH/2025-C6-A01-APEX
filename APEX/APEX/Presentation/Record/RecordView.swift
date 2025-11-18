@@ -7,6 +7,7 @@
 
 import SwiftUI
 import AVFoundation
+import Speech
 
 struct RecordView: View {
     let audioURL: URL?
@@ -14,6 +15,9 @@ struct RecordView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showShareSheet: Bool = false
     @State private var filenameText: String = ""
+    @State private var conversation: String = ""
+	@State private var isTranscribing: Bool = false
+	@State private var sttError: String?
 
     // Playback
     @State private var player: AVAudioPlayer?
@@ -39,24 +43,22 @@ struct RecordView: View {
             VStack(spacing: 0) {
 
                 // Square audio tile (ChattingView UI, larger for editor)
-                HStack {
-                    Spacer(minLength: 0)
+                Group {
                     if let url = workingURL ?? audioURL {
                         AudioSquareTile(
                             url: url,
                             duration: resolveDuration(for: url),
-                            preferredLength: 174,
+                            preferredLength: 173.6,
                             titleOverride: filenameText
                         )
                         .allowsHitTesting(false)
                     } else {
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .fill(Color("BackgroundSecondary"))
-                            .frame(width: 240, height: 240)
+                            .frame(width: 173.6, height: 173.6)
                     }
-                    Spacer(minLength: 0)
                 }
-                .padding(.top, 24)
+                .padding(.vertical, 24)
 
                 // Play/Pause button
                 Button(action: { togglePlay() }, label: {
@@ -68,7 +70,8 @@ struct RecordView: View {
                         .clipShape(Circle())
                 })
                 .buttonStyle(.plain)
-                .padding(.top, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 32)
 
                 // Playback bar (reused)
                 MediaPlaybackBar(
@@ -91,8 +94,7 @@ struct RecordView: View {
                     timeColor: .gray,
                     trackColor: Color.gray.opacity(0.25)
                 )
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
+                .padding(.bottom, 8)
 
                 // Filename editor
                 APEXTextField(
@@ -106,9 +108,14 @@ struct RecordView: View {
                     showsClearButton: true
                 )
                 .id("filenameField")
-                .padding(.horizontal, 16)
-                .padding(.top, 20)
+                .padding(.top, 42)
+                .padding(.bottom, 16)
+                
+                APEXTextField(style: .editor, label: "음성녹음 기록", placeholder: "주요 대화", text: $conversation, isRequired: false)
+                    .frame(height: 165)
+                    .padding(.bottom, 10)
             }
+            .padding(.horizontal, 24)
         }
         // Allow programmatic scrolling only when keyboard is shown
         .scrollDisabled(!isKeyboardShown)
@@ -151,7 +158,7 @@ struct RecordView: View {
                         .buttonStyle(.plain)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                    .padding(.vertical, 8)
                     .padding(.bottom, proxy.safeAreaInsets.bottom) // 홈 인디케이터 보정
                     .background(Color("Background"))
                 }
@@ -192,6 +199,10 @@ struct RecordView: View {
             workingURL = audioURL
             setupPlayerIfNeeded()
             filenameText = defaultTitle()
+			// Auto-run STT when audio exists and no prior text
+			if (workingURL ?? audioURL) != nil, conversation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+				startTranscription()
+			}
         }
         .onDisappear { teardown() }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
@@ -309,8 +320,10 @@ struct RecordView: View {
     // MARK: - File helpers
     private func ensureSharedAudioCopy(of sourceURL: URL) -> URL {
         let fm = FileManager.default
-        // Target directory under Documents/SharedAudios
-        let baseDir = fm.urls(for: .documentDirectory, in: .userDomainMask).first ?? sourceURL.deletingLastPathComponent()
+        // Prefer App Group container; fallback to Documents for safety
+        let baseDir = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.apex.StashShareExtension") ??
+            fm.urls(for: .documentDirectory, in: .userDomainMask).first ??
+            sourceURL.deletingLastPathComponent()
         let sharedDir = baseDir.appendingPathComponent("SharedAudios", isDirectory: true)
         if !fm.fileExists(atPath: sharedDir.path) {
             try? fm.createDirectory(at: sharedDir, withIntermediateDirectories: true)
@@ -383,6 +396,64 @@ struct RecordView: View {
         let secs = rounded % 60
         return String(format: "%02d:%02d", minutes, secs)
     }
+
+	// MARK: - STT (Speech To Text)
+	private func startTranscription() {
+		guard !isTranscribing else { return }
+		guard let url = workingURL ?? audioURL else { return }
+		isTranscribing = true
+		sttError = nil
+
+		SFSpeechRecognizer.requestAuthorization { authStatus in
+			if authStatus != .authorized {
+				DispatchQueue.main.async {
+					self.isTranscribing = false
+					self.sttError = "음성 인식 권한이 필요합니다."
+				}
+				return
+			}
+
+			let koLocale = Locale(identifier: "ko-KR")
+			let preferredLocale = SFSpeechRecognizer.supportedLocales().contains(koLocale) ? koLocale : Locale.current
+			let recognizer = SFSpeechRecognizer(locale: preferredLocale)
+			guard let recognizer = recognizer, recognizer.isAvailable else {
+				DispatchQueue.main.async {
+					self.isTranscribing = false
+					self.sttError = "음성 인식이 현재 불가능합니다."
+				}
+				return
+			}
+
+			let request = SFSpeechURLRecognitionRequest(url: url)
+			request.shouldReportPartialResults = true
+			// Improve accuracy: hint long-form dictation, prefer server-side, provide simple context
+			request.taskHint = .dictation
+			if #available(iOS 13.0, *) {
+				request.requiresOnDeviceRecognition = false
+			}
+			var hints: [String] = []
+			let nameHint = self.filenameText.trimmingCharacters(in: .whitespacesAndNewlines)
+			if !nameHint.isEmpty { hints.append(nameHint) }
+			request.contextualStrings = hints
+
+			recognizer.recognitionTask(with: request) { result, error in
+				if let result = result {
+					DispatchQueue.main.async {
+						self.conversation = result.bestTranscription.formattedString
+					}
+					if result.isFinal {
+						DispatchQueue.main.async { self.isTranscribing = false }
+					}
+				}
+				if let error = error {
+					DispatchQueue.main.async {
+						self.isTranscribing = false
+						self.sttError = error.localizedDescription
+					}
+				}
+			}
+		}
+	}
 }
 
 // Trim handles overlay

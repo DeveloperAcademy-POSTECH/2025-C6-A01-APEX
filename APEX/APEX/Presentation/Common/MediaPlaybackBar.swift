@@ -46,11 +46,11 @@ struct MediaPlaybackBar: View {
                 .foregroundStyle(timeColor)
 
             Button(action: { volume = (volume == 0) ? 1.0 : 0.0 }, label: {
-                Image(systemName: volume == 0 ? "Silent" : "sound")
+                Image(volume == 0 ? "Silent" : "Sound")
             })
             .accessibilityLabel(Text(volume == 0 ? "소리 켜기" : "음소거"))
         }
-        .frame(height: 44)
+        .frame(height: 16)
     }
 }
 
@@ -91,6 +91,7 @@ private struct ProgressSeekBar: View {
                         )
                     )
             }
+            .frame(height: 16)
             .contentShape(Rectangle())
             .highPriorityGesture(
                 DragGesture(minimumDistance: 0)
@@ -122,7 +123,7 @@ private struct ProgressSeekBar: View {
             volume: .constant(0.8),
             onScrub: { _ in }
         )
-        .padding()
+        .background(Color.red)
     }
 }
 
