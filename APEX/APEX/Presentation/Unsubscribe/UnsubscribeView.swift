@@ -29,7 +29,7 @@ struct UnsubscribeView: View {
                     // 2. 텍스트 박스 (안내 문구)
                     informationTextBox
                       
-                        .padding(.top, -14) // 32pt에서 18pt로 조정 (32-18=14)
+                        .padding(.top, -22) // 32pt에서 18pt로 조정 (32-18=14)
                     
                     // 3. 동의 체크박스
                     agreementCheckbox
@@ -74,8 +74,8 @@ struct UnsubscribeView: View {
     // 2. 텍스트 박스 (안내 문구) - 단순화
     private var informationTextBox: some View {
         VStack {
-            Text("여기에 뭐 써야할지 다 같이 고민…")
-                .font(.body)
+            Text("1. 탈퇴하시면 저장하신 모든 정보는 삭제되어 복구할 수 없습니다.\n2. 혹시 서비스 이용 과정에서 불편한 점이 있으셨다면 [junheedl8420@gmail.com]으로 문의해 주세요.")
+                .font(.body3)
                 .foregroundColor(Color("GrayLabel"))
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)

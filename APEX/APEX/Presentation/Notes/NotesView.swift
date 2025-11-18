@@ -112,7 +112,7 @@ private struct OverlayLayer: View {
                     isVisible = false
                 }
             )
-            .padding(.horizontal, 24)
+            .padding(.horizontal, 46)
         }
     }
 }
@@ -125,7 +125,7 @@ private struct DeleteConfirmCard: View {
     var onDelete: () -> Void
     
     private enum Metrics {
-        static let corner: CGFloat = 34
+        static let corner: CGFloat = 24
         static let paddingH: CGFloat = 14
         static let paddingV: CGFloat = 14
         
@@ -150,9 +150,9 @@ private struct DeleteConfirmCard: View {
     }
     
     // 색상 스펙
-    private let deleteActiveRed = Color(red: 0xCC/255.0, green: 0x41/255.0, blue: 0x41/255.0) // #CC4141
-    private let deleteActiveBackground = Color(red: 1.0, green: 0xF6/255.0, blue: 0xF5/255.0) // #FFF6F5
-    private let disabledGrayText = Color(red: 0.55, green: 0.55, blue: 0.55) // 기존 gray
+    private let deleteActiveRed = Color("Error")
+    private let deleteActiveBackground = Color("ErrorHover")
+    private let disabledGrayText = Color("GrayLabel")
     private let checkboxStroke = Color("BackgroundDisabled")
     
     var body: some View {
@@ -163,20 +163,7 @@ private struct DeleteConfirmCard: View {
             buttonsSection
         }
         .padding(.top, Metrics.paddingV)
-        .background(
-            ZStack {
-                Color.clear.background(.ultraThinMaterial)
-                Color(.sRGB, red: 245/255, green: 245/255, blue: 245/255, opacity: 0.4)
-            }
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Metrics.corner, style: .continuous))
-        .shadow(color: .black.opacity(0.10), radius: 16, x: 0, y: 8)
-        .overlay(
-            RoundedRectangle(cornerRadius: Metrics.corner, style: .continuous)
-                .stroke(Color.white.opacity(0.3), lineWidth: 0.5)
-        )
-        .frame(maxWidth: 309)
-        .contentShape(Rectangle())
+        .glassEffect(in: .rect(cornerRadius: 28.0))
         .allowsHitTesting(true)
     }
     
@@ -267,7 +254,7 @@ private struct DeleteConfirmCard: View {
             HStack(alignment: .center, spacing: 10) {
                 Text("취소")
                     .font(.title5)
-                    .foregroundColor(.black)
+                    .foregroundColor(Color("BlackLabel"))
                     .frame(maxWidth: .infinity, alignment: .center)
             }
             .padding(.horizontal, Metrics.buttonHPadding)

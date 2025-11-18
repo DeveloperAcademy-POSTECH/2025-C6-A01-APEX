@@ -314,9 +314,9 @@ private struct ContactsDeleteConfirmCard: View {
     }
     
     // 색상 스펙
-    private let deleteActiveRed = Color(red: 0xCC/255.0, green: 0x41/255.0, blue: 0x41/255.0) // #CC4141
-    private let deleteActiveBackground = Color(red: 1.0, green: 0xF6/255.0, blue: 0xF5/255.0) // #FFF6F5
-    private let disabledGrayText = Color(red: 0.55, green: 0.55, blue: 0.55) // 기존 gray
+    private let deleteActiveRed = Color("Error")
+    private let deleteActiveBackground = Color("ErrorHover")
+    private let disabledGrayText = Color("GrayLabel")
     private let checkboxStroke = Color("BackgroundDisabled")
     
     var body: some View {
