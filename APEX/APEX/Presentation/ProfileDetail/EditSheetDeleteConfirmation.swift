@@ -46,7 +46,7 @@ struct EditSheetOverlayLayer: View {
                     }
                 }
             )
-            .padding(.horizontal, 24)
+            .padding(.horizontal, 46)
             .contentShape(Rectangle())
             .zIndex(1)
             .accessibilityAddTraits(.isModal)
@@ -61,73 +61,65 @@ private struct EditSheetDeleteConfirmCard: View {
     var onDelete: () -> Void
     
     private enum Metrics {
-        static let corner: CGFloat = 34
-        static let paddingH: CGFloat = 14
-        static let paddingV: CGFloat = 14
+        // 통일된 값들
+        static let cornerRadius: CGFloat = 32
+        static let horizontalPadding: CGFloat = 16
+        static let verticalPadding: CGFloat = 16
         
+        // 간격들
         static let titleTop: CGFloat = 8
-        static let titleToBody: CGFloat = 10
-        static let bodyToCheck: CGFloat = 10
-        static let checkToButtons: CGFloat = 24
+        static let sectionSpacing: CGFloat = 16
+        static let checkboxToButtonSpacing: CGFloat = 24  // 체크박스와 버튼 사이
+        static let buttonSpacing: CGFloat = 16
         
-        static let buttonsSpacing: CGFloat = 16
-        
+        // 체크박스
         static let checkboxSize: CGFloat = 24
+        static let confirmSpacing: CGFloat = 16
         
-        // Button spec
+        // 버튼
         static let buttonHeight: CGFloat = 48
-        static let buttonWidth: CGFloat = 133
+        static let buttonWidth: CGFloat = 120
         static let buttonCorner: CGFloat = 100
-        static let buttonHPadding: CGFloat = 16
-        static let buttonVPadding: CGFloat = 13
-        
-        // Confirm section spacing
-        static let confirmCheckSpacing: CGFloat = 16
     }
     
     // 색상 스펙
-    private let deleteActiveRed = Color(red: 0xCC/255.0, green: 0x41/255.0, blue: 0x41/255.0) // #CC4141
-    private let deleteActiveBackground = Color(red: 1.0, green: 0xF6/255.0, blue: 0xF5/255.0) // #FFF6F5
-    private let disabledGrayText = Color(red: 0.55, green: 0.55, blue: 0.55) // 기존 gray
+    private let deleteActiveRed = Color("Error")
+    private let deleteActiveBackground = Color("ErrorHover")
+    private let disabledGrayText = Color("GrayLabel")
     private let checkboxStroke = Color("BackgroundDisabled")
     
     var body: some View {
         VStack(spacing: 0) {
             titleSection
+            
+            Spacer()
+                .frame(height: Metrics.sectionSpacing)
+            
             bodySection
-            confirmCheckSection
+            
+            Spacer()
+                .frame(height: Metrics.sectionSpacing)
+            
+            confirmSection
+            
+            Spacer()
+                .frame(height: Metrics.checkboxToButtonSpacing)
+            
             buttonsSection
         }
-        .padding(.top, Metrics.paddingV)
-        .background(
-            ZStack {
-                Color.clear.background(.ultraThinMaterial)
-                Color(.sRGB, red: 245/255, green: 245/255, blue: 245/255, opacity: 0.4)
-            }
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Metrics.corner, style: .continuous))
-        .shadow(color: .black.opacity(0.10), radius: 16, x: 0, y: 8)
-        .overlay(
-            RoundedRectangle(cornerRadius: Metrics.corner, style: .continuous)
-                .stroke(Color.white.opacity(0.3), lineWidth: 0.5)
-        )
-        .frame(maxWidth: 309)
-        .contentShape(Rectangle())
-        .allowsHitTesting(true)
+        .padding(Metrics.horizontalPadding)
+        .glassEffect(in: .rect(cornerRadius: Metrics.cornerRadius))
     }
     
-    // MARK: Sections
+    // MARK: - Sections
     
     private var titleSection: some View {
-        VStack(spacing: 0) {
-            Spacer().frame(height: Metrics.titleTop)
-            Text("'\(clientName)' 연락처를\n영구적으로 삭제하겠습니까?")
-                .font(.body1)
-                .foregroundColor(.black)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, Metrics.paddingH)
-            Spacer().frame(height: Metrics.titleToBody)
-        }
+        Text("'\(clientName)' 연락처를\n영구적으로 삭제하겠습니까?")
+            .font(.body1)
+            .foregroundColor(Color("BlackLabel"))
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 8)
+            .padding(.top, 8)
     }
     
     private var bodySection: some View {
@@ -135,44 +127,32 @@ private struct EditSheetDeleteConfirmCard: View {
             .font(.body3)
             .foregroundColor(.black)
             .multilineTextAlignment(.center)
-            .padding(.horizontal, Metrics.paddingH + 8)
-            .padding(.bottom, Metrics.bodyToCheck)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 8)
     }
     
-    private var confirmCheckSection: some View {
+    private var confirmSection: some View {
         Button {
-            // 상태 토글은 버튼 액션에서만 애니메이션 처리
             withAnimation(.easeInOut(duration: 0.2)) {
                 isChecked.toggle()
             }
         } label: {
-            HStack(spacing: Metrics.confirmCheckSpacing) {
+            HStack(spacing: Metrics.confirmSpacing) {
                 checkboxView
                 Text("위 내용을 모두 확인했습니다.")
                     .font(.body2)
                     .foregroundColor(.black)
                 Spacer()
             }
-            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, Metrics.paddingH + 8)
-        .padding(.top, 8)
-        .padding(.bottom, 10)
-        .frame(maxWidth: .infinity, alignment: .top)
-        .accessibilityLabel("내용 확인 동의")
-        .accessibilityValue(isChecked ? "선택됨" : "선택 안됨")
+        .padding(.horizontal, 8)
     }
     
     private var buttonsSection: some View {
-        VStack(spacing: 0) {
-            Spacer().frame(height: Metrics.checkToButtons)
-            HStack(spacing: Metrics.buttonsSpacing) {
-                cancelButton
-                deleteButton
-            }
-            .padding(.horizontal, Metrics.paddingH)
-            .padding(.bottom, Metrics.paddingV)
+        HStack(spacing: Metrics.buttonSpacing) {
+            cancelButton
+            deleteButton
         }
     }
     
@@ -193,7 +173,6 @@ private struct EditSheetDeleteConfirmCard: View {
                 .opacity(isChecked ? 1 : 0)
         }
         .frame(width: Metrics.checkboxSize, height: Metrics.checkboxSize)
-        .contentShape(Circle())
         .animation(.easeInOut(duration: 0.2), value: isChecked)
     }
     
@@ -205,8 +184,8 @@ private struct EditSheetDeleteConfirmCard: View {
                     .foregroundColor(.black)
                     .frame(maxWidth: .infinity, alignment: .center)
             }
-            .padding(.horizontal, Metrics.buttonHPadding)
-            .padding(.vertical, Metrics.buttonVPadding)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 13)
             .frame(width: Metrics.buttonWidth, height: Metrics.buttonHeight, alignment: .center)
             .background(Color("BackgroundSecondary"))
             .cornerRadius(Metrics.buttonCorner)
@@ -223,8 +202,8 @@ private struct EditSheetDeleteConfirmCard: View {
                     .foregroundColor(isChecked ? deleteActiveRed : disabledGrayText)
                     .frame(maxWidth: .infinity, alignment: .center)
             }
-            .padding(.horizontal, Metrics.buttonHPadding)
-            .padding(.vertical, Metrics.buttonVPadding)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 13)
             .frame(width: Metrics.buttonWidth, height: Metrics.buttonHeight, alignment: .center)
             .background(isChecked ? deleteActiveBackground : Color("BackgroundSecondary"))
             .cornerRadius(Metrics.buttonCorner)

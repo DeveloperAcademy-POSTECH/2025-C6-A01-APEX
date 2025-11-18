@@ -14,6 +14,7 @@ class OverlayWindowManager: ObservableObject {
     static let shared = OverlayWindowManager()
     
     private var overlayWindow: UIWindow?
+    private var hostingController: UIHostingController<AnyView>?
     
     private init() {}
     
@@ -30,15 +31,23 @@ class OverlayWindowManager: ObservableObject {
         overlayWindow?.backgroundColor = .clear
         overlayWindow?.isHidden = false
         
-        let hostingController = UIHostingController(rootView: content())
-        hostingController.view.backgroundColor = .clear
+        let contentView = AnyView(content())
+        hostingController = UIHostingController(rootView: contentView)
+        hostingController?.view.backgroundColor = .clear
         overlayWindow?.rootViewController = hostingController
+    }
+    
+    func updateOverlay<Content: View>(@ViewBuilder content: () -> Content) {
+        guard let hostingController = hostingController else { return }
+        let contentView = AnyView(content())
+        hostingController.rootView = contentView
     }
     
     func hideOverlay() {
         overlayWindow?.isHidden = true
         overlayWindow?.rootViewController = nil
         overlayWindow = nil
+        hostingController = nil
     }
 }
 
@@ -59,6 +68,16 @@ struct WindowOverlayModifier<OverlayContent: View>: ViewModifier {
                 } else {
                     Task { @MainActor in
                         OverlayWindowManager.shared.hideOverlay()
+                    }
+                }
+            }
+            .onReceive(Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()) { _ in
+                // 주기적으로 오버레이 컨텐츠 업데이트 (바인딩 반영을 위해)
+                if isPresented {
+                    Task { @MainActor in
+                        OverlayWindowManager.shared.updateOverlay {
+                            overlayContent()
+                        }
                     }
                 }
             }
