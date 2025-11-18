@@ -21,6 +21,7 @@ struct NotesNavigationBar: View {
     }
 
     @State private var isCompanyEnabled: Bool = false
+    @State private var showCompanyManagementSheet: Bool = false
 
     var body: some View {
         ZStack {
@@ -36,7 +37,8 @@ struct NotesNavigationBar: View {
                     normalColor: Color("Primary"),
                     pressedColor: Color("PrimaryHover"),
                     onMenuTap: onMenuTap,
-                    isCompanyEnabled: $isCompanyEnabled
+                    isCompanyEnabled: $isCompanyEnabled,
+                    onCompanyManagementTapped: { showCompanyManagementSheet = true }
                 )
                 .frame(width: Metrics.menuButtonSize, height: Metrics.menuButtonSize, alignment: .trailing)
                 .accessibilityLabel(Text("메뉴"))
@@ -47,6 +49,13 @@ struct NotesNavigationBar: View {
             .padding(.vertical, Metrics.barVerticalPadding)
         }
         .frame(maxWidth: .infinity)
+        .sheet(
+            isPresented: $showCompanyManagementSheet,
+            content: {
+                CompanyManagementSheet(isPresented: $showCompanyManagementSheet)
+                    .environmentObject(ClientsStore.shared)
+            }
+        )
     }
 }
 
@@ -60,6 +69,7 @@ private struct MenuToolbarButton: View {
     let pressedColor: Color
     let onMenuTap: () -> Void
     @Binding var isCompanyEnabled: Bool
+    let onCompanyManagementTapped: () -> Void
 
     @State private var isPressed: Bool = false
 
@@ -69,49 +79,58 @@ private struct MenuToolbarButton: View {
     }
 
     var body: some View {
-        Menu {
-            // 회사 관리: Text + Spacer + Toggle(우측 끝)
-            Button(action: { }) {
-                HStack(spacing: Metrics.itemSpacing) {
-                    Text("회사 관리")
-                        .font(.body2)
-                        .foregroundColor(.black)
+        Menu(
+            content: {
+                // 회사 관리: Text + Spacer + Toggle(우측 끝)
+                Button(
+                    action: { onCompanyManagementTapped() },
+                    label: {
+                        HStack(spacing: Metrics.itemSpacing) {
+                            Text("회사 관리")
+                                .font(.body2)
+                                .foregroundColor(.black)
 
-                    Spacer(minLength: 0)
+                            Spacer(minLength: 0)
 
-                    Toggle("", isOn: $isCompanyEnabled)
-                        .labelsHidden()
-                        .fixedSize()
-                        .scaleEffect(Metrics.toggleScale)
+                            Toggle("", isOn: $isCompanyEnabled)
+                                .labelsHidden()
+                                .fixedSize()
+                                .scaleEffect(Metrics.toggleScale)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                )
+
+                // 노트 관리
+                Button(
+                    action: { router.push(.notesManagement) },
+                    label: {
+                        Text("노트 관리")
+                            .font(.body2)
+                            .foregroundColor(Color.blackLabel)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                    }
+                )
+            },
+            label: {
+                ZStack {
+                    // 원형 배경 (처음부터 원형으로 렌더링)
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: size, height: size)
+                        .glassEffect()
+                    
+                    
+                    // 아이콘
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: iconSize, weight: .semibold))
+                        .foregroundColor(isPressed ? .black : .black)
                 }
-                .contentShape(Rectangle())
+                .frame(width: size, height: size)
+                .contentShape(Circle())
             }
-
-            // 노트 관리
-            Button(action: { router.push(.notesManagement)}) {
-                Text("노트 관리")
-                    .font(.body2)
-                    .foregroundColor(Color.blackLabel)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
-            }
-        } label: {
-            ZStack {
-                // 원형 배경 (처음부터 원형으로 렌더링)
-                Circle()
-                    .fill(Color.white)
-                    .frame(width: size, height: size)
-                    .glassEffect()
-                
-
-                // 아이콘
-                Image(systemName: "ellipsis")
-                    .font(.system(size: iconSize, weight: .semibold))
-                    .foregroundColor(isPressed ? .black : .black)
-            }
-            .frame(width: size, height: size)
-            .contentShape(Circle())
-        }
+        )
         .buttonStyle(.plain)
         .menuIndicator(.hidden)
         .simultaneousGesture(

@@ -9,62 +9,34 @@ import SwiftUI
 
 struct ContactsView: View {
     @ObservedObject private var store = ClientsStore.shared
-    private var favorites: [Client] {
-        return Array(store.clients.dropFirst()).filter { $0.favorite }
-    }
-    private var allUngrouped: [Client] {
-        return Array(store.clients.dropFirst())
-    }
+    @StateObject private var viewModel = ContactsViewModel()
 
-    @State private var isFavoritesExpanded: Bool = true
-    @State private var isAllExpanded: Bool = true
-
-    @State private var showToast: Bool = false
-    @State private var toastText: String = "즐겨찾기를 추가했습니다"
-    @State private var isProfileAddPresented: Bool = false
-
-    // 되돌리기 기능을 위한 상태
-    @State private var lastToggledClient: Client?
-    @State private var lastFavoriteAction: FavoriteAction?
-
-
-    // 커스텀 삭제 모달 상태
-    @State private var showDeleteDialog: Bool = false
-    @State private var isDeleteConfirmed: Bool = false
-    @State private var clientToDelete: Client?
     // 내 프로필 상세로 네비게이션 제어
     @State private var showMyProfileView: Bool = false
-    @State private var myProfileDummy: DummyClient = sampleMyProfileClient
     
     // 타인 프로필 상세로 네비게이션 제어
     @State private var showProfileDetailView: Bool = false
     @State private var selectedClient: Client?
     @State private var selectedDummy: DummyClient?
-
+    
     private enum Metrics {
         static let gap: CGFloat = 8
         static let myProfileRowHeight: CGFloat = 72
-    }
-
-    // 즐겨찾기 액션 타입
-    private enum FavoriteAction {
-        case added
-        case removed
     }
 
     @EnvironmentObject private var router: NavigationRouter
     var body: some View {
         ZStack {
             mainContent
-            if showDeleteDialog {
+            if viewModel.showDeleteDialog {
                 deleteOverlay
             }
         }
         .toolbar(.hidden, for: .navigationBar)
-        .sheet(isPresented: $isProfileAddPresented) {
+        .sheet(isPresented: $viewModel.isProfileAddPresented) {
             ProfileAddView(onComplete: { newClient in
                 ClientsStore.shared.add(newClient, atTop: true)
-                isProfileAddPresented = false
+                viewModel.isProfileAddPresented = false
                 DispatchQueue.main.async {
                     navigateToProfileDetail(newClient)
                 }
@@ -74,13 +46,13 @@ struct ContactsView: View {
             .padding(.top, 10)
         }
         .apexToast(
-            isPresented: $showToast,
+            isPresented: $viewModel.showToast,
             image: Image(systemName: "star"),
-            text: toastText,
+            text: viewModel.toastText,
             buttonTitle: "되돌리기",
             duration: 3.0
         ) {
-            undoFavoriteAction()
+            viewModel.send(.undoFavorite)
         }
     }
     
@@ -91,48 +63,48 @@ struct ContactsView: View {
             // MARK: - My Profile (TopBar와 0 간격, Favorites와는 8 간격)
             // My Profile Row (DummyClient -> Client 변환해 표시)
             ContactsRow(
-                client: (store.clients.first { ($0.email ?? "") == sampleMyProfileClient.email }) ?? convertToClient(myProfileDummy),
+                client: viewModel.myProfileClient ?? convertToClient(blankDummy()),
                 onToggleFavorite: nil,
                 onDelete: nil,
                 onTap: { navigateToMyProfile() },
                 rowHeight: Metrics.myProfileRowHeight,
                 subtitleOverride: "My Profile"
             )
+            .equatable()
             .applyListRowCleaning()
 
-            if !favorites.isEmpty {
-                gapRow() // Favorites와 8 간격
-            }
+            gapRow() // Favorites와 8 간격(빈 경우에도 고정 간격 유지)
 
             // MARK: - Favorites
-            if !favorites.isEmpty {
-                ContactsListSection(
-                    title: "Favorites",
-                    count: favorites.count,
-                    isExpanded: $isFavoritesExpanded,
-                    clients: favorites,
-                    onToggleFavorite: { toggleFavorite($0) },
-                    onDelete: { showDeleteConfirmation($0) },
-                    onTapRow: { navigateToProfileDetail($0) },
-                    showsSeparatorBelowHeader: true
-                )
-            }
+            ContactsListSection(
+                title: "Favorites",
+                count: viewModel.favorites.count,
+                isExpanded: $viewModel.isFavoritesExpanded,
+                clients: viewModel.favorites,
+                onToggleFavorite: { viewModel.send(.toggleFavorite($0)) },
+                onDelete: { viewModel.send(.showDelete($0)) },
+                onTapRow: { navigateToProfileDetail($0) },
+                showsSeparatorBelowHeader: true
+            )
 
             // MARK: - All / Ungrouped (기존 디자인)
             ContactsListSection(
                 title: "All",
-                count: allUngrouped.count,
-                isExpanded: $isAllExpanded,
-                clients: allUngrouped,
+                count: viewModel.allUngrouped.count,
+                isExpanded: $viewModel.isAllExpanded,
+                clients: viewModel.allUngrouped,
                 groupHeaderTitle: nil,
                 groupByCompany: true,
-                onToggleFavorite: { toggleFavorite($0) },
-                onDelete: { showDeleteConfirmation($0) },
+                onToggleFavorite: { viewModel.send(.toggleFavorite($0)) },
+                onDelete: { viewModel.send(.showDelete($0)) },
                 onTapRow: { navigateToProfileDetail($0) },
                 showsSeparatorBelowHeader: false
             )
         }
         .listStyle(.plain)
+        .transaction { txn in
+            txn.animation = nil // 재정렬 시 삭제/삽입 애니메이션 억제 → 깜빡임 제거
+        }
         .listRowSpacing(0)
         .environment(\.defaultMinListRowHeight, 1)
         .scrollContentBackground(.hidden)
@@ -140,7 +112,7 @@ struct ContactsView: View {
         .safeAreaBar(edge: .top) {
             ContactsTopBar(
                 title: "Contacts",
-                onPlus: onPlusTap
+                onPlus: { viewModel.send(.onPlusTap) }
             )
         }
         // Removed duplicate hidden links
@@ -170,58 +142,11 @@ struct ContactsView: View {
     
     private var deleteOverlay: some View {
         ContactsOverlayLayer(
-            isVisible: $showDeleteDialog,
-            isChecked: $isDeleteConfirmed,
-            clientToDelete: $clientToDelete,
-            onConfirmDelete: deleteClient
+            isVisible: $viewModel.showDeleteDialog,
+            isChecked: $viewModel.isDeleteConfirmed,
+            clientToDelete: $viewModel.clientToDelete,
+            onConfirmDelete: { viewModel.send(.deleteConfirmed($0)) }
         )
-    }
-
-    // MARK: - Actions
-
-    private func onPlusTap() {
-        isProfileAddPresented = true
-    }
-    
-    private func showDeleteConfirmation(_ client: Client) {
-        clientToDelete = client
-        showDeleteDialog = true
-    }
-
-    private func toggleFavorite(_ client: Client) {
-        // 되돌리기를 위해 현재 상태 저장
-        lastToggledClient = client
-        let toggled = Client(
-            id: client.id,
-            profile: client.profile,
-            nameCardFront: client.nameCardFront,
-            nameCardBack: client.nameCardBack,
-            surname: client.surname,
-            name: client.name,
-            position: client.position,
-            company: client.company,
-            email: client.email,
-            phoneNumber: client.phoneNumber,
-            linkedinURL: client.linkedinURL,
-            memo: client.memo,
-            action: client.action,
-            favorite: !client.favorite,
-            pin: client.pin,
-            notes: client.notes
-        )
-        ClientsStore.shared.update(toggled)
-        lastFavoriteAction = toggled.favorite ? .added : .removed
-        toastText = toggled.favorite ? "즐겨찾기를 추가했습니다" : "즐겨찾기를 해제했습니다"
-        // favorites 배열만 변경하므로 All 섹션은 움직이지 않음
-        presentToast()
-    }
-
-    private func deleteClient(_ client: Client) {
-        ClientsStore.shared.remove(client.id)
-        
-        // 모달 상태 초기화
-        clientToDelete = nil
-        isDeleteConfirmed = false
     }
 
     private func navigateToMyProfile() {
@@ -271,6 +196,26 @@ struct ContactsView: View {
             notes: []
         )
     }
+    
+    private func blankDummy() -> DummyClient {
+        DummyClient(
+            profile: nil,
+            nameCardFront: nil,
+            nameCardBack: nil,
+            surname: "",
+            name: "",
+            position: nil,
+            company: "",
+            email: nil,
+            phoneNumber: nil,
+            linkedinURL: nil,
+            memo: nil,
+            action: nil,
+            favorite: false,
+            pin: false,
+            notes: []
+        )
+    }
 
     // MARK: - Small Helpers
 
@@ -280,67 +225,6 @@ struct ContactsView: View {
             .fill(Color.clear)
             .frame(height: Metrics.gap)
             .applyListRowCleaning()
-    }
-
-    // 토스트를 재표시하기 위한 헬퍼(표시 중에도 다시 트리거 가능)
-    private func presentToast() {
-        if showToast {
-            showToast = false
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
-                showToast = true
-            }
-        } else {
-            showToast = true
-        }
-    }
-    
-    // 즐겨찾기 되돌리기 기능
-    private func undoFavoriteAction() {
-        print("🔄 되돌리기 버튼 클릭됨")
-        
-        guard let client = lastToggledClient,
-              let action = lastFavoriteAction else { 
-            print("❌ 되돌릴 수 있는 액션이 없음")
-            return 
-        }
-        
-        print("🔄 되돌리기 실행: \(client.autoFormattedName), 액션: \(action)")
-        
-        // 저장소의 현재 값을 기준으로 favorite을 되돌림
-        if let current = store.clients.first(where: { $0.id == client.id }) {
-            let shouldBeFavorite: Bool = {
-                switch action {
-                case .added:   return false   // 방금 추가했으니 되돌리면 제거
-                case .removed: return true    // 방금 제거했으니 되돌리면 추가
-                }
-            }()
-            let reverted = Client(
-                id: current.id,
-                profile: current.profile,
-                nameCardFront: current.nameCardFront,
-                nameCardBack: current.nameCardBack,
-                surname: current.surname,
-                name: current.name,
-                position: current.position,
-                company: current.company,
-                email: current.email,
-                phoneNumber: current.phoneNumber,
-                linkedinURL: current.linkedinURL,
-                memo: current.memo,
-                action: current.action,
-                favorite: shouldBeFavorite,
-                pin: current.pin,
-                notes: current.notes
-            )
-            ClientsStore.shared.update(reverted)
-            print(shouldBeFavorite ? "✅ 즐겨찾기에 추가됨(되돌리기)" : "✅ 즐겨찾기에서 제거됨(되돌리기)")
-        }
-        
-        // 되돌리기 완료 후 상태 초기화
-        lastToggledClient = nil
-        lastFavoriteAction = nil
-        showToast = false
-        print("🔄 되돌리기 완료, 토스트 숨김")
     }
 }
 

@@ -78,7 +78,7 @@ struct APEXNavigationBar: View {
         case .memo(let title, _, let onTitleTap, _, _):
             Button(action: onTitleTap) {
                 Text(title)
-                    .font(.title3)
+                    .font(.title5)
                     .lineLimit(1)
             }
             .buttonStyle(.plain)

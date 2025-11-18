@@ -377,7 +377,8 @@ struct ChattingArchiveView: View {
                 Spacer(minLength: 0)
 
                 // Hide favorite button for my own profile
-                let isMe = (client?.email ?? "") == sampleMyProfileClient.email
+                let myId = ClientsStore.shared.clients.first?.id
+                let isMe = (client?.id == myId)
                 if !isMe {
                     Button(action: { isFavorite.toggle() }) {
                         Image(systemName: isFavorite ? "star.fill" : "star")
@@ -413,7 +414,8 @@ struct ChattingArchiveView: View {
             .opacity(totalMediaBytes == 0 ? 0.5 : 1)
 
             // Hide contact delete for my own profile
-            let isMe = (client?.email ?? "") == sampleMyProfileClient.email
+            let myId = ClientsStore.shared.clients.first?.id
+            let isMe = (client?.id == myId)
             if !isMe {
                 Button(role: .destructive) {
                     showDeleteContactOverlay = true

@@ -125,7 +125,8 @@ struct ProfileDetailView: View {
         .toolbar(.hidden, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
         .sheet(isPresented: $isPresentingEdit) {
-            let isMe = (client.email ?? "") == sampleMyProfileClient.email
+            let myId = ClientsStore.shared.clients.first?.id
+            let isMe = (clientId == myId)
             MyProfileEditSheet(
                 client: client,
                 onCancel: { },

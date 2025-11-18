@@ -35,7 +35,7 @@ struct MediaHeaderBar: View {
                     if let uploadedAt {
                         HStack(alignment: .center, spacing: 4) {
                             Text(uploadedAt.formattedHeaderDate)
-                                .font(.caption3)
+                                .font(.caption2)
                             
                             Image(systemName: "chevron.right")
                                 .font(.system(size: 10, weight: .medium))
