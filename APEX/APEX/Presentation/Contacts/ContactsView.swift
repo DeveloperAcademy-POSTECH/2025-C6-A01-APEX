@@ -26,13 +26,11 @@ struct ContactsView: View {
 
     @EnvironmentObject private var router: NavigationRouter
     var body: some View {
-        ZStack {
-            mainContent
-            if viewModel.showDeleteDialog {
+        mainContent
+            .toolbar(.hidden, for: .navigationBar)
+            .windowOverlay(isPresented: $viewModel.showDeleteDialog) {
                 deleteOverlay
             }
-        }
-        .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $viewModel.isProfileAddPresented) {
             ProfileAddView(onComplete: { newClient in
                 ClientsStore.shared.add(newClient, atTop: true)
@@ -141,12 +139,28 @@ struct ContactsView: View {
     }
     
     private var deleteOverlay: some View {
-        ContactsOverlayLayer(
-            isVisible: $viewModel.showDeleteDialog,
-            isChecked: $viewModel.isDeleteConfirmed,
-            clientToDelete: $viewModel.clientToDelete,
-            onConfirmDelete: { viewModel.send(.deleteConfirmed($0)) }
-        )
+        ZStack {
+            // 전체화면 딤 배경
+            Color.black.opacity(0.35)
+                .ignoresSafeArea(.all)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    viewModel.send(.dismissDelete)
+                }
+            
+            // 삭제 확인 카드
+            ContactsDeleteConfirmCard(
+                isChecked: $viewModel.isDeleteConfirmed,
+                onCancel: {
+                    viewModel.send(.dismissDelete)
+                },
+                onDelete: {
+                    guard viewModel.isDeleteConfirmed, let target = viewModel.clientToDelete else { return }
+                    viewModel.send(.deleteConfirmed(target))
+                }
+            )
+            .padding(.horizontal, 24)
+        }
     }
 
     private func navigateToMyProfile() {
@@ -242,45 +256,6 @@ private extension View {
 #Preview { ContactsView() }
 
 // MARK: - Delete Confirmation Components
-// MARK: - Overlay Layer (dimmed bg + card)
-
-private struct ContactsOverlayLayer: View {
-    @Binding var isVisible: Bool
-    @Binding var isChecked: Bool
-    @Binding var clientToDelete: Client?
-    var onConfirmDelete: (Client) -> Void
-    
-    var body: some View {
-        ZStack {
-            // 전체화면 딤 배경 - ignoresSafeArea(.all)로 진짜 전체화면 덮기
-            Color.black.opacity(0.35)
-                .ignoresSafeArea(.all)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    isVisible = false
-                    clientToDelete = nil
-                    isChecked = false
-                }
-            
-            // 삭제 확인 카드
-            ContactsDeleteConfirmCard(
-                isChecked: $isChecked,
-                onCancel: {
-                    isVisible = false
-                    clientToDelete = nil
-                    isChecked = false
-                },
-                onDelete: {
-                    guard isChecked, let target = clientToDelete else { return }
-                    onConfirmDelete(target)
-                    isVisible = false
-                }
-            )
-            .padding(.horizontal, 24)
-        }
-    }
-}
-
 // MARK: - DeleteConfirmCard
 
 private struct ContactsDeleteConfirmCard: View {

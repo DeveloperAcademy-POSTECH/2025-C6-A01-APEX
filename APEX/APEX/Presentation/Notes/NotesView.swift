@@ -13,27 +13,24 @@ struct NotesView: View {
     @StateObject private var viewModel = NotesViewModel()
     
     var body: some View {
-        ZStack {
-            mainContent
-            if viewModel.showDeleteDialog {
+        mainContent
+            .windowOverlay(isPresented: $viewModel.showDeleteDialog) {
                 deleteOverlay
             }
-        }
-        .apexToast(
-            isPresented: $viewModel.showToast,
-            image: Image(systemName: "pin"),
-            text: viewModel.toastText,
-            buttonTitle: "되돌리기",
-            duration: 1.6,
-            onButtonTap: { viewModel.send(.undoPin) }
-        )
-        
-        .scrollEdgeEffectStyle(.soft, for: .top)
-        .safeAreaBar(edge: .top) {
-            NotesNavigationBar { print("Notes menu tapped") }
-                .background(Color("Background"))
-        }
-        .toolbar(.hidden, for: .navigationBar)
+            .apexToast(
+                isPresented: $viewModel.showToast,
+                image: Image(systemName: "pin"),
+                text: viewModel.toastText,
+                buttonTitle: "되돌리기",
+                duration: 1.6,
+                onButtonTap: { viewModel.send(.undoPin) }
+            )
+            .scrollEdgeEffectStyle(.soft, for: .top)
+            .safeAreaBar(edge: .top) {
+                NotesNavigationBar { print("Notes menu tapped") }
+                    .background(Color("Background"))
+            }
+            .toolbar(.hidden, for: .navigationBar)
     }
     
     // MARK: - Main Content
@@ -57,12 +54,28 @@ struct NotesView: View {
     }
     
     private var deleteOverlay: some View {
-        OverlayLayer(
-            isVisible: $viewModel.showDeleteDialog,
-            isChecked: $viewModel.isDeleteConfirmed,
-            clientToDelete: $viewModel.clientToDelete,
-            onConfirmDelete: { viewModel.send(.deleteConfirmed($0)) }
-        )
+        ZStack {
+            // 전체화면 딤 배경
+            Color.black.opacity(0.35)
+                .ignoresSafeArea(.all)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    viewModel.send(.dismissDelete)
+                }
+            
+            // 삭제 확인 카드
+            DeleteConfirmCard(
+                isChecked: $viewModel.isDeleteConfirmed,
+                onCancel: {
+                    viewModel.send(.dismissDelete)
+                },
+                onDelete: {
+                    guard viewModel.isDeleteConfirmed, let target = viewModel.clientToDelete else { return }
+                    viewModel.send(.deleteConfirmed(target))
+                }
+            )
+            .padding(.horizontal, 24)
+        }
     }
     
     // MARK: - Navigation
@@ -78,46 +91,7 @@ struct NotesView: View {
     
 }
 
-// MARK: - Overlay Layer (dimmed bg + card)
-
-private struct OverlayLayer: View {
-    @Binding var isVisible: Bool
-    @Binding var isChecked: Bool
-    @Binding var clientToDelete: Client?
-    var onConfirmDelete: (Client) -> Void
-    
-    var body: some View {
-        ZStack {
-            // 전체화면 딤 배경
-            Color.black.opacity(0.35)
-                .ignoresSafeArea(.all)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    isVisible = false
-                    clientToDelete = nil
-                    isChecked = false
-                }
-            
-            // 삭제 확인 카드
-            DeleteConfirmCard(
-                isChecked: $isChecked,
-                onCancel: {
-                    isVisible = false
-                    clientToDelete = nil
-                    isChecked = false
-                },
-                onDelete: {
-                    guard isChecked, let target = clientToDelete else { return }
-                    onConfirmDelete(target)
-                    isVisible = false
-                }
-            )
-            .padding(.horizontal, 24)
-        }
-    }
-}
-
-// MARK: - DeleteConfirmCard
+// MARK: - Delete Confirmation Components
 
 private struct DeleteConfirmCard: View {
     @Binding var isChecked: Bool
