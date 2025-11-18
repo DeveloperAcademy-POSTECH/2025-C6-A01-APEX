@@ -9,40 +9,23 @@ import SwiftUI
 
 struct NotesView: View {
     @EnvironmentObject private var router: NavigationRouter
-    @State private var selectedFilter: NotesFilter = .all
     @ObservedObject private var clientsStore = ClientsStore.shared
-    @State private var showToast: Bool = false
-    @State private var toastText: String = ""
-    @State private var clientToDelete: Client?
-    
-    // 되돌리기 기능을 위한 상태
-    @State private var lastToggledClientId: UUID?
-    @State private var lastPinAction: PinAction?
-    
-    // 커스텀 삭제 모달 상태
-    @State private var showDeleteDialog: Bool = false
-    @State private var isDeleteConfirmed: Bool = false
-    
-    // 핀 액션 타입
-    private enum PinAction {
-        case added
-        case removed
-    }
+    @StateObject private var viewModel = NotesViewModel()
     
     var body: some View {
         ZStack {
             mainContent
-            if showDeleteDialog {
+            if viewModel.showDeleteDialog {
                 deleteOverlay
             }
         }
         .apexToast(
-            isPresented: $showToast,
+            isPresented: $viewModel.showToast,
             image: Image(systemName: "pin"),
-            text: toastText,
+            text: viewModel.toastText,
             buttonTitle: "되돌리기",
             duration: 1.6,
-            onButtonTap: undoPinAction
+            onButtonTap: { viewModel.send(.undoPin) }
         )
         
         .scrollEdgeEffectStyle(.soft, for: .top)
@@ -51,33 +34,6 @@ struct NotesView: View {
                 .background(Color("Background"))
         }
         .toolbar(.hidden, for: .navigationBar)
-        .onReceive(NotificationCenter.default.publisher(for: .apexChatNotesUpdated)) { notif in
-            guard let clientId = notif.userInfo?["clientId"] as? UUID,
-                  let idx = clientsStore.clients.firstIndex(where: { $0.id == clientId }) else { return }
-
-            let old = clientsStore.clients[idx]
-            let latestNotes = ChatStore.shared.notes(for: clientId)
-
-            // Replace whole element to trigger @Published update
-            clientsStore.clients[idx] = Client(
-                id: old.id,
-                profile: old.profile,
-                nameCardFront: old.nameCardFront,
-                nameCardBack: old.nameCardBack,
-                surname: old.surname,
-                name: old.name,
-                position: old.position,
-                company: old.company,
-                email: old.email,
-                phoneNumber: old.phoneNumber,
-                linkedinURL: old.linkedinURL,
-                memo: old.memo,
-                action: old.action,
-                favorite: old.favorite,
-                pin: old.pin,
-                notes: latestNotes
-            )
-        }
     }
     
     // MARK: - Main Content
@@ -85,15 +41,15 @@ struct NotesView: View {
     private var mainContent: some View {
         VStack(spacing: 0) {
             NotesFilterTabs(
-                selectedFilter: $selectedFilter,
-                availableFilters: availableFilters
+                selectedFilter: $viewModel.selectedFilter,
+                availableFilters: viewModel.availableFilters
             )
             
             NotesListView(
                 clients: $clientsStore.clients,
-                selectedFilter: $selectedFilter,
-                onTogglePin: togglePin,
-                onDelete: showDeleteConfirmation,
+                selectedFilter: $viewModel.selectedFilter,
+                onTogglePin: { viewModel.send(.togglePin($0)) },
+                onDelete: { viewModel.send(.showDelete($0)) },
                 onTapRow: { router.push(.chat($0.id)) }
             )
         }
@@ -102,29 +58,11 @@ struct NotesView: View {
     
     private var deleteOverlay: some View {
         OverlayLayer(
-            isVisible: $showDeleteDialog,
-            isChecked: $isDeleteConfirmed,
-            clientToDelete: $clientToDelete,
-            onConfirmDelete: deleteClient
+            isVisible: $viewModel.showDeleteDialog,
+            isChecked: $viewModel.isDeleteConfirmed,
+            clientToDelete: $viewModel.clientToDelete,
+            onConfirmDelete: { viewModel.send(.deleteConfirmed($0)) }
         )
-    }
-    
-    // MARK: - Computed Properties
-    
-    private var companyNamesWithNotes: [String] {
-        Set(clientsStore.clients.compactMap { client in
-            let trimmed = client.company.trimmingCharacters(in: .whitespacesAndNewlines)
-            return trimmed.isEmpty ? nil : trimmed
-        }).sorted()
-
-    }
-    
-    private var availableFilters: [NotesFilterItem] {
-        let allFilter = NotesFilterItem(filter: .all, isEnabled: true)
-        let companyFilters = companyNamesWithNotes.map { 
-            NotesFilterItem(filter: .company($0), isEnabled: true) 
-        }
-        return [allFilter] + companyFilters
     }
     
     // MARK: - Navigation
@@ -138,151 +76,6 @@ struct NotesView: View {
             .navigationBarTitleDisplayMode(.inline)
     }
     
-    // MARK: - Actions
-    
-    private func showDeleteConfirmation(_ client: Client) {
-        clientToDelete = client
-        showDeleteDialog = true
-    }
-    
-    private func togglePin(_ client: Client) {
-        guard let index = clientsStore.clients.firstIndex(where: { $0.id == client.id }) else { return }
-        
-        // 되돌리기를 위해 현재 상태 저장 (ID만 저장)
-        lastToggledClientId = client.id
-        lastPinAction = client.pin ? .removed : .added
-        
-        print("🔧 핀 토글 시작: \(client.autoFormattedName)")
-        print("🔧 현재 핀 상태: \(client.pin) → 변경될 상태: \(!client.pin)")
-        print("🔧 저장된 클라이언트 ID: \(client.id)")
-        print("🔧 저장된 액션: \(lastPinAction!)")
-        
-        let newPinState = !client.pin
-        
-        // PinOrderManager 업데이트
-        if newPinState {
-            PinOrderManager.shared.pinClient(client.id)
-        } else {
-            PinOrderManager.shared.unpinClient(client.id)
-        }
-        
-        // 핀 상태 토글 (ID 유지)
-        clientsStore.clients[index] = Client(
-            id: client.id,  // ✅ 기존 ID 유지
-            profile: client.profile,
-            nameCardFront: client.nameCardFront,
-            nameCardBack: client.nameCardBack,
-            surname: client.surname,
-            name: client.name,
-            position: client.position,
-            company: client.company,
-            email: client.email,
-            phoneNumber: client.phoneNumber,
-            linkedinURL: client.linkedinURL,
-            memo: client.memo,
-            action: client.action,
-            favorite: client.favorite,
-            pin: newPinState,
-            notes: client.notes
-        )
-        
-        // ✅ 수정: 변경될 상태 기준으로 메시지 생성
-        toastText = newPinState ? "핀을 추가했습니다" : "핀을 해제했습니다"
-        print("🔧 토스트 메시지: \(toastText)")
-        presentToast()
-    }
-    
-    private func deleteClient(_ client: Client) {
-        // 노트만 모두 삭제 (연락처는 유지)
-        ChatStore.shared.setNotes([], for: client.id)
-        
-        // 회사 필터가 더 이상 노트를 가진 항목이 없다면 전체로 변경
-        if case .company(let name) = selectedFilter,
-           !companyNamesWithNotes.contains(name) {
-            selectedFilter = .all
-        }
-        
-        // 모달 상태 초기화
-        clientToDelete = nil
-        isDeleteConfirmed = false
-    }
-    
-    private func presentToast() {
-        if showToast {
-            showToast = false
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
-                showToast = true
-            }
-        } else {
-            showToast = true
-        }
-    }
-    
-    // 핀 되돌리기 기능
-    private func undoPinAction() {
-        print("🔄🔄🔄 핀 되돌리기 버튼 클릭됨!!!")
-        
-        print("🔍 저장된 상태 확인:")
-        print("  - lastToggledClientId: \(lastToggledClientId?.uuidString ?? "nil")")
-        print("  - lastPinAction: \(String(describing: lastPinAction))")
-        
-        guard let clientId = lastToggledClientId,
-              let action = lastPinAction else { 
-            print("❌ 되돌릴 수 있는 핀 액션이 없음")
-            return 
-        }
-        
-        guard let index = clientsStore.clients.firstIndex(where: { $0.id == clientId }) else {
-            print("❌ 클라이언트를 찾을 수 없음: \(clientId)")
-            return
-        }
-        
-        let currentClient = clientsStore.clients[index]
-        print("🔄 되돌리기 실행: \(currentClient.autoFormattedName)")
-        print("🔄 원본 액션: \(action), 현재 핀 상태: \(currentClient.pin)")
-        
-        // 핀 상태를 원래대로 되돌리기
-        let originalPinState: Bool
-        switch action {
-        case .added:
-            originalPinState = false  // 추가된 것을 되돌리기 (false로)
-            print("🔄 추가를 되돌림: true → false")
-            PinOrderManager.shared.unpinClient(clientId)
-        case .removed:
-            originalPinState = true   // 제거된 것을 되돌리기 (true로)
-            print("🔄 제거를 되돌림: false → true")
-            PinOrderManager.shared.pinClient(clientId)
-        }
-        
-        // ✅ 수정: 현재 클라이언트를 기준으로 핀 상태만 변경 (ID 유지)
-        clientsStore.clients[index] = Client(
-            id: currentClient.id,  // ✅ 기존 ID 유지
-            profile: currentClient.profile,
-            nameCardFront: currentClient.nameCardFront,
-            nameCardBack: currentClient.nameCardBack,
-            surname: currentClient.surname,
-            name: currentClient.name,
-            position: currentClient.position,
-            company: currentClient.company,
-            email: currentClient.email,
-            phoneNumber: currentClient.phoneNumber,
-            linkedinURL: currentClient.linkedinURL,
-            memo: currentClient.memo,
-            action: currentClient.action,
-            favorite: currentClient.favorite,
-            pin: originalPinState,
-            notes: currentClient.notes
-        )
-        
-        print("✅ 핀 상태가 \(originalPinState)로 되돌려짐")
-        print("✅ 업데이트된 클라이언트 핀 상태: \(clientsStore.clients[index].pin)")
-        
-        // 되돌리기 완료 후 상태 초기화
-        lastToggledClientId = nil
-        lastPinAction = nil
-        showToast = false
-        print("🔄 핀 되돌리기 완료, 토스트 숨김")
-    }
 }
 
 // MARK: - Overlay Layer (dimmed bg + card)

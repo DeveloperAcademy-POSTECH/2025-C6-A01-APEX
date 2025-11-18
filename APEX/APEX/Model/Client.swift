@@ -21,10 +21,9 @@ struct Client: Identifiable, Hashable {
     let linkedinURL: String?
     let memo: String?
     let action: String?
-    let favorite: Bool
-    let pin: Bool
+    var favorite: Bool
+    var pin: Bool
     var notes: [Note]
-    
     // 기본 초기화 함수 (새 UUID 생성)
     init(profile: UIImage? = nil, nameCardFront: Image? = nil, nameCardBack: Image? = nil,
          surname: String, name: String, position: String? = nil, company: String,
@@ -48,7 +47,6 @@ struct Client: Identifiable, Hashable {
         self.pin = pin
         self.notes = notes
     }
-    
     // ID를 유지하는 초기화 함수
     init(id: UUID, profile: UIImage? = nil, nameCardFront: Image? = nil, nameCardBack: Image? = nil,
          surname: String, name: String, position: String? = nil, company: String,
