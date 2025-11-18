@@ -1616,9 +1616,21 @@ private struct MediaGrid: View {
         return VStack(spacing: Metrics.spacing) {
             // Full rows in 3-column grid
             if !head.isEmpty {
+                // Arrange rows: rows 1..(n-1) right-to-left, last row (if tail is empty and thus full) left-to-right
+                let headRowCount = head.count / 3
+                // If total items are exactly 2 or 3, force RTL even for the last row
+                let forceRTLAllRows = (merged.count == 2 || merged.count == 3)
+                let orderedHead: [CombinedItem] = (0..<headRowCount).flatMap { rowIndex -> [CombinedItem] in
+                    let start = rowIndex * 3
+                    let end = start + 3
+                    let rowItems = Array(head[start..<end])
+                    let isLastOverallRow = tail.isEmpty && (rowIndex == headRowCount - 1)
+                    if forceRTLAllRows { return rowItems.reversed() }
+                    return isLastOverallRow ? rowItems : rowItems.reversed()
+                }
                 LazyVGrid(columns: columns, spacing: Metrics.spacing) {
-                    ForEach(head.indices, id: \.self) { idx in
-                        let item = head[idx]
+                    ForEach(orderedHead.indices, id: \.self) { idx in
+                        let item = orderedHead[idx]
                         if item.isImage {
                             let img = images[item.index]
                             APEXMediaTile(source: .image(img.data))
@@ -1702,9 +1714,10 @@ private struct MediaGrid: View {
                         }
                     } else if tail.count == 2 {
                         // Two items each span 1.5 columns (half width)
-                        let width = (totalWidth - spacing) / 2
+                        let width = (merged.count == 2) ? Metrics.tileSize : (totalWidth - spacing) / 2
                         HStack(spacing: spacing) {
-                            ForEach(tail.indices, id: \.self) { j in
+                            // If total is exactly 2, display RTL by reversing order
+                            ForEach((merged.count == 2 ? Array(tail.indices.reversed()) : Array(tail.indices)), id: \.self) { j in
                                 let item = tail[j]
                                 if item.isImage {
                                     let img = images[item.index]
@@ -1743,7 +1756,7 @@ private struct MediaGrid: View {
                         }
                     }
                 }
-                .frame(height: Metrics.tileSize)
+                .frame(width: (merged.count == 2) ? (Metrics.tileSize * 2 + Metrics.spacing) : (Metrics.tileSize * 3 + Metrics.spacing * 2), height: Metrics.tileSize)
             }
         }
     }

@@ -534,8 +534,10 @@ struct ShareView: View {
 // MARK: - Audio utilities (copy to app storage + duration)
 private func ensureSharedAudioCopy(of sourceURL: URL) -> URL {
     let fileManager = FileManager.default
-    // Target directory under Documents/SharedAudios
-    let baseDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first ?? sourceURL.deletingLastPathComponent()
+    // Prefer App Group container; fallback to Documents for safety
+    let baseDir = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.apex.StashShareExtension") ??
+        fileManager.urls(for: .documentDirectory, in: .userDomainMask).first ??
+        sourceURL.deletingLastPathComponent()
     let sharedDir = baseDir.appendingPathComponent("SharedAudios", isDirectory: true)
     if !fileManager.fileExists(atPath: sharedDir.path) {
         try? fileManager.createDirectory(at: sharedDir, withIntermediateDirectories: true)
@@ -557,7 +559,10 @@ private func ensureSharedAudioCopy(of sourceURL: URL) -> URL {
 
 private func ensureSharedCopy(of sourceURL: URL, directoryName: String, defaultExtension: String) -> URL {
     let fileManager = FileManager.default
-    let baseDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first ?? sourceURL.deletingLastPathComponent()
+    // Prefer App Group container; fallback to Documents for safety
+    let baseDir = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.apex.StashShareExtension") ??
+        fileManager.urls(for: .documentDirectory, in: .userDomainMask).first ??
+        sourceURL.deletingLastPathComponent()
     let sharedDir = baseDir.appendingPathComponent(directoryName, isDirectory: true)
     if !fileManager.fileExists(atPath: sharedDir.path) {
         try? fileManager.createDirectory(at: sharedDir, withIntermediateDirectories: true)

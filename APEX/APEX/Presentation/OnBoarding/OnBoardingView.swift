@@ -79,30 +79,20 @@ struct OnBoardingView: View {
 
     private var header: some View {
         VStack(spacing: 20) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(Color("Background").opacity(0.6))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 24, style: .continuous)
-                            .stroke(Color.gray.opacity(0.15), lineWidth: 1)
-                    )
-                    .shadow(color: .black.opacity(0.05), radius: 16, x: 0, y: 8)
-
-                Image(systemName: "bubble.left.and.text.bubble.right.fill")
-                    .font(.system(size: 72, weight: .bold))
-                    .foregroundStyle(Color("Primary"))
-            }
-            .frame(height: 260)
-            .padding(.horizontal, 24)
+            Image(systemName: "bubble.left.and.text.bubble.right.fill")
+                .font(.system(size: 72, weight: .bold))
+                .foregroundStyle(Color("Primary"))
+                .frame(height: 260)
+                .padding(.horizontal, 24)
 
             VStack(spacing: 10) {
-                Text("APEX에 오신 것을 환영해요")
+                Text("Stash에 오신 것을 환영해요")
                     .font(.system(size: 28, weight: .bold))
                     .foregroundStyle(Color.primary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 20)
 
-                Text("고객과의 대화를 정리하고, 노트를 빠르게 찾을 수 있어요.")
+                Text("고객별 메모를 빠르게 정리하고, 메모를 빠르게 찾을 수 있어.")
                     .font(.system(size: 16, weight: .regular))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -127,7 +117,7 @@ struct OnBoardingView: View {
             Button(action: { showGuestAlert = true }) {
                 Text("게스트로 시작할게요")
                     .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(Color("Primary"))
+                    .foregroundStyle(Color("GrayLabel"))
             }
             .buttonStyle(.plain)
         }

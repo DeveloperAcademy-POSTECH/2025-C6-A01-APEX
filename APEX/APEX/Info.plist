@@ -8,5 +8,7 @@
 	<array>
 		<string>PretendardVariable.ttf</string>
 	</array>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>음성 메모를 텍스트로 변환하기 위해 음성 인식 권한이 필요합니다.</string>
 </dict>
 </plist>
