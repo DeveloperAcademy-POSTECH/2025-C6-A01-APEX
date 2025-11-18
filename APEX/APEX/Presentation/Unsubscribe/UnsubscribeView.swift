@@ -29,7 +29,7 @@ struct UnsubscribeView: View {
                     // 2. 텍스트 박스 (안내 문구)
                     informationTextBox
                       
-                        .padding(.top, -14) // 32pt에서 18pt로 조정 (32-18=14)
+                        .padding(.top, -22) // 32pt에서 18pt로 조정 (32-18=14)
                     
                     // 3. 동의 체크박스
                     agreementCheckbox
