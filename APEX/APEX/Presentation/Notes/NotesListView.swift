@@ -45,6 +45,7 @@ struct NotesListView: View {
             }
         }
         .background(Color("Background"))
+        .animation(nil)
     }
 }
 
