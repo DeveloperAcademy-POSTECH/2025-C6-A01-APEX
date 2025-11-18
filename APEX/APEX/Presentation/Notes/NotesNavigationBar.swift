@@ -53,6 +53,7 @@ struct NotesNavigationBar: View {
             isPresented: $showCompanyManagementSheet,
             content: {
                 CompanyManagementSheet(isPresented: $showCompanyManagementSheet)
+                    .environmentObject(ClientsStore.shared)
             }
         )
     }
