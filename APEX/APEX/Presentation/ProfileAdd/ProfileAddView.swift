@@ -37,9 +37,23 @@ struct ProfileAddView: View {
     @State private var memo: String = ""
     
     var body: some View {
+        ZStack {
+            mainContent
+        }
+        .background(Color("Background"))
+        .onAppear { ensureFieldArrays() }
+        .onChange(of: addItemConfig.emailCount) { _ in ensureFieldArrays() }
+        .onChange(of: addItemConfig.phoneCount) { _ in ensureFieldArrays() }
+        .onChange(of: addItemConfig.urlCount) { _ in ensureFieldArrays() }
+    }
+
+    // MARK: - Main Content
+    
+    private var mainContent: some View {
         ScrollView {
             VStack {
                 HStack {
+                    /* 닫기 */
                     Button {
                         presentedPhotoType = .profile
                     } label: {
@@ -89,7 +103,7 @@ struct ProfileAddView: View {
                     .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 24)
+                .padding(.top, 24)  // 원래대로 복구
                 .padding(.bottom, 48)
                 
                 APEXTextField(style: .field, placeholder: "성", text: $surname)
@@ -152,7 +166,7 @@ struct ProfileAddView: View {
             }
             .padding(.horizontal, 24)
         }
-        .scrollEdgeEffectStyle(.soft, for: .all)
+        .scrollEdgeEffectStyle(.hard, for: .all)
         .sheet(item: $presentedPhotoType) { sheetType in
             PhotoAddView(
                 type: sheetType,
@@ -213,16 +227,13 @@ struct ProfileAddView: View {
                 dismiss()
             })
         }
-        .onAppear { ensureFieldArrays() }
-        .onChange(of: addItemConfig.emailCount) { _ in ensureFieldArrays() }
-        .onChange(of: addItemConfig.phoneCount) { _ in ensureFieldArrays() }
-        .onChange(of: addItemConfig.urlCount) { _ in ensureFieldArrays() }
     }
 
     // MARK: - Helpers
     @ViewBuilder
     private var contactInfoGroup: some View {
         let totalBlockCount = addItemConfig.emailCount + addItemConfig.phoneCount + (addItemConfig.showsLinkedIn ? 1 : 0) + addItemConfig.urlCount
+
 
         if addItemConfig.emailCount > 0 {
             ForEach(0..<addItemConfig.emailCount, id: \.self) { idx in
@@ -340,8 +351,10 @@ struct ProfileAddView: View {
     }
 }
 
+
 #Preview {
     ProfileAddView()
 }
 
 // makeInitials moved to common component: Profile.makeInitials
+

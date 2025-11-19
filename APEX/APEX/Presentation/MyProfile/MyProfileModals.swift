@@ -142,7 +142,6 @@ struct MyProfileEditSheet: View {
     private var mainContent: some View {
         ScrollView {
             VStack {
-                // Image pickers (ProfileAddView 스타일로 변경)
                 HStack {
                     Button {
                         presentedPhotoType = .profile
