@@ -106,6 +106,8 @@ struct ContactsView: View {
         .transaction { txn in
             txn.animation = nil // 재정렬 시 삭제/삽입 애니메이션 억제 → 깜빡임 제거
         }
+        .animation(.none, value: viewModel.showDeleteDialog) // 모달 상태 변경 시 애니메이션 억제
+        .animation(.none, value: viewModel.clientToDelete?.id) // 삭제 대상 변경 시 애니메이션 억제
         .listRowSpacing(0)
         .environment(\.defaultMinListRowHeight, 1)
         .scrollContentBackground(.hidden)

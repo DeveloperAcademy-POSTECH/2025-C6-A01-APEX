@@ -76,7 +76,7 @@ struct ContactsRow: View {
                 return first.id == client.id
             }()
             if !isMe, let onDelete {
-                Button(role: .destructive) {
+                Button { // role: .destructive 제거
                     onDelete()
                 } label: {
                     Image(systemName: "trash")

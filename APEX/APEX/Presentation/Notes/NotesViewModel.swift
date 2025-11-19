@@ -100,8 +100,11 @@ final class NotesViewModel: ViewModelable {
         case .undoPin:
             undoPinAction()
         case .showDelete(let client):
-            clientToDelete = client
-            showDeleteDialog = true
+            // 배치 업데이트로 리렌더링 최소화
+            Task { @MainActor in
+                clientToDelete = client
+                showDeleteDialog = true
+            }
         case .deleteConfirmed(let client):
             deleteClient(client)
         case .dismissDelete:

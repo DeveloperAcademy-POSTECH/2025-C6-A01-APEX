@@ -130,7 +130,7 @@ private struct NotesRow: View {
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             if let onDelete {
-                Button(role: .destructive) {
+                Button { // role: .destructive 제거
                     onDelete()
                 } label: {
                     Image(systemName: "trash")

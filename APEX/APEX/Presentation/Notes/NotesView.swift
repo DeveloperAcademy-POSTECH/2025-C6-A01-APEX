@@ -57,6 +57,8 @@ struct NotesView: View {
             )
         }
         .background(Color("Background"))
+        .animation(.none, value: viewModel.showDeleteDialog) // 모달 상태 변경 시 애니메이션 억제
+        .animation(.none, value: viewModel.clientToDelete?.id) // 삭제 대상 변경 시 애니메이션 억제
     }
     
     private var deleteOverlay: some View {
