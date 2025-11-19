@@ -8,6 +8,7 @@ import Foundation
 import Combine
 import SwiftUI
 import AVFoundation
+import Speech
 
 @MainActor
 final class ChattingViewModel: ViewModelable {
@@ -205,6 +206,10 @@ private extension ChattingViewModel {
         notes.append(noteWithProgress)
         ChatStore.shared.setNotes(notes, for: clientId)
         if let idx = notes.indices.last { startUploadsForNote(at: idx) }
+        // Kick off STT for audio notes so that STT appears under the tile in chat
+        if let idx = notes.indices.last {
+            transcribeIfAudio(at: idx)
+        }
     }
     
     func startUploadsForNote(at index: Int) {
@@ -362,6 +367,50 @@ private extension ChattingViewModel {
     func kickOffPendingUploadsIfNeeded() {
         for idx in notes.indices where hasPendingProgress(at: idx) {
             startUploadsForNote(at: idx)
+        }
+    }
+    
+    // MARK: - STT for audio notes
+    func transcribeIfAudio(at index: Int) {
+        guard notes.indices.contains(index) else { return }
+        guard case let .audio(audios) = notes[index].bundle, let first = audios.first else { return }
+        let url = first.url
+        // Avoid duplicate work if text already exists
+        if let existing = notes[index].text, !existing.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return }
+        
+        SFSpeechRecognizer.requestAuthorization { [weak self] status in
+            guard let self else { return }
+            guard status == .authorized else { return }
+            
+            let ko = Locale(identifier: "ko-KR")
+            let preferredLocale = SFSpeechRecognizer.supportedLocales().contains(ko) ? ko : Locale.current
+            guard let recognizer = SFSpeechRecognizer(locale: preferredLocale), recognizer.isAvailable else { return }
+            
+            let request = SFSpeechURLRecognitionRequest(url: url)
+            request.shouldReportPartialResults = true
+            request.taskHint = .dictation
+            if #available(iOS 13.0, *) {
+                request.requiresOnDeviceRecognition = false
+            }
+            var hints: [String] = []
+            let base = url.deletingPathExtension().lastPathComponent
+            if !base.isEmpty { hints.append(base) }
+            request.contextualStrings = hints
+            
+            recognizer.recognitionTask(with: request) { [weak self] result, error in
+                guard let self else { return }
+                if let result = result {
+                    DispatchQueue.main.async {
+                        if self.notes.indices.contains(index) {
+                            self.notes[index].text = result.bestTranscription.formattedString
+                            ChatStore.shared.setNotes(self.notes, for: self.clientId)
+                        }
+                    }
+                }
+                if let _ = error {
+                    // Silently ignore errors in chat auto-STT
+                }
+            }
         }
     }
     

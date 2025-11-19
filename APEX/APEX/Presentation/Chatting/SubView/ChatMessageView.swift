@@ -187,10 +187,49 @@ struct ChatMessageView: View {
                             }
                             .tint(.red)
                         }
+                    
+                    // Filename + STT text under the audio tile
+                    VStack(alignment: .leading, spacing: 4) {
+                        let baseName = first.url.deletingPathExtension().lastPathComponent
+                        let displayName = baseName.isEmpty ? "음성 메모" : baseName
+                        if let attr = highlightedText(displayName, query: highlightQuery) {
+                            Text(attr)
+                                .font(.caption2)
+                                .foregroundStyle(Color("BlackLabel"))
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        } else {
+                            Text(displayName)
+                            .font(.caption2)
+                            .foregroundStyle(Color("BlackLabel"))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        }
+                        if let stt = note.text, !stt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            if let attr = highlightedText(stt, query: highlightQuery) {
+                                Text(attr)
+                                    .font(.body6)
+                                    .foregroundStyle(Color("BlackLabel"))
+                            } else {
+                                Text(stt)
+                                    .font(.body6)
+                                    .foregroundStyle(Color("BlackLabel"))
+                            }
+                        }
+                    }
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 8)
+                    .background(Color("BackgroundSecondary"))
+                    .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
                 }
             }
             
             if let text = note.text {
+                // For audio notes, STT is rendered directly under the audio tile above.
+                if case .audio = note.bundle {
+                    EmptyView()
+                } else {
                 VStack(alignment: .trailing, spacing: 8) {
                     SelectableText(
                         text,
@@ -231,6 +270,7 @@ struct ChatMessageView: View {
                     }
                     .tint(.red)
                 }
+                }
             }
         }
         .alert("\(deleteSubjectText) 삭제하겠습니까?", isPresented: $showDeleteAlert) {
@@ -241,6 +281,25 @@ struct ChatMessageView: View {
 }
 
 extension ChatMessageView {
+    // Highlight helper for filename/STT to match global search behavior
+    func highlightedText(_ text: String, query: String?) -> AttributedString? {
+        guard let q = query?.trimmingCharacters(in: .whitespacesAndNewlines), !q.isEmpty else { return nil }
+        let mas = NSMutableAttributedString(string: text)
+        let ns = text as NSString
+        let fullRange = NSRange(location: 0, length: ns.length)
+        let options: NSString.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
+        var searchRange = fullRange
+        while true {
+            let found = ns.range(of: q, options: options, range: searchRange)
+            if found.location == NSNotFound { break }
+            mas.addAttribute(.backgroundColor, value: UIColor.systemYellow.withAlphaComponent(0.45), range: found)
+            let nextLoc = found.location + found.length
+            if nextLoc >= ns.length { break }
+            searchRange = NSRange(location: nextLoc, length: ns.length - nextLoc)
+        }
+        return AttributedString(mas)
+    }
+    
     func tempURLForImageData(_ data: Data) -> URL? {
         let isPNG: Bool = data.prefix(8) == Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
         let ext = isPNG ? "png" : "jpg"
