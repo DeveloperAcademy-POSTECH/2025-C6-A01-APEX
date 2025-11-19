@@ -142,7 +142,7 @@ struct ProfileAddView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "plus.circle.fill")
                             .foregroundColor(Color("Primary"))
-                        Text("항목 추가하기")
+                        Text("항목 수정하기")
                             .font(.body2)
                             .foregroundColor(Color("Primary"))
                     }

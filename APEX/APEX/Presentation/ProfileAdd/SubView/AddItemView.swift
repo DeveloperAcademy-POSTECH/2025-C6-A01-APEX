@@ -110,7 +110,7 @@ struct AddItemView: View {
         }
         .safeAreaInset(edge: .top) {
             APEXSheetTopBar(
-                title: "항목 추가하기",
+                title: "항목 수정하기",
                 rightTitle: "완료",
                 onRightTap: {
                     config = draft
@@ -129,11 +129,11 @@ struct AddItemView: View {
         List {
             stepperRow(title: "이메일 (\(draft.emailCount))", value: $draft.emailCount, range: 1...5)
                 .listRowSeparator(.hidden)
-            stepperRow(title: "연락처: (\(draft.phoneCount))", value: $draft.phoneCount, range: 1...5)
+            stepperRow(title: "연락처 (\(draft.phoneCount))", value: $draft.phoneCount, range: 1...5)
                 .listRowSeparator(.hidden)
-            stepperRow(title: "URL: (\(draft.urlCount))", value: $draft.urlCount, range: 0...5)
+            stepperRow(title: "URL (\(draft.urlCount))", value: $draft.urlCount, range: 0...5)
                 .listRowSeparator(.hidden)
-            toggleRow(title: "링크드인 URL", isOn: $draft.showsLinkedIn)
+            toggleRow(title: "링크드인", isOn: $draft.showsLinkedIn)
                 .listRowSeparator(.hidden)
             toggleRow(title: "회사 업종", isOn: $draft.showsIndustry)
                 .listRowSeparator(.hidden)
