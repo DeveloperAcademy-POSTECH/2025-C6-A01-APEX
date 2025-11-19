@@ -22,6 +22,7 @@ struct DummyClient: Identifiable, Equatable {
     var name: String                      // 이름
     var position: String?                 // 직책
     var company: String                   // 회사
+    var department: String?               // 부서 (추가)
 
     // 연락처
     var email: String?
@@ -40,6 +41,16 @@ struct DummyClient: Identifiable, Equatable {
 
     // notes: 실제 구조가 생기면 요소 타입을 교체하세요.
     var notes: [String]
+    
+    // 추가 필드들 (Client와 일치시키기 위해)
+    var industry: String?
+    var address: String?
+    var faxNumber: String?
+    var revenue: String?
+    var employees: String?
+    var additionalEmails: [String]
+    var additionalPhones: [String]
+    var additionalURLs: [String]
 }
 
 // MARK: - Sample Data for MyProfile
@@ -52,6 +63,7 @@ let sampleMyProfileClient = DummyClient(
     name: "하경",
     position: "크리에이티브 디렉터",
     company: "전략기획 마케팅부",
+    department: nil,
     email: "karynkim@postech.ac.kr",
     phoneNumber: "+82 010-2360-6221",
     linkedinURL: "https://www.linkedin.com/in/karyn",
@@ -59,5 +71,13 @@ let sampleMyProfileClient = DummyClient(
     action: nil,
     favorite: false,
     pin: false,
-    notes: []
+    notes: [],
+    industry: nil,
+    address: nil,
+    faxNumber: nil,
+    revenue: nil,
+    employees: nil,
+    additionalEmails: [],
+    additionalPhones: [],
+    additionalURLs: []
 )

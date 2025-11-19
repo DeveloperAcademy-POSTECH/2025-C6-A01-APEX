@@ -82,6 +82,7 @@ struct MyProfileEditSheet: View {
     @State private var surname: String
     @State private var name: String
     @State private var company: String
+    @State private var department: String
     @State private var position: String
     @State private var email: String
     @State private var phone: String
@@ -118,6 +119,7 @@ struct MyProfileEditSheet: View {
         _surname = State(initialValue: client.surname)
         _name = State(initialValue: client.name)
         _company = State(initialValue: client.company)
+        _department = State(initialValue: client.department ?? "")
         _position = State(initialValue: client.position ?? "")
         _email = State(initialValue: client.email ?? "")
         _phone = State(initialValue: client.phoneNumber ?? "")
@@ -209,6 +211,8 @@ struct MyProfileEditSheet: View {
                 // 회사 정보 필드들
                 APEXTextField(style: .field, placeholder: "회사", text: $company)
                     .padding(.bottom, 8)
+                APEXTextField(style: .field, placeholder: "부서", text: $department)
+                    .padding(.bottom, 8)
                 APEXTextField(style: .field, placeholder: "직책", text: $position)
                     .padding(.bottom, 48)
                 
@@ -272,6 +276,7 @@ struct MyProfileEditSheet: View {
                         name: name,
                         position: position.isEmpty ? nil : position,
                         company: company,
+                        department: department.isEmpty ? nil : department,
                         email: email.isEmpty ? nil : email,
                         phoneNumber: phone.isEmpty ? nil : phone,
                         linkedinURL: linkedin.isEmpty ? nil : linkedin,
@@ -279,7 +284,15 @@ struct MyProfileEditSheet: View {
                         action: client.action,
                         favorite: client.favorite,
                         pin: client.pin,
-                        notes: client.notes
+                        notes: client.notes,
+                        industry: client.industry,
+                        address: client.address,
+                        faxNumber: client.faxNumber,
+                        revenue: client.revenue,
+                        employees: client.employees,
+                        additionalEmails: client.additionalEmails,
+                        additionalPhones: client.additionalPhones,
+                        additionalURLs: client.additionalURLs
                     )
                     onSave(updated)
                     dismiss()

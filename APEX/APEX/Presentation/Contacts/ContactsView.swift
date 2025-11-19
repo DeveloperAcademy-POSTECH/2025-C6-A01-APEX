@@ -130,6 +130,7 @@ struct ContactsView: View {
                 name: updated.name,
                 position: updated.position,
                 company: updated.company,
+                department: nil, // DummyClient에는 department가 없으므로 nil
                 email: updated.email,
                 phoneNumber: updated.phoneNumber,
                 linkedinURL: updated.linkedinURL,
@@ -137,7 +138,15 @@ struct ContactsView: View {
                 action: base.action,
                 favorite: base.favorite,
                 pin: base.pin,
-                notes: base.notes
+                notes: base.notes,
+                industry: base.industry,
+                address: base.address,
+                faxNumber: base.faxNumber,
+                revenue: base.revenue,
+                employees: base.employees,
+                additionalEmails: base.additionalEmails,
+                additionalPhones: base.additionalPhones,
+                additionalURLs: base.additionalURLs
             )
             ClientsStore.shared.update(updatedClient)
         }
@@ -190,6 +199,7 @@ struct ContactsView: View {
             name: dummy.name,
             position: dummy.position,
             company: dummy.company,
+            department: nil, // DummyClient에는 department가 없으므로 nil
             email: dummy.email,
             phoneNumber: dummy.phoneNumber,
             linkedinURL: dummy.linkedinURL,
@@ -210,6 +220,7 @@ struct ContactsView: View {
             name: client.name,
             position: client.position,
             company: client.company,
+            department: client.department,
             email: client.email,
             phoneNumber: client.phoneNumber,
             linkedinURL: client.linkedinURL,
@@ -217,7 +228,15 @@ struct ContactsView: View {
             action: client.action,
             favorite: client.favorite,
             pin: client.pin,
-            notes: []
+            notes: [],
+            industry: client.industry,
+            address: client.address,
+            faxNumber: client.faxNumber,
+            revenue: client.revenue,
+            employees: client.employees,
+            additionalEmails: client.additionalEmails,
+            additionalPhones: client.additionalPhones,
+            additionalURLs: client.additionalURLs
         )
     }
     
@@ -230,6 +249,7 @@ struct ContactsView: View {
             name: "",
             position: nil,
             company: "",
+            department: nil,
             email: nil,
             phoneNumber: nil,
             linkedinURL: nil,
@@ -237,7 +257,15 @@ struct ContactsView: View {
             action: nil,
             favorite: false,
             pin: false,
-            notes: []
+            notes: [],
+            industry: nil,
+            address: nil,
+            faxNumber: nil,
+            revenue: nil,
+            employees: nil,
+            additionalEmails: [],
+            additionalPhones: [],
+            additionalURLs: []
         )
     }
 

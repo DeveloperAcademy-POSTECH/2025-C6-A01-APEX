@@ -31,6 +31,7 @@ struct MyProfileView: View {
             name: client.name,
             position: client.position,
             company: client.company,
+            department: client.department,
             email: client.email,
             phoneNumber: client.phoneNumber,
             linkedinURL: client.linkedinURL,
@@ -41,7 +42,15 @@ struct MyProfileView: View {
             notes: client.notes.map { _ in
                 // Note 이니셜라이저에 맞게 수정
                 Note(uploadedAt: Date(), text: "", bundle: nil)
-            }
+            },
+            industry: client.industry,
+            address: client.address,
+            faxNumber: client.faxNumber,
+            revenue: client.revenue,
+            employees: client.employees,
+            additionalEmails: client.additionalEmails,
+            additionalPhones: client.additionalPhones,
+            additionalURLs: client.additionalURLs
         )
     }
 
@@ -277,6 +286,7 @@ struct MyProfileView: View {
             name: client.name,
             position: client.position,
             company: client.company,
+            department: client.department,
             email: client.email,
             phoneNumber: client.phoneNumber,
             linkedinURL: client.linkedinURL,
@@ -304,6 +314,7 @@ struct MyProfileView: View {
                 name: updated.name,
                 position: updated.position,
                 company: updated.company,
+                department: updated.department,
                 email: updated.email,
                 phoneNumber: updated.phoneNumber,
                 linkedinURL: updated.linkedinURL,
@@ -328,6 +339,7 @@ struct MyProfileView: View {
                 name: updated.name,
                 position: updated.position,
                 company: updated.company,
+                department: updated.department,
                 email: updated.email,
                 phoneNumber: updated.phoneNumber,
                 linkedinURL: updated.linkedinURL,

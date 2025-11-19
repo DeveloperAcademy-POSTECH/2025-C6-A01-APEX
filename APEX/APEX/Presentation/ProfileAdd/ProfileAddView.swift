@@ -190,6 +190,7 @@ struct ProfileAddView: View {
                     name: name,
                     position: position.isEmpty ? nil : position,
                     company: company,
+                    department: department.isEmpty ? nil : department,
                     email: emails.first,
                     phoneNumber: contacts.first,
                     linkedinURL: linkedinLink.isEmpty ? nil : linkedinLink,
@@ -197,7 +198,15 @@ struct ProfileAddView: View {
                     action: nil,
                     favorite: false,
                     pin: false,
-                    notes: []
+                    notes: [],
+                    industry: industry.isEmpty ? nil : industry,
+                    address: address.isEmpty ? nil : address,
+                    faxNumber: faxNumber.isEmpty ? nil : faxNumber,
+                    revenue: revenue.isEmpty ? nil : revenue,
+                    employees: employees.isEmpty ? nil : employees,
+                    additionalEmails: Array(emails.dropFirst()),
+                    additionalPhones: Array(contacts.dropFirst()),
+                    additionalURLs: urls.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
                 )
                 onComplete?(client)
             }, onClose: {
