@@ -361,7 +361,7 @@ struct DMContactRow: View {
                     image: contact.image, 
                     initials: contact.initials, 
                     size: .extraSmall,
-                    fontSize: 30.72,
+                    fontSize: dynamicFontSize(for: contact.initials), // 동적 폰트 크기 적용
                     backgroundColor: Color("PrimaryContainer"),
                     textColor: .white,
                     fontWeight: .semibold
@@ -382,6 +382,18 @@ struct DMContactRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(ContactRowHoverStyle())
+    }
+    
+    // 이니셜 길이에 따른 동적 폰트 크기 계산
+    private func dynamicFontSize(for initials: String) -> CGFloat {
+        let baseSize: CGFloat = 30.72 // 48 * 0.64
+        if initials.count <= 1 {
+            return baseSize // 한 글자: 기본 크기
+        } else if initials.count == 2 {
+            return baseSize * 0.85 // 두 글자: 15% 축소
+        } else {
+            return baseSize * 0.7 // 세 글자 이상: 30% 축소
+        }
     }
 }
 

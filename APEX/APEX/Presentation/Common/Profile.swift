@@ -32,8 +32,10 @@ struct Profile: View {
                     Circle()
                         .fill(backgroundColor)
                     Text(initials)
-                        .font(.system(size: fontSize ?? defaultFontSize, weight: fontWeight))
+                        .font(.system(size: fontSize ?? dynamicFontSize, weight: fontWeight))
                         .foregroundColor(textColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5) // 텍스트가 잘리면 50%까지 축소
                 }
             }
         }
@@ -42,6 +44,18 @@ struct Profile: View {
     }
 
     private var defaultFontSize: CGFloat { side * 0.64 }
+    
+    // 이니셜 길이에 따른 동적 폰트 크기 계산
+    private var dynamicFontSize: CGFloat {
+        let baseSize = side * 0.64
+        if initials.count <= 1 {
+            return baseSize // 한 글자: 기본 크기
+        } else if initials.count == 2 {
+            return baseSize * 0.85 // 두 글자: 15% 축소
+        } else {
+            return baseSize * 0.7 // 세 글자 이상: 30% 축소
+        }
+    }
     private var side: CGFloat { CGFloat(size.rawValue) }
 }
 

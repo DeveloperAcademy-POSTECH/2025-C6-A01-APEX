@@ -114,13 +114,27 @@ struct ContactsRow: View {
                     Circle()
                         .fill(Color("PrimaryContainer"))
                     Text(initials)
-                        .font(.system(size: 30.72, weight: .semibold))
+                        .font(.system(size: dynamicFontSize(for: initials), weight: .semibold))
                         .foregroundColor(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5) // 텍스트가 잘리면 50%까지 축소
                 }
             }
         }
         .frame(width: Metrics.avatarSize, height: Metrics.avatarSize)
         .clipShape(Circle())
+    }
+    
+    // 이니셜 길이에 따른 동적 폰트 크기 계산
+    private func dynamicFontSize(for initials: String) -> CGFloat {
+        let baseSize: CGFloat = 30.72 // 48 * 0.64
+        if initials.count <= 1 {
+            return baseSize // 한 글자: 기본 크기
+        } else if initials.count == 2 {
+            return baseSize * 0.85 // 두 글자: 15% 축소 (약 26.1)
+        } else {
+            return baseSize * 0.7 // 세 글자 이상: 30% 축소
+        }
     }
 }
 
