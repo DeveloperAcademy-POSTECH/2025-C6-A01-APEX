@@ -94,4 +94,14 @@ struct TextEditSheet: View {
     }
 }
 
-
+#Preview {
+    TextEditSheet(
+        initialText: "안녕하세요",
+        onCancel: { },
+        onSave: { _ in },
+        onCopyAll: { },
+        onShare: { },
+        onDelete: { },
+        deleteSubject: "메모를"
+    )
+}
