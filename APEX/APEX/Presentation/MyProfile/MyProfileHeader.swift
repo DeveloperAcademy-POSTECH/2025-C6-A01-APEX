@@ -198,8 +198,7 @@ public struct MyProfileHeaderView: View {
             Profile(
                 image: ui,
                 initials: Profile.makeInitials(name: client.name, surname: client.surname),
-                size: .large,
-                fontSize: 128
+                size: .large
             )
         case .cardFront(let image), .cardBack(let image):
             image
@@ -214,7 +213,7 @@ public struct MyProfileHeaderView: View {
                         .stroke(Color.clear, lineWidth: 0)  // 투명 스트로크로 기본 테두리 제거
                 )
         case .avatar(let initials):
-            Profile(image: nil, initials: initials, size: .large, fontSize: 128)
+            Profile(image: nil, initials: initials, size: .large)
         }
     }
 }

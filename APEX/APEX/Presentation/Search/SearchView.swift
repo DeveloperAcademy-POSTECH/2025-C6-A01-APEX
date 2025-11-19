@@ -400,7 +400,6 @@ private extension SearchView {
 										image: client.profile,
 										initials: Profile.makeInitials(name: client.name, surname: client.surname),
 										size: .extraSmall,
-                                        fontSize: 30.72,
 										backgroundColor: Color("PrimaryContainer"),
 										textColor: .white,
 										fontWeight: .semibold
@@ -458,7 +457,6 @@ private extension SearchView {
 										image: client.profile,
 										initials: Profile.makeInitials(name: client.name, surname: client.surname),
 										size: .extraSmall,
-                                        fontSize: 30.72,
 										backgroundColor: Color("PrimaryContainer"),
 										textColor: .white,
 										fontWeight: .semibold

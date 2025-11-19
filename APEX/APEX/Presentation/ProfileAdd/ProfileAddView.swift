@@ -50,8 +50,7 @@ struct ProfileAddView: View {
                                 Profile(
                                     image: image,
                                     initials: Profile.makeInitials(name: trimmedName, surname: trimmedSurname),
-                                    size: .small,
-                                    fontSize: 64
+                                    size: .small
                                 )
                             } else if trimmedName.isEmpty && trimmedSurname.isEmpty {
                                 Image("ProfileS")
@@ -59,8 +58,7 @@ struct ProfileAddView: View {
                                 Profile(
                                     image: nil,
                                     initials: Profile.makeInitials(name: trimmedName, surname: trimmedSurname),
-                                    size: .small,
-                                    fontSize: 64
+                                    size: .small
                                 )
                             }
                             Text("프로필")
