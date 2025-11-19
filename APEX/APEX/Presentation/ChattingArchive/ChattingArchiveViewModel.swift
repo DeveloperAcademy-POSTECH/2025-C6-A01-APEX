@@ -16,6 +16,7 @@ final class ChattingArchiveViewModel: ViewModelable {
     enum Action {
         case onAppear
         case reload
+        case deleteFlattenedMedia(FlattenedMediaItem)
         
         case toggleFavorite
         case setFavorite(Bool)
@@ -82,6 +83,10 @@ final class ChattingArchiveViewModel: ViewModelable {
             bindNotifications()
             
         case .reload:
+            reloadMediaPreview()
+            
+        case .deleteFlattenedMedia(let item):
+            deleteFlattenedMedia(item: item)
             reloadMediaPreview()
             
         case .toggleFavorite:
@@ -315,6 +320,61 @@ private extension ChattingArchiveViewModel {
             return size.int64Value
         }
         return 0
+    }
+    
+    func deleteFlattenedMedia(item: FlattenedMediaItem) {
+        guard let clientId = client?.id else { return }
+        guard let parsed = parseFlattenedMediaId(item.id) else { return }
+        var notes = ChatStore.shared.notes(for: clientId)
+        guard let noteIndex = notes.firstIndex(where: { $0.id == parsed.noteId }) else { return }
+        guard case var .media(images, videos) = notes[noteIndex].bundle else { return }
+        if parsed.isImage {
+            guard images.indices.contains(parsed.localIndex) else { return }
+            images.remove(at: parsed.localIndex)
+        } else {
+            guard videos.indices.contains(parsed.localIndex) else { return }
+            videos.remove(at: parsed.localIndex)
+        }
+        struct Combined { let isImage: Bool; let idx: Int; let order: Int }
+        var merged: [Combined] = []
+        for imageIndex in images.indices {
+            let order = images[imageIndex].orderIndex ?? imageIndex
+            merged.append(Combined(isImage: true, idx: imageIndex, order: order))
+        }
+        for videoIndex in videos.indices {
+            let order = videos[videoIndex].orderIndex ?? (images.count + videoIndex)
+            merged.append(Combined(isImage: false, idx: videoIndex, order: order))
+        }
+        merged.sort { $0.order < $1.order }
+        for (newOrder, entry) in merged.enumerated() {
+            if entry.isImage { images[entry.idx].orderIndex = newOrder } else { videos[entry.idx].orderIndex = newOrder }
+        }
+        if images.isEmpty && videos.isEmpty {
+            if notes[noteIndex].text == nil {
+                notes.remove(at: noteIndex)
+            } else {
+                notes[noteIndex].bundle = nil
+            }
+        } else {
+            notes[noteIndex].bundle = .media(images: images, videos: videos)
+        }
+        ChatStore.shared.setNotes(notes, for: clientId)
+    }
+    
+    func parseFlattenedMediaId(_ id: String) -> (noteId: UUID, isImage: Bool, localIndex: Int)? {
+        if let range = id.range(of: "-i-", options: .backwards) {
+            let uuidPart = String(id[..<range.lowerBound])
+            let indexPart = String(id[range.upperBound...])
+            guard let noteId = UUID(uuidString: uuidPart), let localIndex = Int(indexPart) else { return nil }
+            return (noteId, true, localIndex)
+        } else if let range = id.range(of: "-v-", options: .backwards) {
+            let uuidPart = String(id[..<range.lowerBound])
+            let indexPart = String(id[range.upperBound...])
+            guard let noteId = UUID(uuidString: uuidPart), let localIndex = Int(indexPart) else { return nil }
+            return (noteId, false, localIndex)
+        } else {
+            return nil
+        }
     }
 }
 

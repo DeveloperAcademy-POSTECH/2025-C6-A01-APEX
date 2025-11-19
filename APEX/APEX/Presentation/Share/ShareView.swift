@@ -7,7 +7,6 @@
 
 import SwiftUI
 import AVFoundation
-// swiftlint:disable type_body_length file_length line_length cyclomatic_complexity switch_case_alignment
 
 struct ShareView: View {
     @Environment(\.dismiss) private var dismiss
