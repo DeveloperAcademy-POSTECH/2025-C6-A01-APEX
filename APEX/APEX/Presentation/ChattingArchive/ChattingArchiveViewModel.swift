@@ -378,6 +378,13 @@ private extension ChattingArchiveViewModel {
     }
 }
 
+// MARK: - Public helpers for View
+extension ChattingArchiveViewModel {
+    func noteId(fromFlattenedMediaId id: String) -> UUID? {
+        return parseFlattenedMediaId(id)?.noteId
+    }
+}
+
 // MARK: - Private - Mutations
 private extension ChattingArchiveViewModel {
     func setFavorite(_ newValue: Bool) {

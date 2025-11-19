@@ -160,7 +160,7 @@ struct ChattingArchiveView: View {
                                 onTitleTap: { current in
                                     guard let clientId = viewModel.client?.id else { return }
                                     let anchors: [UUID?] = previewItems.map { mediaItem in
-                                        return parseFlattenedMediaId(mediaItem.id)?.noteId
+                                        return viewModel.noteId(fromFlattenedMediaId: mediaItem.id)
                                     }
                                     guard anchors.indices.contains(current),
                                           let noteId = anchors[current] else { return }
