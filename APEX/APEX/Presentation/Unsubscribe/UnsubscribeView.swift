@@ -29,7 +29,7 @@ struct UnsubscribeView: View {
                     // 2. 텍스트 박스 (안내 문구)
                     informationTextBox
                       
-                        .padding(.top, -14) // 32pt에서 18pt로 조정 (32-18=14)
+                        .padding(.top, -22) // 32pt에서 18pt로 조정 (32-18=14)
                     
                     // 3. 동의 체크박스
                     agreementCheckbox
@@ -74,8 +74,8 @@ struct UnsubscribeView: View {
     // 2. 텍스트 박스 (안내 문구) - 단순화
     private var informationTextBox: some View {
         VStack {
-            Text("여기에 뭐 써야할지 다 같이 고민…")
-                .font(.body)
+            Text("1. 탈퇴하시면 저장하신 모든 정보는 삭제되어 복구할 수 없습니다.\n2. 혹시 서비스 이용 과정에서 불편한 점이 있으셨다면 [junheedl8420@gmail.com]으로 문의해 주세요.")
+                .font(.body3)
                 .foregroundColor(Color("GrayLabel"))
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -86,10 +86,10 @@ struct UnsubscribeView: View {
     
     // 3. 동의 체크박스
     private var agreementCheckbox: some View {
-        HStack(spacing: 16) { // 체크와 텍스트 사이 패딩 16
-            Button {
-                agreed.toggle()
-            } label: {
+        Button {
+            agreed.toggle()
+        } label: {
+            HStack(spacing: 16) { // 체크와 텍스트 사이 패딩 16
                 ZStack {
                     Circle()
                         .stroke(Color("BackgroundDisabled"), lineWidth: 1) // 선 색상과 두께 1
@@ -102,14 +102,17 @@ struct UnsubscribeView: View {
                             .font(.system(size: 12, weight: .semibold))
                     }
                 }
-            }
-            .buttonStyle(.plain)
 
-            Text("데이터를 모두 삭제하고 탈퇴하겠습니다.")
-                .font(.body2) // body2 사용
-                .foregroundColor(Color("BlackLabel")) // blacklabel 사용
+                Text("데이터를 모두 삭제하고 탈퇴하겠습니다.")
+                    .font(.body2) // body2 사용
+                    .foregroundColor(Color("BlackLabel")) // blacklabel 사용
+                
+                Spacer()
+            }
+            .contentShape(Rectangle())
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .buttonStyle(.plain)
+        .padding(.horizontal, 8) // 본문과 같은 시작점 맞추기 위해 8pt 패딩
     }
     
     // 4. 탈퇴하기 버튼
