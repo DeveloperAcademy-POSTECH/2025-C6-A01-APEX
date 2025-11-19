@@ -23,34 +23,15 @@ struct FlattenedMediaItem: Identifiable, Equatable {
     let localOrder: Int
 }
 
-// swiftlint:disable type_body_length
+// swiftlint:disable type_body_length file_length
 struct ChattingArchiveView: View {
-    // In real usage, pass the actual conversation/client data
-    var client: Client? = sampleClients.first
-    // Callback to allow parent to control navigation after destructive actions (e.g., pop parent too)
-    var onDeletedContact: (() -> Void)? = nil
+    @StateObject private var viewModel: ChattingArchiveViewModel
     @EnvironmentObject private var router: NavigationRouter
-
-    @State private var isMuted: Bool = false
-    @State private var isFavorite: Bool = false
-    @State private var mediaItems: [FlattenedMediaItem] = []
-    // Additional flattened previews
-    @State private var fileItems: [FlattenedFileItem] = []
-    @State private var audioItems: [FlattenedAudioItem] = []
-    @State private var linkItems: [FlattenedLinkItem] = []
     @Environment(\.dismiss) private var dismiss
-    // Archive navigation handled by NavigationRouter
-    // Record viewer
-    private struct DetailRecordPayload: Identifiable { let id = UUID(); let url: URL }
-    @State private var recordPayload: DetailRecordPayload?
-    // Archive full-screen presentation
-    private struct ArchiveSheetPayload: Identifiable { let id = UUID(); let section: ArchiveSection }
-    @State private var archiveSheet: ArchiveSheetPayload?
-    // Bottom actions
-    @State private var showDeleteMediaAlert: Bool = false
-    @State private var showDeleteContactOverlay: Bool = false
-    @State private var isDeleteConfirmChecked: Bool = false
-    @State private var totalMediaBytes: Int64 = 0
+ 
+    init(client: Client? = sampleClients.first, onDeletedContact: (() -> Void)? = nil) {
+        _viewModel = StateObject(wrappedValue: ChattingArchiveViewModel(client: client, onDeletedContact: onDeletedContact))
+    }
     
     private enum Metrics {
         static let headerAndMediaGap: CGFloat = 24
@@ -88,76 +69,21 @@ struct ChattingArchiveView: View {
         .scrollEdgeEffectStyle(.soft, for: .top)
         .safeAreaBar(edge: .top) { topBar }
         .overlay(alignment: .center) { contactDeleteOverlay }
-        .onAppear {
-            isFavorite = client?.favorite ?? false
-            reloadMediaPreview()
-        }
-        .onChange(of: isFavorite) { newValue in
-            persistFavorite(newValue)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .apexChatNotesUpdated)) { notif in
-            guard let changedId = notif.userInfo?["clientId"] as? UUID,
-                  let currentId = client?.id,
-                  changedId == currentId else { return }
-            reloadMediaPreview()
-        }
-        // Reflect audio rename/delete from RecordView across this detail
-        .onReceive(NotificationCenter.default.publisher(for: .apexAudioRenamed)) { notif in
-            guard let oldURL = notif.userInfo?["oldURL"] as? URL,
-                  let newURL = notif.userInfo?["newURL"] as? URL,
-                  let clientId = client?.id else { return }
-            var notes = ChatStore.shared.notes(for: clientId)
-            var changed = false
-            for idx in notes.indices {
-                if case var .audio(audios) = notes[idx].bundle {
-                    var updated = false
-                    for audioIndex in audios.indices where audios[audioIndex].url == oldURL {
-                        audios[audioIndex] = AudioAttachment(url: newURL, duration: audios[audioIndex].duration)
-                        updated = true
-                    }
-                    if updated {
-                        notes[idx].bundle = .audio(audios)
-                        changed = true
-                    }
-                }
-            }
-            if changed { ChatStore.shared.setNotes(notes, for: clientId) }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .apexAudioDeleted)) { notif in
-            guard let url = notif.userInfo?["url"] as? URL,
-                  let clientId = client?.id else { return }
-            var notes = ChatStore.shared.notes(for: clientId)
-            var changed = false
-            for idx in notes.indices {
-                if case var .audio(audios) = notes[idx].bundle {
-                    let before = audios.count
-                    audios.removeAll { $0.url == url }
-                    if audios.count != before {
-                        notes[idx].bundle = audios.isEmpty ? nil : .audio(audios)
-                        changed = true
-                    }
-                }
-            }
-            if changed {
-                // Remove notes that became completely empty (no text and no bundle)
-                notes.removeAll { $0.text == nil && $0.bundle == nil }
-                ChatStore.shared.setNotes(notes, for: clientId)
-            }
-        }
-        .fullScreenCover(item: $recordPayload) { payload in
+        .onAppear { viewModel.send(.onAppear) }
+        .fullScreenCover(item: $viewModel.recordPayload) { payload in
             RecordView(audioURL: payload.url)
         }
-        .fullScreenCover(item: $archiveSheet) { payload in
-            let displayName = (client?.autoFormattedName ?? "").trimmingCharacters(in: .whitespaces)
+        .fullScreenCover(item: $viewModel.archiveSheet) { payload in
+            let displayName = (viewModel.client?.autoFormattedName ?? "").trimmingCharacters(in: .whitespaces)
             ArchiveListView(
                 section: payload.section,
-                media: mediaItems,
-                files: fileItems,
-                links: linkItems,
-                audios: audioItems,
+                media: viewModel.mediaItems,
+                files: viewModel.fileItems,
+                links: viewModel.linkItems,
+                audios: viewModel.audioItems,
                 viewerTitle: displayName.isEmpty ? "Archive" : displayName,
-                excludedClientIds: client.map { [$0.id] } ?? [],
-                onClose: { archiveSheet = nil }
+                excludedClientIds: viewModel.client.map { [$0.id] } ?? [],
+                onClose: { viewModel.send(.dismissArchive) }
             )
         }
         // Hidden NavigationLink for archive push removed; Router handles navigation
@@ -166,25 +92,25 @@ struct ChattingArchiveView: View {
     // MARK: - Sections
 
     private var headerSection: some View {
-        let initials = Profile.makeInitials(name: client?.name ?? "", surname: client?.surname ?? "")
-        let displayName = client?.autoFormattedName ?? ""
+        let initials = Profile.makeInitials(name: viewModel.client?.name ?? "", surname: viewModel.client?.surname ?? "")
+        let displayName = viewModel.client?.autoFormattedName ?? ""
         return ChatDetailHeader(
-            image: client?.profile,
+            image: viewModel.client?.profile,
             initials: initials,
             name: displayName,
-            company: client?.company,
-            position: client?.position,
-            phone: client?.phoneNumber,
-            favorite: client?.favorite ?? false
+            company: viewModel.client?.company,
+            position: viewModel.client?.position,
+            phone: viewModel.client?.phoneNumber,
+            favorite: viewModel.isFavorite
         )
     }
 
     private var sharedMediaSection: some View {
         VStack(alignment: .leading, spacing: 0) {
             sectionHeader(title: "사진/동영상", iconName: "Photo", iconColor: Color("Primary"), action: {
-                archiveSheet = .init(section: .media)
+                viewModel.send(.presentArchive(.media))
             })
-            let allItems = mediaItems
+            let allItems = viewModel.mediaItems
             if !allItems.isEmpty {
                 let shouldShowSeeAll = allItems.count >= 9
                 let previewItems = shouldShowSeeAll ? Array(allItems.prefix(8)) : allItems
@@ -223,18 +149,18 @@ struct ChattingArchiveView: View {
                                     }
                                 },
                                 index: idx,
-                                title: client.map { "\($0.name) \($0.surname)"} ?? "Shared Media",
+                                title: viewModel.client.map { "\($0.name) \($0.surname)"} ?? "Shared Media",
                                 uploadedAt: previewItems[idx].uploadedAt,
-                                excludedClientIds: client.map { [$0.id] } ?? [],
+                                excludedClientIds: viewModel.client.map { [$0.id] } ?? [],
                                 onDelete: { removedIndex, _ in
                                     guard previewItems.indices.contains(removedIndex),
-                                          let clientId = client?.id else { return }
+                                          let clientId = viewModel.client?.id else { return }
                                     let target = previewItems[removedIndex]
                                     deleteFlattenedMedia(item: target, clientId: clientId)
-                                    reloadMediaPreview()
+                                    viewModel.send(.reload)
                                 },
                                 onTitleTap: { current in
-                                    guard let clientId = client?.id else { return }
+                                    guard let clientId = viewModel.client?.id else { return }
                                     let anchors: [UUID?] = previewItems.map { mediaItem in
                                         return parseFlattenedMediaId(mediaItem.id)?.noteId
                                     }
@@ -261,7 +187,7 @@ struct ChattingArchiveView: View {
                         }
                         if shouldShowSeeAll {
                             SeeAllTile(size: 121.67, title: "전체보기")
-                                .onTapGesture { archiveSheet = .init(section: .media) }
+                                .onTapGesture { viewModel.send(.presentArchive(.media)) }
                         }
                     }
                     .padding(.horizontal, 8)
@@ -273,10 +199,10 @@ struct ChattingArchiveView: View {
     private var sharedLinksSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             sectionHeader(title: "링크", iconName: "URL", iconColor: Color(hex: "BC0D59"), action: {
-                archiveSheet = .init(section: .links)
+                viewModel.send(.presentArchive(.links))
             })
             ScrollView(.horizontal, showsIndicators: false) {
-                let allItems = linkItems
+                let allItems = viewModel.linkItems
                 let shouldShowSeeAll = allItems.count >= 9
                 let previewItems = shouldShowSeeAll ? Array(allItems.prefix(8)) : allItems
                 HStack(spacing: 2) {
@@ -285,7 +211,7 @@ struct ChattingArchiveView: View {
                     }
                     if shouldShowSeeAll {
                         SeeAllTile(size: 121.67, title: "전체보기")
-                            .onTapGesture { archiveSheet = .init(section: .links) }
+                            .onTapGesture { viewModel.send(.presentArchive(.links)) }
                     }
                 }
                 .padding(.horizontal, 8)
@@ -296,10 +222,10 @@ struct ChattingArchiveView: View {
     private var sharedFilesSection: some View {
         VStack(alignment: .leading, spacing: 0) {
             sectionHeader(title: "파일", iconName: "File", iconColor: Color(hex: "00B22D"), action: {
-                archiveSheet = .init(section: .files)
+                viewModel.send(.presentArchive(.files))
             })
             ScrollView(.horizontal, showsIndicators: false) {
-                let allItems = fileItems
+                let allItems = viewModel.fileItems
                 let shouldShowSeeAll = allItems.count >= 9
                 let previewItems = shouldShowSeeAll ? Array(allItems.prefix(8)) : allItems
                 HStack(spacing: 2) {
@@ -318,7 +244,7 @@ struct ChattingArchiveView: View {
                     }
                     if shouldShowSeeAll {
                         SeeAllTile(size: 121.67, title: "전체보기")
-                            .onTapGesture { archiveSheet = .init(section: .files) }
+                            .onTapGesture { viewModel.send(.presentArchive(.files)) }
                     }
                 }
                 .padding(.horizontal, 8)
@@ -329,10 +255,10 @@ struct ChattingArchiveView: View {
     private var sharedAudioSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             sectionHeader(title: "음성메모", iconName: "Waveform", iconColor: Color(hex: "E28822"), action: {
-                archiveSheet = .init(section: .audio)
+                viewModel.send(.presentArchive(.audio))
             })
             ScrollView(.horizontal, showsIndicators: false) {
-                let allItems = audioItems
+                let allItems = viewModel.audioItems
                 let shouldShowSeeAll = allItems.count >= 9
                 let previewItems = shouldShowSeeAll ? Array(allItems.prefix(8)) : allItems
                 HStack(spacing: 2) {
@@ -348,11 +274,11 @@ struct ChattingArchiveView: View {
                             .allowsHitTesting(false)
                         }
                         .contentShape(Rectangle())
-                        .onTapGesture { recordPayload = DetailRecordPayload(url: item.url) }
+                        .onTapGesture { viewModel.send(.openRecord(item.url)) }
                     }
                     if shouldShowSeeAll {
                         SeeAllTile(size: 121.67, title: "전체보기")
-                            .onTapGesture { archiveSheet = .init(section: .audio) }
+                            .onTapGesture { viewModel.send(.presentArchive(.audio)) }
                     }
                 }
                 .padding(.horizontal, 8)
@@ -378,10 +304,10 @@ struct ChattingArchiveView: View {
 
                 // Hide favorite button for my own profile
                 let myId = ClientsStore.shared.clients.first?.id
-                let isMe = (client?.id == myId)
+                let isMe = (viewModel.client?.id == myId)
                 if !isMe {
-                    Button(action: { isFavorite.toggle() }) {
-                        Image(systemName: isFavorite ? "star.fill" : "star")
+                    Button(action: { viewModel.send(.toggleFavorite) }) {
+                        Image(systemName: viewModel.isFavorite ? "star.fill" : "star")
                             .font(.title4)
                             .foregroundColor(Color("Primary"))
                             .frame(width: 44, height: 44)
@@ -399,9 +325,9 @@ struct ChattingArchiveView: View {
     private var bottomActionsBar: some View {
         VStack(spacing: Metrics.buttonGap) {
             Button(role: .destructive) {
-                showDeleteMediaAlert = true
+                viewModel.send(.showDeleteMediaPrompt(true))
             } label: {
-                Text("미디어 데이터 모두 삭제하기 (\(formatBytes(totalMediaBytes)))")
+                Text("미디어 데이터 모두 삭제하기 (\(formatBytes(viewModel.totalMediaBytes)))")
                     .font(.body5)
                     .foregroundColor(Color("BlackLabel"))
                     .frame(maxWidth: .infinity)
@@ -410,15 +336,15 @@ struct ChattingArchiveView: View {
             .buttonStyle(.plain)
             .background(Color("BackgroundSecondary"))
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .disabled(totalMediaBytes == 0)
-            .opacity(totalMediaBytes == 0 ? 0.5 : 1)
+            .disabled(viewModel.totalMediaBytes == 0)
+            .opacity(viewModel.totalMediaBytes == 0 ? 0.5 : 1)
 
             // Hide contact delete for my own profile
             let myId = ClientsStore.shared.clients.first?.id
-            let isMe = (client?.id == myId)
+            let isMe = (viewModel.client?.id == myId)
             if !isMe {
                 Button(role: .destructive) {
-                    showDeleteContactOverlay = true
+                    viewModel.send(.showDeleteContactOverlay(true))
                 } label: {
                     HStack {
                         Image(systemName: "trash.fill")
@@ -440,9 +366,9 @@ struct ChattingArchiveView: View {
         .padding(.top, 24)
         .padding(.bottom, 8)
         // Confirmations
-        .alert("모든 미디어 데이터를 삭제할까요?", isPresented: $showDeleteMediaAlert) {
+        .alert("모든 미디어 데이터를 삭제할까요?", isPresented: $viewModel.showDeleteMediaAlert) {
             Button("취소", role: .cancel) { }
-            Button("삭제", role: .destructive) { deleteAllMediaDataForCurrentClient() }
+            Button("삭제", role: .destructive) { viewModel.send(.deleteAllMedia) }
         } message: {
             Text("사진/영상, 파일, 음성메모 데이터를 모두 삭제합니다. 이 작업은 되돌릴 수 없습니다.")
         }
@@ -475,25 +401,21 @@ struct ChattingArchiveView: View {
     // NotesView deleteOverlay 재활용 스타일의 오버레이
     private var contactDeleteOverlay: some View {
         Group {
-            if showDeleteContactOverlay {
+            if viewModel.showDeleteContactOverlay {
                 ZStack {
                     Color.black.opacity(0.35)
                         .ignoresSafeArea(.all)
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            showDeleteContactOverlay = false
-                            isDeleteConfirmChecked = false
+                            viewModel.send(.showDeleteContactOverlay(false))
                         }
                     ContactDeleteConfirmCard(
-                        isChecked: $isDeleteConfirmChecked,
+                        isChecked: $viewModel.isDeleteConfirmChecked,
                         onCancel: {
-                            showDeleteContactOverlay = false
-                            isDeleteConfirmChecked = false
+                            viewModel.send(.showDeleteContactOverlay(false))
                         },
                         onDelete: {
-                            guard isDeleteConfirmChecked else { return }
-                            deleteCurrentContact()
-                            showDeleteContactOverlay = false
+                            viewModel.send(.confirmDeleteContact)
                         }
                     )
                     .padding(.horizontal, 42)
@@ -701,139 +623,7 @@ extension ChattingArchiveView {
             .frame(width: size, height: size)
         }
     }
-    func reloadMediaPreview() {
-        guard let clientId = client?.id else {
-            mediaItems = []; fileItems = []; audioItems = []; linkItems = []
-            totalMediaBytes = 0
-            return
-        }
-        var notes = ChatStore.shared.notes(for: clientId)
-        if notes.isEmpty {
-            // Fallback to client's persisted notes if ChatStore hasn't been seeded yet
-            notes = client?.notes ?? []
-        }
-        mediaItems = computeMediaItems(from: notes)
-        fileItems = computeFileItems(from: notes)
-        audioItems = computeAudioItems(from: notes)
-        linkItems = computeLinkItems(from: notes)
-        totalMediaBytes = computeTotalMediaBytes(from: notes)
-    }
-
-    func computeMediaItems(from notes: [Note]) -> [FlattenedMediaItem] {
-        var result: [FlattenedMediaItem] = []
-        for note in notes {
-            guard case let .media(images, videos)? = note.bundle else { continue }
-            struct LocalEntry { let isImage: Bool; let index: Int; let order: Int }
-            var merged: [LocalEntry] = []
-            for imageIndex in images.indices {
-                let order = images[imageIndex].orderIndex ?? imageIndex
-                merged.append(LocalEntry(isImage: true, index: imageIndex, order: order))
-            }
-            for videoIndex in videos.indices {
-                let order = videos[videoIndex].orderIndex ?? (images.count + videoIndex)
-                merged.append(LocalEntry(isImage: false, index: videoIndex, order: order))
-            }
-            merged.sort { $0.order < $1.order }
-            for entry in merged {
-                if entry.isImage {
-                    let data = images[entry.index].data
-                    let id = "\(note.id.uuidString)-i-\(entry.index)"
-                    result.append(.init(id: id, isVideo: false, imageData: data, videoURL: nil, uploadedAt: note.uploadedAt, localOrder: entry.order))
-                } else {
-                    let url = videos[entry.index].url
-                    let id = "\(note.id.uuidString)-v-\(entry.index)"
-                    result.append(.init(id: id, isVideo: true, imageData: nil, videoURL: url, uploadedAt: note.uploadedAt, localOrder: entry.order))
-                }
-            }
-        }
-        return result.sorted {
-            if $0.uploadedAt != $1.uploadedAt { return $0.uploadedAt > $1.uploadedAt }
-            // Within the same note bundle, later (higher) local index/order is more recent
-            if $0.id.prefix(36) == $1.id.prefix(36) { return $0.localOrder > $1.localOrder }
-            return $0.id > $1.id
-        }
-    }
-
-    func computeFileItems(from notes: [Note]) -> [FlattenedFileItem] {
-        var result: [FlattenedFileItem] = []
-        for note in notes {
-            if case let .files(fileSet)? = note.bundle {
-                for (index, fileAttachment) in fileSet.enumerated() {
-                    result.append(.init(id: "\(note.id.uuidString)-f-\(index)", url: fileAttachment.url, contentType: fileAttachment.contentType, uploadedAt: note.uploadedAt, localIndex: index))
-                }
-            }
-        }
-        return result.sorted {
-            if $0.uploadedAt != $1.uploadedAt { return $0.uploadedAt > $1.uploadedAt }
-            if $0.id.prefix(36) == $1.id.prefix(36) { return $0.localIndex < $1.localIndex }
-            return $0.id > $1.id
-        }
-    }
-
-    func computeAudioItems(from notes: [Note]) -> [FlattenedAudioItem] {
-        var result: [FlattenedAudioItem] = []
-        for note in notes {
-            if case let .audio(audioSet)? = note.bundle {
-                for (index, audioAttachment) in audioSet.enumerated() {
-                    result.append(.init(id: "\(note.id.uuidString)-a-\(index)", url: audioAttachment.url, duration: audioAttachment.duration, uploadedAt: note.uploadedAt, localIndex: index))
-                }
-            }
-        }
-        return result.sorted {
-            if $0.uploadedAt != $1.uploadedAt { return $0.uploadedAt > $1.uploadedAt }
-            if $0.id.prefix(36) == $1.id.prefix(36) { return $0.localIndex < $1.localIndex }
-            return $0.id > $1.id
-        }
-    }
-
-    func computeLinkItems(from notes: [Note]) -> [FlattenedLinkItem] {
-        var all: [FlattenedLinkItem] = []
-        for note in notes {
-            guard let text = note.text else { continue }
-            let found = urls(in: text, limit: Int.max)
-            for foundURL in found {
-                all.append(.init(id: "\(note.id.uuidString)-l-\(foundURL.absoluteString)", url: foundURL, uploadedAt: note.uploadedAt))
-            }
-        }
-        let sorted = all.sorted { $0.uploadedAt == $1.uploadedAt ? $0.id > $1.id : $0.uploadedAt > $1.uploadedAt }
-        var seen = Set<String>()
-        var dedup: [FlattenedLinkItem] = []
-        for item in sorted where seen.insert(item.url.absoluteString).inserted {
-            dedup.append(item)
-        }
-        return dedup
-    }
-
-    func computeTotalMediaBytes(from notes: [Note]) -> Int64 {
-        var total: Int64 = 0
-        for note in notes {
-            guard let bundle = note.bundle else { continue }
-            switch bundle {
-            case .media(let images, let videos):
-                for imageAttachment in images { total += Int64(imageAttachment.data.count) }
-                for videoAttachment in videos { total += fileSize(at: videoAttachment.url) }
-            case .files(let files):
-                for fileAttachment in files { total += fileSize(at: fileAttachment.url) }
-            case .audio(let audios):
-                for audioAttachment in audios { total += fileSize(at: audioAttachment.url) }
-            }
-        }
-        return max(0, total)
-    }
-
-    func fileSize(at url: URL) -> Int64 {
-        // Prefer resource values
-        if let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize {
-            return Int64(size)
-        }
-        // Fallback to attributes
-        if let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
-           let size = attrs[.size] as? NSNumber {
-            return size.int64Value
-        }
-        return 0
-    }
-
+    
     func formatBytes(_ bytes: Int64) -> String {
         let kb: Double = 1024
         let mb = kb * 1024
@@ -848,76 +638,6 @@ extension ChattingArchiveView {
         } else {
             return "\(bytes) B"
         }
-    }
-
-    func deleteAllMediaDataForCurrentClient() {
-        guard let clientId = client?.id else { return }
-        var notes = ChatStore.shared.notes(for: clientId)
-        var changed = false
-        for idx in notes.indices {
-            guard let bundle = notes[idx].bundle else { continue }
-            switch bundle {
-            case .media(let images, let videos):
-                // Nothing on disk for images; remove video files if reachable
-                for videoAttachment in videos { deleteFileIfExists(at: videoAttachment.url) }
-                notes[idx].bundle = nil
-                changed = true
-            case .files(let files):
-                for fileAttachment in files { deleteFileIfExists(at: fileAttachment.url) }
-                notes[idx].bundle = nil
-                changed = true
-            case .audio(let audios):
-                for audioAttachment in audios { deleteFileIfExists(at: audioAttachment.url) }
-                notes[idx].bundle = nil
-                changed = true
-            }
-        }
-        if changed {
-            // Drop notes that now have no text and no bundle
-            notes.removeAll { $0.text == nil && $0.bundle == nil }
-            ChatStore.shared.setNotes(notes, for: clientId)
-            reloadMediaPreview()
-        }
-    }
-
-    func deleteFileIfExists(at url: URL) {
-        let fm = FileManager.default
-        if fm.fileExists(atPath: url.path) {
-            try? fm.removeItem(at: url)
-        }
-    }
-
-    func deleteCurrentContact() {
-        guard let id = client?.id else { return }
-        // Remove from clients store
-        ClientsStore.shared.remove(id)
-        // Clear chat notes
-        ChatStore.shared.setNotes([], for: id)
-        // Let parent decide whether to pop further; this view does not pop itself here
-        DispatchQueue.main.async { onDeletedContact?() }
-    }
-    
-    private func persistFavorite(_ newValue: Bool) {
-        guard let base = client else { return }
-        let updated = Client(
-            id: base.id,
-            profile: base.profile,
-            nameCardFront: base.nameCardFront,
-            nameCardBack: base.nameCardBack,
-            surname: base.surname,
-            name: base.name,
-            position: base.position,
-            company: base.company,
-            email: base.email,
-            phoneNumber: base.phoneNumber,
-            linkedinURL: base.linkedinURL,
-            memo: base.memo,
-            action: base.action,
-            favorite: newValue,
-            pin: base.pin,
-            notes: base.notes
-        )
-        ClientsStore.shared.update(updated)
     }
 }
 
