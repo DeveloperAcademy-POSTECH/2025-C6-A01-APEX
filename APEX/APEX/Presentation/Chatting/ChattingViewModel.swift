@@ -4,81 +4,32 @@
 //
 //  Created by Assistant on 11/19/25.
 //
-
 import Foundation
-import SwiftUI
 import Combine
+import SwiftUI
 import AVFoundation
-import UniformTypeIdentifiers
-import UIKit
 
 @MainActor
 final class ChattingViewModel: ViewModelable {
     enum Action {
         case onAppear
-        
-        // Search
-        case setSearchActive(Bool)
-        case setSearchText(String)
-        case navigateToNextMatch
-        case navigateToPrevMatch
-        case resetSearch
-        
-        // Edit
-        case startEdit(noteId: UUID, currentText: String)
-        case saveEdit(noteId: UUID, text: String)
-        case cancelEdit
-        case deleteNote(UUID)
-        
-        // Selection delete
-        case startDeleteSelection(preselect: UUID?)
+        case handleIncoming(Note)
+        case startDeleteSelection(UUID)
         case toggleSelection(UUID)
         case performDeleteSelected
         case cancelDeleteSelection
-        
-        // Incoming/send
-        case handleIncoming(Note)
-        
-        // Mutations
-        case deleteMedia(anchor: ChatMessageView.ChatAnchor)
-        case deleteFile(noteId: UUID, fileIndex: Int)
         case deleteAudio(noteId: UUID, url: URL)
-        
-        // Share / Copy
-        case openShare(text: String?)
-        case openShareFiles([URL])
-        case openShareAudio(URL)
-        case setShowCopyToast(Bool)
-        case copyText(String)
-        
-        // Record
-        case openRecord(URL)
-        case dismissRecord
-        
-        // Date picker
-        case setShowDatePicker(Bool)
-        case setDatePickerSelection(Date)
-        case selectDate(Date)
-    }
-    
-    struct EditingPayload: Identifiable {
-        let id = UUID()
-        let noteId: UUID
-        var text: String
-    }
-    
-    struct ShareSeed: Identifiable {
-        let id = UUID()
-        var text: String?
-        var files: [URL]
-        var audios: [URL]
-        var images: [UIImage] = []
-        var videos: [URL] = []
-    }
-    
-    struct RecordPayload: Identifiable {
-        let id = UUID()
-        let url: URL
+        case deleteFile(noteId: UUID, fileIndex: Int)
+        case deleteMedia(anchor: ChatMessageView.ChatAnchor)
+        case editNoteText(noteId: UUID, newText: String)
+        case deleteNote(noteId: UUID)
+        case recomputeMatches
+        case navigateToNextMatch
+        case navigateToPrevMatch
+        case scrollToCurrentMatch
+        case refreshFromStore
+        case kickOffPendingUploadsIfNeeded
+        case setSearchActive(Bool)
     }
     
     // Inputs
@@ -86,29 +37,18 @@ final class ChattingViewModel: ViewModelable {
     let chatTitle: String
     let initialNotes: [Note]
     
-    // UI/Data State
+    // Data
     @Published var notes: [Note] = []
+    
+    // Selection
+    @Published var isDeleteSelecting: Bool = false
+    @Published var selectedNoteIds: Set<UUID> = []
     
     // Search
     @Published var isSearchActive: Bool = false
     @Published var searchText: String = ""
     @Published var matchedNoteIds: [UUID] = []
     @Published var currentMatchIndex: Int = 0
-    @Published var highlightedDate: Date?
-    @Published var showDatePicker: Bool = false
-    @Published var datePickerSelection: Date = Date()
-    
-    // Edit
-    @Published var editing: EditingPayload?
-    
-    // Selection delete
-    @Published var isDeleteSelecting: Bool = false
-    @Published var selectedNoteIds: Set<UUID> = []
-    
-    // Share/Copy/Record
-    @Published var shareSeed: ShareSeed?
-    @Published var showCopyToast: Bool = false
-    @Published var recordPayload: RecordPayload?
     
     // Internals
     private var cancellables: Set<AnyCancellable> = []
@@ -124,60 +64,15 @@ final class ChattingViewModel: ViewModelable {
         switch action {
         case .onAppear:
             loadInitialNotes()
-            bindNotifications()
+            bindNotificationsIfNeeded()
             kickOffPendingUploadsIfNeeded()
             
-        case .setSearchActive(let active):
-            isSearchActive = active
-            if active == false {
-                send(.resetSearch)
-            }
+        case .handleIncoming(let note):
+            handleIncoming(note: note)
             
-        case .setSearchText(let text):
-            searchText = text
-            recomputeMatches()
-            scrollToCurrentMatch()
-            
-        case .navigateToNextMatch:
-            guard !matchedNoteIds.isEmpty else { return }
-            currentMatchIndex = (currentMatchIndex - 1 + matchedNoteIds.count) % matchedNoteIds.count
-            scrollToCurrentMatch()
-            
-        case .navigateToPrevMatch:
-            guard !matchedNoteIds.isEmpty else { return }
-            currentMatchIndex = (currentMatchIndex + 1) % matchedNoteIds.count
-            scrollToCurrentMatch()
-            
-        case .resetSearch:
-            searchText = ""
-            matchedNoteIds.removeAll()
-            currentMatchIndex = 0
-            highlightedDate = nil
-            showDatePicker = false
-            
-        case .startEdit(let noteId, let currentText):
-            editing = .init(noteId: noteId, text: currentText)
-            
-        case .saveEdit(let noteId, let text):
-            if let idx = notes.firstIndex(where: { $0.id == noteId }) {
-                notes[idx].text = text
-                ChatStore.shared.setNotes(notes, for: clientId)
-            }
-            editing = nil
-            
-        case .cancelEdit:
-            editing = nil
-            
-        case .deleteNote(let noteId):
-            if let idx = notes.firstIndex(where: { $0.id == noteId }) {
-                notes.remove(at: idx)
-                ChatStore.shared.setNotes(notes, for: clientId)
-            }
-            
-        case .startDeleteSelection(let preselect):
+        case .startDeleteSelection(let noteId):
             isDeleteSelecting = true
-            selectedNoteIds = []
-            if let id = preselect { selectedNoteIds.insert(id) }
+            selectedNoteIds = [noteId]
             
         case .toggleSelection(let noteId):
             if selectedNoteIds.contains(noteId) {
@@ -197,165 +92,75 @@ final class ChattingViewModel: ViewModelable {
             isDeleteSelecting = false
             selectedNoteIds.removeAll()
             
-        case .handleIncoming(let note):
-            handleIncoming(note: note)
-            
-        case .deleteMedia(let anchor):
-            deleteMedia(anchor: anchor)
+        case .deleteAudio(let noteId, let url):
+            deleteAudio(noteId: noteId, url: url)
             
         case .deleteFile(let noteId, let fileIndex):
             deleteFile(noteId: noteId, fileIndex: fileIndex)
             
-        case .deleteAudio(let noteId, let url):
-            deleteAudio(noteId: noteId, url: url)
+        case .deleteMedia(let anchor):
+            deleteMedia(anchor: anchor)
             
-        case .openShare(let text):
-            shareSeed = .init(text: text, files: [], audios: [])
+        case .editNoteText(let noteId, let newText):
+            if let idx = notes.firstIndex(where: { $0.id == noteId }) {
+                notes[idx].text = newText
+                ChatStore.shared.setNotes(notes, for: clientId)
+            }
             
-        case .openShareFiles(let urls):
-            shareSeed = .init(text: nil, files: urls, audios: [])
+        case .deleteNote(let noteId):
+            if let idx = notes.firstIndex(where: { $0.id == noteId }) {
+                notes.remove(at: idx)
+                ChatStore.shared.setNotes(notes, for: clientId)
+            }
             
-        case .openShareAudio(let url):
-            shareSeed = .init(text: nil, files: [], audios: [url])
+        case .recomputeMatches:
+            recomputeMatches()
             
-        case .setShowCopyToast(let show):
-            withAnimation { showCopyToast = show }
+        case .navigateToNextMatch:
+            guard !matchedNoteIds.isEmpty else { return }
+            currentMatchIndex = (currentMatchIndex - 1 + matchedNoteIds.count) % matchedNoteIds.count
+            send(.scrollToCurrentMatch)
             
-        case .copyText(let text):
-            UIPasteboard.general.string = text
-            withAnimation { showCopyToast = true }
+        case .navigateToPrevMatch:
+            guard !matchedNoteIds.isEmpty else { return }
+            currentMatchIndex = (currentMatchIndex + 1) % matchedNoteIds.count
+            send(.scrollToCurrentMatch)
             
-        case .openRecord(let url):
-            NotificationCenter.default.post(name: .apexStopAllAudioPlayback, object: nil)
-            recordPayload = .init(url: url)
+        case .scrollToCurrentMatch:
+            guard !matchedNoteIds.isEmpty else { return }
+            let id = matchedNoteIds[currentMatchIndex]
+            NotificationCenter.default.post(name: .apexNavigateToNote, object: nil, userInfo: ["noteId": id])
             
-        case .dismissRecord:
-            recordPayload = nil
+        case .refreshFromStore:
+            notes = ChatStore.shared.notes(for: clientId)
+            kickOffPendingUploadsIfNeeded()
             
-        case .setShowDatePicker(let show):
-            showDatePicker = show
-            if show { datePickerSelection = Date() }
+        case .kickOffPendingUploadsIfNeeded:
+            kickOffPendingUploadsIfNeeded()
             
-        case .setDatePickerSelection(let date):
-            datePickerSelection = date
-            
-        case .selectDate(let date):
-            showDatePicker = false
-            highlightedDate = date
-            NotificationCenter.default.post(name: .apexNavigateToDate, object: nil, userInfo: ["date": date])
-        }
-    }
-}
-
-// MARK: - Public helpers for View
-extension ChattingViewModel {
-    func buildGlobalViewerPayload(startingFrom anchor: ChatMessageView.ChatAnchor) -> (items: [MediaSource], anchors: [ChatMessageView.ChatAnchor], index: Int) {
-        var allItems: [MediaSource] = []
-        var allAnchors: [ChatMessageView.ChatAnchor] = []
-        for noteItem in notes {
-            if case let .media(images, videos) = noteItem.bundle {
-                struct Combined { let isImage: Bool; let index: Int; let order: Int }
-                var merged: [Combined] = []
-                for imageIndex in images.indices {
-                    let order = images[imageIndex].orderIndex ?? imageIndex
-                    merged.append(Combined(isImage: true, index: imageIndex, order: order))
-                }
-                for videoIndex in videos.indices {
-                    let order = videos[videoIndex].orderIndex ?? (images.count + videoIndex)
-                    merged.append(Combined(isImage: false, index: videoIndex, order: order))
-                }
-                merged.sort { $0.order < $1.order }
-                for entry in merged {
-                    if entry.isImage {
-                        allItems.append(.image(images[entry.index].data))
-                        allAnchors.append(.init(noteId: noteItem.id, isImage: true, localIndex: entry.index))
-                    } else {
-                        allItems.append(.video(videos[entry.index].url))
-                        allAnchors.append(.init(noteId: noteItem.id, isImage: false, localIndex: entry.index))
-                    }
-                }
+        case .setSearchActive(let active):
+            isSearchActive = active
+            if !active {
+                searchText = ""
+                matchedNoteIds.removeAll()
+                currentMatchIndex = 0
             }
         }
-        let start = allAnchors.firstIndex(where: { $0.noteId == anchor.noteId && $0.isImage == anchor.isImage && $0.localIndex == anchor.localIndex }) ?? 0
-        return (items: allItems, anchors: allAnchors, index: start)
     }
 }
 
-// MARK: - Private - Data loading and notifications
+// MARK: - Private helpers
 private extension ChattingViewModel {
     func loadInitialNotes() {
-        if notes.isEmpty {
-            let persisted = ChatStore.shared.notes(for: clientId)
-            if persisted.isEmpty {
-                notes = initialNotes
-                ChatStore.shared.setNotes(initialNotes, for: clientId)
-            } else {
-                notes = persisted
-            }
+        let persisted = ChatStore.shared.notes(for: clientId)
+        if persisted.isEmpty {
+            notes = initialNotes
+            ChatStore.shared.setNotes(initialNotes, for: clientId)
+        } else {
+            notes = persisted
         }
     }
     
-    func bindNotifications() {
-        cancellables.removeAll()
-        
-        NotificationCenter.default.publisher(for: .apexChatNotesUpdated)
-            .sink { [weak self] notif in
-                guard let self else { return }
-                if let changedId = notif.userInfo?["clientId"] as? UUID, changedId == self.clientId {
-                    let latest = ChatStore.shared.notes(for: self.clientId)
-                    self.notes = latest
-                    self.kickOffPendingUploadsIfNeeded()
-                }
-            }
-            .store(in: &cancellables)
-        
-        NotificationCenter.default.publisher(for: .apexAudioRenamed)
-            .sink { [weak self] notif in
-                guard let self else { return }
-                guard let oldURL = notif.userInfo?["oldURL"] as? URL,
-                      let newURL = notif.userInfo?["newURL"] as? URL else { return }
-                for idx in notes.indices {
-                    if case var .audio(audios) = notes[idx].bundle {
-                        var changed = false
-                        for i in audios.indices {
-                            if audios[i].url == oldURL {
-                                audios[i] = AudioAttachment(url: newURL, duration: audios[i].duration)
-                                changed = true
-                            }
-                        }
-                        if changed {
-                            notes[idx].bundle = .audio(audios)
-                        }
-                    }
-                }
-            }
-            .store(in: &cancellables)
-        
-        NotificationCenter.default.publisher(for: .apexAudioDeleted)
-            .sink { [weak self] notif in
-                guard let self else { return }
-                guard let url = notif.userInfo?["url"] as? URL else { return }
-                var changedAny = false
-                for idx in notes.indices {
-                    if case var .audio(audios) = notes[idx].bundle {
-                        let before = audios.count
-                        audios.removeAll { $0.url == url }
-                        if audios.count != before {
-                            notes[idx].bundle = audios.isEmpty ? nil : .audio(audios)
-                            changedAny = true
-                        }
-                    }
-                }
-                if changedAny {
-                    ChatStore.shared.setNotes(notes, for: clientId)
-                }
-            }
-            .store(in: &cancellables)
-    }
-}
-
-// MARK: - Private - Mutations and uploads
-private extension ChattingViewModel {
     func handleIncoming(note: Note) {
         var noteWithProgress = note
         if case let .media(images, videos) = note.bundle {
@@ -366,7 +171,9 @@ private extension ChattingViewModel {
                     orderIndex: $0.orderIndex
                 )
             }
-            let videosWithProgress = videos.map { VideoAttachment(url: $0.url, progress: 0, orderIndex: $0.orderIndex) }
+            let videosWithProgress = videos.map {
+                VideoAttachment(url: $0.url, progress: 0, orderIndex: $0.orderIndex)
+            }
             noteWithProgress.bundle = .media(images: imagesWithProgress, videos: videosWithProgress)
         } else if case let .files(files) = note.bundle {
             if files.count > 1 {
@@ -465,24 +272,6 @@ private extension ChattingViewModel {
         notes[idx].bundle = .files(files)
     }
     
-    func hasPendingProgress(at index: Int) -> Bool {
-        guard notes.indices.contains(index) else { return false }
-        switch notes[index].bundle {
-        case .media(let images, let videos):
-            return images.contains { $0.progress != nil } || videos.contains { $0.progress != nil }
-        case .files(let files):
-            return files.contains { $0.progress != nil }
-        default:
-            return false
-        }
-    }
-    
-    func kickOffPendingUploadsIfNeeded() {
-        for idx in notes.indices where hasPendingProgress(at: idx) {
-            startUploadsForNote(at: idx)
-        }
-    }
-    
     func deleteAudio(noteId: UUID, url: URL) {
         guard let idx = notes.firstIndex(where: { $0.id == noteId }) else { return }
         guard case var .audio(audios) = notes[idx].bundle else { return }
@@ -557,10 +346,25 @@ private extension ChattingViewModel {
         }
         ChatStore.shared.setNotes(notes, for: clientId)
     }
-}
-
-// MARK: - Private - Search
-private extension ChattingViewModel {
+    
+    func hasPendingProgress(at index: Int) -> Bool {
+        guard notes.indices.contains(index) else { return false }
+        switch notes[index].bundle {
+        case .media(let images, let videos):
+            return images.contains { $0.progress != nil } || videos.contains { $0.progress != nil }
+        case .files(let files):
+            return files.contains { $0.progress != nil }
+        default:
+            return false
+        }
+    }
+    
+    func kickOffPendingUploadsIfNeeded() {
+        for idx in notes.indices where hasPendingProgress(at: idx) {
+            startUploadsForNote(at: idx)
+        }
+    }
+    
     func recomputeMatches() {
         let trimmedQuery = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedQuery.isEmpty else {
@@ -591,9 +395,62 @@ private extension ChattingViewModel {
         currentMatchIndex = results.isEmpty ? 0 : 0
     }
     
-    func scrollToCurrentMatch() {
-        guard !matchedNoteIds.isEmpty else { return }
-        let id = matchedNoteIds[currentMatchIndex]
-        NotificationCenter.default.post(name: .apexNavigateToNote, object: nil, userInfo: ["noteId": id])
+    func bindNotificationsIfNeeded() {
+        cancellables.removeAll()
+        
+        NotificationCenter.default.publisher(for: .apexAudioRenamed)
+            .sink { [weak self] notif in
+                guard let self else { return }
+                guard let oldURL = notif.userInfo?["oldURL"] as? URL,
+                      let newURL = notif.userInfo?["newURL"] as? URL else { return }
+                for idx in notes.indices {
+                    if case var .audio(audios) = notes[idx].bundle {
+                        var changed = false
+                        for i in audios.indices {
+                            if audios[i].url == oldURL {
+                                audios[i] = AudioAttachment(url: newURL, duration: audios[i].duration)
+                                changed = true
+                            }
+                        }
+                        if changed {
+                            notes[idx].bundle = .audio(audios)
+                        }
+                    }
+                }
+            }
+            .store(in: &cancellables)
+        
+        NotificationCenter.default.publisher(for: .apexAudioDeleted)
+            .sink { [weak self] notif in
+                guard let self else { return }
+                guard let url = notif.userInfo?["url"] as? URL else { return }
+                var changedAny = false
+                for idx in notes.indices {
+                    if case var .audio(audios) = notes[idx].bundle {
+                        let before = audios.count
+                        audios.removeAll { $0.url == url }
+                        if audios.count != before {
+                            notes[idx].bundle = audios.isEmpty ? nil : .audio(audios)
+                            changedAny = true
+                        }
+                    }
+                }
+                if changedAny {
+                    ChatStore.shared.setNotes(notes, for: clientId)
+                }
+            }
+            .store(in: &cancellables)
+        
+        NotificationCenter.default.publisher(for: .apexChatNotesUpdated)
+            .sink { [weak self] notif in
+                guard let self else { return }
+                if let changedId = notif.userInfo?["clientId"] as? UUID, changedId == clientId {
+                    notes = ChatStore.shared.notes(for: clientId)
+                    kickOffPendingUploadsIfNeeded()
+                }
+            }
+            .store(in: &cancellables)
     }
 }
+
+

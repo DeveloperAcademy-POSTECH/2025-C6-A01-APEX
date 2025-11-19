@@ -15,7 +15,6 @@ import UIKit
 struct ChattingView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var router: NavigationRouter
-    @StateObject private var viewModel: ChattingViewModel
     let clientId: UUID
     let chatTitle: String
     let initialNotes: [Note]
@@ -25,6 +24,7 @@ struct ChattingView: View {
         self.initialNotes = initialNotes
         _viewModel = StateObject(wrappedValue: ChattingViewModel(clientId: clientId, chatTitle: chatTitle, initialNotes: initialNotes))
     }
+    @StateObject private var viewModel: ChattingViewModel
     // Custom bottom sheet state
     enum BottomSheetMode { case hidden, collapsed, expanded }
     @State private var sheetMode: BottomSheetMode = .hidden
@@ -43,25 +43,37 @@ struct ChattingView: View {
     @State private var keyboardScrollWork: DispatchWorkItem?
     @State private var bottomInsetHeight: CGFloat = 0
     @State private var isEditorCurrentlyFocused: Bool = false
+    @State private var showCopyToast: Bool = false
     @FocusState private var isSearchFieldFocused: Bool
     // Search state
-    // moved to ViewModel: search state
+    // moved into view model
     // Suppress auto-scroll-to-bottom when navigating to a specific note
     @State private var suppressAutoScroll: Bool = false
     @State private var sheetModeBeforeSearch: BottomSheetMode? = nil
     // Date search
-    // moved to ViewModel: date picker state
+    @State private var showDatePicker: Bool = false
+    @State private var datePickerSelection: Date = Date()
+    @State private var highlightedDate: Date?
     @State private var dateHighlightOffsetY: CGFloat = 0
-    // moved to ViewModel: editing
+    private struct EditingPayload: Identifiable { let id = UUID(); let noteId: UUID; var text: String }
+    @State private var editing: EditingPayload?
     // Selection delete confirmation
     @State private var showSelectionDeleteAlert: Bool = false
-    // Delete selection mode
-    // moved to ViewModel: isDeleteSelecting, selectedNoteIds
+    private struct ShareSeed: Identifiable {
+        let id = UUID()
+        var text: String?
+        var files: [URL]
+        var audios: [URL]
+        var images: [UIImage] = []
+        var videos: [URL] = []
+    }
+    @State private var shareSeed: ShareSeed?
     // Initial target scroll support
     @State private var didApplyInitialTargetScroll: Bool = false
     @State private var initialTargetNoteId: UUID?
     // Parent-scoped record viewer state
-    // moved to ViewModel: recordPayload
+    private struct RecordPayload: Identifiable { let id = UUID(); let url: URL }
+    @State private var recordPayload: RecordPayload?
     // Chat detail sheet
     @State private var showChatDetail: Bool = false
 
@@ -157,24 +169,25 @@ struct ChattingView: View {
                                             },
                                             onOpenShare: { selectedText in
                                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                                    viewModel.send(.openShare(selectedText))
+                                                    shareSeed = ShareSeed(text: selectedText, files: [], audios: [], images: [], videos: [])
                                                 }
                                             },
                                             onOpenShareFiles: { urls in
                                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                                    viewModel.send(.openShareFiles(urls))
+                                                    shareSeed = ShareSeed(text: nil, files: urls, audios: [], images: [], videos: [])
                                                 }
                                             },
                                             onOpenShareAudio: { url in
                                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                                    viewModel.send(.openShareAudio(url))
+                                                    shareSeed = ShareSeed(text: nil, files: [], audios: [url], images: [], videos: [])
                                                 }
                                             },
                                             onDeleteFile: { noteId, fileIndex in
                                                 viewModel.send(.deleteFile(noteId: noteId, fileIndex: fileIndex))
                                             },
                                             onOpenRecord: { url in
-                                                viewModel.send(.openRecord(url))
+                                                NotificationCenter.default.post(name: .apexStopAllAudioPlayback, object: nil)
+                                                recordPayload = RecordPayload(url: url)
                                             },
                                             onDelete: { anchor in
                                                 viewModel.send(.deleteMedia(anchor: anchor))
@@ -183,13 +196,14 @@ struct ChattingView: View {
                                                 viewModel.send(.deleteAudio(noteId: noteId, url: url))
                                             },
                                             onCopyText: { text in
-                                                viewModel.send(.copyText(text))
+                                                UIPasteboard.general.string = text
+                                                withAnimation { showCopyToast = true }
                                             },
                                             onStartEdit: { noteId, currentText in
-                                                viewModel.send(.startEdit(noteId: noteId, currentText: currentText))
+                                                editing = EditingPayload(noteId: noteId, text: currentText)
                                             },
                                             onStartMultiDelete: { noteId in
-                                                viewModel.send(.startDeleteSelection(preselect: noteId))
+                                                startDeleteSelection(preselect: noteId)
                                             }
                                         )
                                         .offset(x: -timestampRevealProgress * (timeTextWidth(for: note.uploadedAt) + Metrics.timeGap))
@@ -264,6 +278,7 @@ struct ChattingView: View {
                         } else if !suppressAutoScroll {
                             proxy.scrollTo(bottomSentinelId, anchor: .bottom)
                         }
+                        viewModel.send(.kickOffPendingUploadsIfNeeded)
                     }
                 }
                 .onChange(of: viewModel.notes.count) { _ in
@@ -454,8 +469,8 @@ struct ChattingView: View {
 
             showScrollToBottom = (canScroll && contentIsLong && sufficientlyAboveBottom && !isEditorCurrentlyFocused) && !atBottom
         }
-        .onPreferenceChange(ChipHeightKey.self) { h in
-            if h > 0 { chipHeight = h }
+        .onPreferenceChange(ChipHeightKey.self) { newHeight in
+            if newHeight > 0 { chipHeight = newHeight }
         }
         .onChange(of: viewModel.isSearchActive) { _, active in
             if active {
@@ -473,8 +488,13 @@ struct ChattingView: View {
                 isSearchFieldFocused = active
             }
             if !active {
-                viewModel.send(.resetSearch)
+                // Reset search state back to original
+                viewModel.searchText = ""
+                viewModel.matchedNoteIds.removeAll()
+                viewModel.currentMatchIndex = 0
+                highlightedDate = nil
                 dateHighlightOffsetY = 0
+                showDatePicker = false
                 if let previous = sheetModeBeforeSearch {
                     withAnimation(.interactiveSpring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.2)) {
                         sheetMode = previous
@@ -489,8 +509,8 @@ struct ChattingView: View {
                 HStack(spacing: 0) {
                     Spacer(minLength: 0)
                     Button {
-                        viewModel.send(.setDatePickerSelection(Date()))
-                        viewModel.send(.setShowDatePicker(true))
+                        datePickerSelection = Date()
+                        showDatePicker = true
                     } label: {
                         Image(systemName: "calendar")
                             .font(.system(size: 16, weight: .medium))
@@ -511,7 +531,7 @@ struct ChattingView: View {
                         viewModel.selectedNoteIds.removeAll()
                     },
                     onClose: {
-                        cancelDeleteSelection()
+                        viewModel.send(.cancelDeleteSelection)
                     },
                     rightIconSystemName: nil,
                     showsRightButton: true,
@@ -525,7 +545,7 @@ struct ChattingView: View {
                         onTitleTap: {
                             onTapTitleNavigate()
                         },
-                        onSearch: { withAnimation { viewModel.send(.setSearchActive(true)) } },
+                        onSearch: { withAnimation { viewModel.isSearchActive = true } },
                         onMenu: { router.push(.chatArchive(clientId)) }
                     )
                 )
@@ -560,10 +580,13 @@ struct ChattingView: View {
                             onNext: { viewModel.send(.navigateToNextMatch) },
                             onClose: {
                                 isSearchFieldFocused = false
-                                withAnimation { viewModel.send(.setSearchActive(false)) }
+                                withAnimation { viewModel.isSearchActive = false }
+                                viewModel.searchText = ""
+                                viewModel.matchedNoteIds.removeAll()
                             },
-                            onTextChange: { newText in
-                                viewModel.send(.setSearchText(newText))
+                            onTextChange: { _ in
+                                viewModel.send(.recomputeMatches)
+                                viewModel.send(.scrollToCurrentMatch)
                             }
                         )
                     } else {
@@ -689,31 +712,34 @@ struct ChattingView: View {
             }
             Button("취소", role: .cancel) { }
         }
-        .sheet(item: $viewModel.editing) { payload in
+        .sheet(item: $editing) { payload in
             TextEditSheet(
                 initialText: payload.text,
-                onCancel: { viewModel.send(.cancelEdit) },
+                onCancel: { editing = nil },
                 onSave: { newText in
-                    viewModel.send(.saveEdit(noteId: payload.noteId, text: newText))
+                    viewModel.send(.editNoteText(noteId: payload.noteId, newText: newText))
+                    editing = nil
                 },
                 onCopyAll: {
-                    viewModel.send(.copyText(payload.text))
+                    UIPasteboard.general.string = payload.text
+                    withAnimation { showCopyToast = true }
                 },
                 onShare: {
                     DispatchQueue.main.async {
-                        viewModel.send(.cancelEdit)
+                        editing = nil
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                            viewModel.send(.openShare(payload.text))
+                            shareSeed = ShareSeed(text: payload.text, files: [], audios: [])
                         }
                     }
                 },
                 onDelete: {
-                    viewModel.send(.deleteNote(payload.noteId))
+                    viewModel.send(.deleteNote(noteId: payload.noteId))
+                    editing = nil
                 },
                 deleteSubject: "메모를"
             )
         }
-        .sheet(item: $viewModel.shareSeed) { seed in
+        .sheet(item: $shareSeed) { seed in
             let initialAttachments: [ShareAttachmentItem] = {
                 var items: [ShareAttachmentItem] = []
                 if let text = seed.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
@@ -750,20 +776,23 @@ struct ChattingView: View {
             )
         }
         // Centralized media viewer now provided by APEXMediaViewerHost via environment presenter
-        .fullScreenCover(item: $viewModel.recordPayload) { payload in
+        .fullScreenCover(item: $recordPayload) { payload in
             RecordView(audioURL: payload.url)
         }
-        .sheet(isPresented: $viewModel.showDatePicker) {
+        .sheet(isPresented: $showDatePicker) {
             let memoDays: Set<Date> = Set(viewModel.notes.map { Calendar.current.startOfDay(for: $0.uploadedAt) })
-            ChatDatePickerSheet(date: $viewModel.datePickerSelection, hasMemoDays: memoDays, onClose: {
-                viewModel.send(.setShowDatePicker(false))
+            ChatDatePickerSheet(date: $datePickerSelection, hasMemoDays: memoDays, onClose: {
+                showDatePicker = false
             }, onSelect: { selected in
-                viewModel.send(.selectDate(selected))
+                showDatePicker = false
+                highlightedDate = selected
                 triggerDateBounce()
+                NotificationCenter.default.post(name: .apexNavigateToDate, object: nil, userInfo: ["date": selected])
             })
             .presentationDetents([.height(420)])
             .presentationDragIndicator(.visible)
         }
+        // Hidden NavigationLinks removed; Router handles navigation
     }
 }
 
@@ -783,49 +812,41 @@ private extension ChattingView {
     
     // MARK: - Delete selection helpers
     func startDeleteSelection(preselect noteId: UUID) {
-        viewModel.send(.startDeleteSelection(preselect: noteId))
-    }
-    func toggleSelection(for noteId: UUID) {
-        viewModel.send(.toggleSelection(noteId))
-    }
-    func performDeleteSelected() {
-        viewModel.send(.performDeleteSelected)
-    }
-    func cancelDeleteSelection() {
-        viewModel.send(.cancelDeleteSelection)
-    }
-
-    // convertToDummy moved to RootView wrapper; not needed here
-    func deleteAudio(noteId: UUID, url: URL) {
-        viewModel.send(.deleteAudio(noteId: noteId, url: url))
+        viewModel.send(.startDeleteSelection(noteId))
     }
     func buildGlobalViewerPayload(startingFrom anchor: ChatMessageView.ChatAnchor) -> (items: [MediaSource], anchors: [ChatMessageView.ChatAnchor], index: Int) {
-        return viewModel.buildGlobalViewerPayload(startingFrom: anchor)
-    }
-
-    func handleIncoming(note: Note) {
-        viewModel.send(.handleIncoming(note))
-    }
-
-    // MARK: - Search helpers
-    func recomputeMatches() {
-        viewModel.send(.setSearchText(viewModel.searchText))
-    }
-
-    func scrollToCurrentMatch() {
-        viewModel.send(.setSearchText(viewModel.searchText))
-    }
-
-    func navigateToNextMatch() {
-        viewModel.send(.navigateToNextMatch)
-    }
-
-    func navigateToPrevMatch() {
-        viewModel.send(.navigateToPrevMatch)
+        var allItems: [MediaSource] = []
+        var allAnchors: [ChatMessageView.ChatAnchor] = []
+        for noteItem in viewModel.notes {
+            if case let .media(images, videos) = noteItem.bundle {
+                struct Combined { let isImage: Bool; let index: Int; let order: Int }
+                var merged: [Combined] = []
+                for imageIndex in images.indices {
+                    let order = images[imageIndex].orderIndex ?? imageIndex
+                    merged.append(Combined(isImage: true, index: imageIndex, order: order))
+                }
+                for videoIndex in videos.indices {
+                    let order = videos[videoIndex].orderIndex ?? (images.count + videoIndex)
+                    merged.append(Combined(isImage: false, index: videoIndex, order: order))
+                }
+                merged.sort { $0.order < $1.order }
+                for entry in merged {
+                    if entry.isImage {
+                        allItems.append(.image(images[entry.index].data))
+                        allAnchors.append(.init(noteId: noteItem.id, isImage: true, localIndex: entry.index))
+                    } else {
+                        allItems.append(.video(videos[entry.index].url))
+                        allAnchors.append(.init(noteId: noteItem.id, isImage: false, localIndex: entry.index))
+                    }
+                }
+            }
+        }
+        let start = allAnchors.firstIndex(where: { $0.noteId == anchor.noteId && $0.isImage == anchor.isImage && $0.localIndex == anchor.localIndex }) ?? 0
+        return (items: allItems, anchors: allAnchors, index: start)
     }
 
     private func openViewer(anchor: ChatMessageView.ChatAnchor) {
-        let payload = viewModel.buildGlobalViewerPayload(startingFrom: anchor)
+        let payload = buildGlobalViewerPayload(startingFrom: anchor)
         let currentAnchor = payload.anchors.indices.contains(payload.index) ? payload.anchors[payload.index] : nil
         let initialUploadedAt = currentAnchor.flatMap { anchor in
             viewModel.notes.first(where: { $0.id == anchor.noteId })?.uploadedAt
@@ -861,8 +882,8 @@ private extension ChattingView {
     func dateHeaderView(_ date: Date) -> some View {
         Text(date.formattedChatDayHeader)
             .font(.caption2)
-            .foregroundColor(isSameCalendarDay(date, viewModel.highlightedDate) ? Color("Primary") : .gray)
-            .offset(y: isSameCalendarDay(date, viewModel.highlightedDate) ? dateHighlightOffsetY : 0)
+            .foregroundColor(isSameCalendarDay(date, highlightedDate) ? Color("Primary") : .gray)
+            .offset(y: isSameCalendarDay(date, highlightedDate) ? dateHighlightOffsetY : 0)
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.vertical, 12)
             .background(
@@ -939,20 +960,6 @@ private extension ChattingView {
             }
         }
     }
-    func deleteMedia(anchor: ChatMessageView.ChatAnchor) {
-        viewModel.send(.deleteMedia(anchor: anchor))
-    }
-    
-    func deleteFile(noteId: UUID, fileIndex: Int) {
-        viewModel.send(.deleteFile(noteId: noteId, fileIndex: fileIndex))
-    }
-
-    // MARK: - Pending upload helpers moved to ViewModel
-}
-
-private func clientName(from note: Note) -> String {
-    // Placeholder until Note carries author/client info. Using a hardcoded title like the nav bar.
-    return "Gyeong"
 }
 
 extension Notification.Name {
@@ -1039,10 +1046,20 @@ private struct BottomInsetHeightKey: PreferenceKey {
         value = nextValue()
     }
 }
-
-// (reverted) ScrollBounceDisabler removed in favor of .scrollBounceBehavior(.basedOnSize)
 #endif
 
 #Preview {
     ChattingView(clientId: UUID(), chatTitle: "Preview", initialNotes: [])
+}
+
+#Preview("TextEditSheet") {
+    TextEditSheet(
+        initialText: "안녕하세요",
+        onCancel: { },
+        onSave: { _ in },
+        onCopyAll: { },
+        onShare: { },
+        onDelete: { },
+        deleteSubject: "메모를"
+    )
 }
