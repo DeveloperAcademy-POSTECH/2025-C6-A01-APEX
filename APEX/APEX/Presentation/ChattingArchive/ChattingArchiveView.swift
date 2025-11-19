@@ -49,7 +49,7 @@ struct ChattingArchiveView: View {
     // Bottom actions
     @State private var showDeleteMediaAlert: Bool = false
     @State private var showDeleteContactOverlay: Bool = false
-    @State private var isDeleteConfirmChecked: Bool = false
+    @State private var isDeleteConfirmChecked: Bool = false // 로컬 상태로 체크박스 관리 (NotesView 방식으로 통일)
     @State private var totalMediaBytes: Int64 = 0
     
     private enum Metrics {
@@ -472,11 +472,12 @@ struct ChattingArchiveView: View {
         .buttonStyle(SectionHeaderPressedStyle())
     }
 
-    // NotesView deleteOverlay 재활용 스타일의 오버레이
+    // NotesView 방식의 오버레이 (로컬 상태 사용)
     private var contactDeleteOverlay: some View {
         Group {
             if showDeleteContactOverlay {
                 ZStack {
+                    // 딤 배경
                     Color.black.opacity(0.35)
                         .ignoresSafeArea(.all)
                         .contentShape(Rectangle())
@@ -484,6 +485,7 @@ struct ChattingArchiveView: View {
                             showDeleteContactOverlay = false
                             isDeleteConfirmChecked = false
                         }
+                    
                     ContactDeleteConfirmCard(
                         isChecked: $isDeleteConfirmChecked,
                         onCancel: {
@@ -494,9 +496,12 @@ struct ChattingArchiveView: View {
                             guard isDeleteConfirmChecked else { return }
                             deleteCurrentContact()
                             showDeleteContactOverlay = false
+                            isDeleteConfirmChecked = false
                         }
                     )
                     .padding(.horizontal, 42)
+                    .contentShape(Rectangle()) // 모달 카드 영역의 터치를 차단
+                    .onTapGesture { } // 빈 제스처로 터치 이벤트 흡수
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 .transition(.opacity)

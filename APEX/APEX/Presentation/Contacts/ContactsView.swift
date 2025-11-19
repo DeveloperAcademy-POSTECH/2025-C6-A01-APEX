@@ -19,6 +19,9 @@ struct ContactsView: View {
     @State private var selectedClient: Client?
     @State private var selectedDummy: DummyClient?
     
+    // 로컬 상태로 체크박스 관리 (NotesView 방식으로 통일)
+    @State private var isDeleteConfirmed: Bool = false
+    
     private enum Metrics {
         static let gap: CGFloat = 8
         static let myProfileRowHeight: CGFloat = 72
@@ -140,26 +143,31 @@ struct ContactsView: View {
     
     private var deleteOverlay: some View {
         ZStack {
-            // 전체화면 딤 배경
+            // 딤 배경
             Color.black.opacity(0.35)
                 .ignoresSafeArea(.all)
                 .contentShape(Rectangle())
                 .onTapGesture {
+                    isDeleteConfirmed = false
                     viewModel.send(.dismissDelete)
                 }
             
-            // 삭제 확인 카드
+            // 삭제 확인 카드 (로컬 상태 사용)
             ContactsDeleteConfirmCard(
-                isChecked: $viewModel.isDeleteConfirmed,
+                isChecked: $isDeleteConfirmed,
                 onCancel: {
+                    isDeleteConfirmed = false
                     viewModel.send(.dismissDelete)
                 },
                 onDelete: {
-                    guard viewModel.isDeleteConfirmed, let target = viewModel.clientToDelete else { return }
+                    guard isDeleteConfirmed, let target = viewModel.clientToDelete else { return }
                     viewModel.send(.deleteConfirmed(target))
+                    isDeleteConfirmed = false
                 }
             )
             .padding(.horizontal, 46)
+            .contentShape(Rectangle()) // 모달 카드 영역의 터치를 차단
+            .onTapGesture { } // 빈 제스처로 터치 이벤트 흡수
         }
     }
 
@@ -312,7 +320,6 @@ private struct ContactsDeleteConfirmCard: View {
         }
         .padding(Metrics.horizontalPadding)
         .glassEffect(in: .rect(cornerRadius: Metrics.cornerRadius))
-        .allowsHitTesting(true)
     }
     
     // MARK: - Sections
@@ -327,17 +334,16 @@ private struct ContactsDeleteConfirmCard: View {
     }
     
     private var bodySection: some View {
-        Text("연락처 정보와 관련된 모든 데이터가 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.")
+        Text("연락처 및 관련 데이터가 모두 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.")
             .font(.body3)
             .foregroundColor(.black)
             .multilineTextAlignment(.center)
-            .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 8)
     }
     
     private var confirmSection: some View {
         Button {
-            withAnimation(.easeInOut(duration: 0.2)) {
+            withAnimation(.easeInOut(duration: 0.1)) {
                 isChecked.toggle()
             }
         } label: {
@@ -350,7 +356,7 @@ private struct ContactsDeleteConfirmCard: View {
             }
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 8) // 본문과 시작점 맞추기 위해 동일한 패딩
     }
     
     private var buttonsSection: some View {

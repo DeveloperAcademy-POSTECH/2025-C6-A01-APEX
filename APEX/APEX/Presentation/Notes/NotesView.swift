@@ -181,7 +181,7 @@ private struct DeleteConfirmCard: View {
     
     private var confirmSection: some View {
         Button {
-            withAnimation(.easeInOut(duration: 0.2)) {
+            withAnimation(.easeInOut(duration: 0.1)) {
                 isChecked.toggle()
             }
         } label: {

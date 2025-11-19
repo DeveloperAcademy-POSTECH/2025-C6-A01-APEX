@@ -421,9 +421,16 @@ struct DMConfirmDialog: View {
     var body: some View {
         if isVisible {
             ZStack {
+                // 딤 배경
                 Color.black.opacity(0.35)
                     .ignoresSafeArea()
-                    .onTapGesture { withAnimation { isVisible = false; onCancel() } }
+                    .contentShape(Rectangle())
+                    .onTapGesture { 
+                        withAnimation { 
+                            isVisible = false
+                            onCancel() 
+                        } 
+                    }
 
                 VStack(spacing: 0) {
                     titleSection
@@ -446,6 +453,8 @@ struct DMConfirmDialog: View {
                 .padding(Metrics.horizontalPadding)
                 .glassEffect(in: .rect(cornerRadius: Metrics.cornerRadius))
                 .padding(.horizontal, 46)
+                .contentShape(Rectangle()) // 모달 카드 영역의 터치를 차단
+                .onTapGesture { } // 빈 제스처로 터치 이벤트 흡수
             }
             .transition(.opacity)
         }
@@ -499,7 +508,7 @@ struct DMConfirmDialog: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 8) // 본문과 시작점 맞추기 위해 동일한 패딩
     }
     
     private var buttonsSection: some View {
