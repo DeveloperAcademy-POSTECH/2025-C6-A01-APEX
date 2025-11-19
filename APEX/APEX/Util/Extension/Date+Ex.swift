@@ -10,10 +10,19 @@ import Foundation
 extension Date {
     var formattedHeaderDate: String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ko_KR")
+        formatter.locale = Locale(identifier: "ko_KR") // 한국어 날짜/AM/PM 유지
         formatter.amSymbol = "AM"
         formatter.pmSymbol = "PM"
-        formatter.dateFormat = "yyyy.MM.dd h:mm a"
+        
+        // 시스템 설정에 따라 12/24시간 자동 결정
+        if DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: Locale.current)?.contains("a") == true {
+            // 12시간제: 공백 있는 패턴 사용
+            formatter.dateFormat = "yyyy.MM.dd h:mm a"
+        } else {
+            // 24시간제: AM/PM 없는 패턴 사용
+            formatter.dateFormat = "yyyy.MM.dd H:mm"
+        }
+        
         return formatter.string(from: self)
     }
     
@@ -31,10 +40,19 @@ extension Date {
     
     var formattedChatTime: String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ko_KR")
+        formatter.locale = Locale(identifier: "ko_KR") // 한국어 AM/PM 유지
         formatter.amSymbol = "AM"
         formatter.pmSymbol = "PM"
-        formatter.dateFormat = "h:mm a" // 예: 오후 3:27
+        
+        // 시스템 설정에 따라 12/24시간 자동 결정하되, 12시간제일 때 공백 추가
+        if DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: Locale.current)?.contains("a") == true {
+            // 12시간제: 공백 있는 패턴 사용
+            formatter.dateFormat = "h:mm a"
+        } else {
+            // 24시간제: AM/PM 없는 패턴 사용
+            formatter.dateFormat = "H:mm"
+        }
+        
         return formatter.string(from: self)
     }
 

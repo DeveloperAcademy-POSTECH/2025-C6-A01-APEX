@@ -205,17 +205,25 @@ private struct EmptyNotesState: View {
 // MARK: - Formatting & Helpers
 
 enum NotesTextFormatter {
-    // DateFormatter 캐시
-    private static let timeFormatter: DateFormatter = {
+    // 시스템 설정에 따라 동적으로 formatter 생성
+    private static func createTimeFormatter() -> DateFormatter {
         let formatter = DateFormatter()
-        formatter.dateFormat = "h:mma"
+        // 시스템 설정에 따라 12/24시간 자동 결정하되, 12시간제일 때 공백 추가
+        if DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: Locale.current)?.contains("a") == true {
+            // 12시간제: 공백 있는 패턴 사용
+            formatter.dateFormat = "h:mm a"
+        } else {
+            // 24시간제: AM/PM 없는 패턴 사용
+            formatter.dateFormat = "H:mm"
+        }
         return formatter
-    }()
+    }
     private static let monthDayFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "M/d"
         return formatter
     }()
+    
     private static let yearMonthDayFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy/M/d"
@@ -226,9 +234,11 @@ enum NotesTextFormatter {
         guard let latest = notes.max(by: { $0.uploadedAt < $1.uploadedAt }) else { return nil }
         let cal = Calendar.current
         let now = Date()
+        let timeFormatter = createTimeFormatter() // 동적 생성
+        
         if cal.isDate(latest.uploadedAt, inSameDayAs: now) {
             // 오늘: 시간만
-            return timeFormatter.string(from: latest.uploadedAt) // 3:00 PM
+            return timeFormatter.string(from: latest.uploadedAt) // 3:00 PM 또는 15:00
         } else if let yesterday = cal.date(byAdding: .day, value: -1, to: now),
                   cal.isDate(latest.uploadedAt, inSameDayAs: yesterday) {
             // 어제: "어제 + 시간"
