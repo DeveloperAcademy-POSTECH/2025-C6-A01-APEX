@@ -405,13 +405,7 @@ struct ArchiveListView: View {
 // Media tile moved to common: APEXMediaTile
 
 // MARK: - Video duration helper
-private func format(durationOf url: URL) -> String {
-    let asset = AVAsset(url: url)
-    let seconds = Int(CMTimeGetSeconds(asset.duration).rounded())
-    let minutes = seconds / 60
-    let remainingSeconds = seconds % 60
-    return String(format: "%02d:%02d", minutes, remainingSeconds)
-}
+ 
 
 // MARK: - Media deletion helper (mirrors ChattingDetailView logic)
 private func deleteFlattenedMedia(item: FlattenedMediaItem, clientId: UUID) {

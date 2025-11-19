@@ -958,46 +958,14 @@ struct FlattenedLinkItem: Identifiable, Equatable {
 
 // MARK: - Link detection helpers (copied from chat view)
 
-private func urls(in text: String, limit: Int = 3) -> [URL] {
-    let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
-    let textAsNSString = text as NSString
-    let fullRange = NSRange(location: 0, length: textAsNSString.length)
-    let matches = detector?.matches(in: text, options: [], range: fullRange) ?? []
-    var seen = Set<String>()
-    var extractedURLs: [URL] = []
-    for match in matches {
-        guard let range = Range(match.range, in: text) else { continue }
-        let substring = String(text[range])
-        let baseURL = match.url ?? normalizedURL(from: substring)
-        guard let unwrapped = baseURL else { continue }
-        let finalURL = normalizeURL(unwrapped)
-        if seen.insert(finalURL.absoluteString).inserted {
-            extractedURLs.append(finalURL)
-            if extractedURLs.count >= limit { break }
-        }
-    }
-    return extractedURLs
-}
+ 
 
-private func normalizedURL(from raw: String) -> URL? {
-    var value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-    let lowercased = value.lowercased()
-    if !(lowercased.hasPrefix("http://") || lowercased.hasPrefix("https://")) {
-        value = "https://" + value
-    }
-    return URL(string: value)
-}
+ 
 
 // normalizeURL is provided by LinkPreviewSupport.swift
 
 // MARK: - Video duration helper
-private func format(durationOf url: URL) -> String {
-    let asset = AVAsset(url: url)
-    let seconds = Int(CMTimeGetSeconds(asset.duration).rounded())
-    let minutes = seconds / 60
-    let remainingSeconds = seconds % 60
-    return String(format: "%02d:%02d", minutes, remainingSeconds)
-}
+ 
 
 // MARK: - Media deletion helper
 private func deleteFlattenedMedia(item: FlattenedMediaItem, clientId: UUID) {

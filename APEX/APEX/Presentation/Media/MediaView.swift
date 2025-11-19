@@ -536,27 +536,6 @@ private struct CircularProgressButton: View {
     }
 }
 
-private func format(durationOf url: URL) -> String {
-    let asset = AVAsset(url: url)
-    let seconds = Int(CMTimeGetSeconds(asset.duration).rounded())
-    let minutes = seconds / 60
-    let remainingSeconds = seconds % 60
-    return String(format: "%02d:%02d", minutes, remainingSeconds)
-}
-
-private func generateThumbnail(for url: URL) -> UIImage? {
-    let asset = AVAsset(url: url)
-    let generator = AVAssetImageGenerator(asset: asset)
-    generator.appliesPreferredTrackTransform = true
-    generator.maximumSize = CGSize(width: 1600, height: 1600)
-    do {
-        let cgImage = try generator.copyCGImage(at: .init(seconds: 0.1, preferredTimescale: 600), actualTime: nil)
-        return UIImage(cgImage: cgImage)
-    } catch {
-        return nil
-    }
-}
-
 #Preview {
     MediaView(items: [.image(Data())], selectedIndex: 0, title: "Gyeong", uploadedAt: Date())
 }
