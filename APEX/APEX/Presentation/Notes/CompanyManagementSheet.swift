@@ -251,6 +251,14 @@ struct CompanyManagementSheet: View {
         let enabledArray = Array(enabledCompanies)
         UserDefaults.standard.set(enabledArray, forKey: enabledCompaniesDefaultsKey)
         UserDefaults.standard.set(companyOrder, forKey: companyOrderDefaultsKey)
+        NotificationCenter.default.post(
+            name: .apexCompanyPreferencesUpdated,
+            object: nil,
+            userInfo: [
+                "enabled": enabledArray,
+                "order": companyOrder
+            ]
+        )
     }
     
     private func reconcileEnabledWithAllCompanies() {
