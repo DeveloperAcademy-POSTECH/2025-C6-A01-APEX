@@ -15,21 +15,33 @@ enum ArchiveSection {
 }
 
 struct ArchiveListView: View {
-	let section: ArchiveSection
-	let media: [FlattenedMediaItem]
-	let files: [FlattenedFileItem]
-	let links: [FlattenedLinkItem]
-	let audios: [FlattenedAudioItem]
-	let viewerTitle: String
-	let excludedClientIds: [UUID]
-	var onClose: () -> Void
+    @StateObject private var viewModel: ArchiveListViewModel
+    var onClose: () -> Void
     @EnvironmentObject private var router: NavigationRouter
-	@State private var selectedTab: ArchiveSection = .media
     private struct MediaViewerHandle: Identifiable { let id: UUID }
     @State private var mediaViewer: MediaViewerHandle?
-    // Record viewer
-    private struct ArchiveRecordPayload: Identifiable { let id = UUID(); let url: URL }
-    @State private var recordPayload: ArchiveRecordPayload?
+    
+    init(
+        section: ArchiveSection,
+        media: [FlattenedMediaItem],
+        files: [FlattenedFileItem],
+        links: [FlattenedLinkItem],
+        audios: [FlattenedAudioItem],
+        viewerTitle: String,
+        excludedClientIds: [UUID],
+        onClose: @escaping () -> Void
+    ) {
+        _viewModel = StateObject(wrappedValue: ArchiveListViewModel(
+            section: section,
+            media: media,
+            files: files,
+            links: links,
+            audios: audios,
+            viewerTitle: viewerTitle,
+            excludedClientIds: excludedClientIds
+        ))
+        self.onClose = onClose
+    }
     
     private enum Metrics {
         static let horizontalPadding: CGFloat = 12
@@ -43,7 +55,7 @@ struct ArchiveListView: View {
 	var body: some View {
 		VStack(spacing: 0) {
 			APEXSheetTopBar(
-				title: viewerTitle,
+				title: viewModel.viewerTitle,
 				rightTitle: "",
 				isRightEnabled: false,
 				onRightTap: {},
@@ -56,8 +68,8 @@ struct ArchiveListView: View {
 			APEXUnderlineTabs(
 				items: ["사진/동영상", "파일", "링크", "음성메모"],
 				selectedIndex: Binding(
-					get: { tabIndex(from: selectedTab) },
-					set: { newIdx in selectedTab = indexToTab(newIdx) }
+					get: { viewModel.tabIndex(from: viewModel.selectedTab) },
+					set: { newIdx in viewModel.send(.setSelectedIndex(newIdx)) }
 				)
 			)
 			.background(Color("Background"))
@@ -75,19 +87,19 @@ struct ArchiveListView: View {
 					let dx = value.translation.width
 					let dy = value.translation.height
 					guard abs(dx) > abs(dy), abs(dx) > 40 else { return }
-					let currentIndex = tabIndex(from: selectedTab)
+					let currentIndex = viewModel.tabIndex(from: viewModel.selectedTab)
 					if dx < 0 {
 						let next = min(3, currentIndex + 1)
 						if next != currentIndex {
 							withAnimation(.easeInOut(duration: 0.25)) {
-								selectedTab = indexToTab(next)
+								viewModel.selectedTab = viewModel.indexToTab(next)
 							}
 						}
 					} else {
 						let prev = max(0, currentIndex - 1)
 						if prev != currentIndex {
 							withAnimation(.easeInOut(duration: 0.25)) {
-								selectedTab = indexToTab(prev)
+								viewModel.selectedTab = viewModel.indexToTab(prev)
 							}
 						}
 					}
@@ -120,58 +132,19 @@ struct ArchiveListView: View {
                 Color.clear
             }
         }
-        .fullScreenCover(item: $recordPayload) { payload in
+        .fullScreenCover(item: $viewModel.recordPayload) { payload in
             RecordView(audioURL: payload.url)
         }
-        // Reflect audio rename/delete from RecordView across archive list (infer clientId from excludedClientIds.first)
-        .onReceive(NotificationCenter.default.publisher(for: .apexAudioRenamed)) { notif in
-            guard let oldURL = notif.userInfo?["oldURL"] as? URL,
-                  let newURL = notif.userInfo?["newURL"] as? URL,
-                  let clientId = excludedClientIds.first else { return }
-            var notes = ChatStore.shared.notes(for: clientId)
-            var changed = false
-            for idx in notes.indices {
-                if case var .audio(audios) = notes[idx].bundle {
-                    var updated = false
-                    for j in audios.indices where audios[j].url == oldURL {
-                        audios[j] = AudioAttachment(url: newURL, duration: audios[j].duration)
-                        updated = true
-                    }
-                    if updated {
-                        notes[idx].bundle = .audio(audios)
-                        changed = true
-                    }
-                }
-            }
-            if changed { ChatStore.shared.setNotes(notes, for: clientId) }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .apexAudioDeleted)) { notif in
-            guard let url = notif.userInfo?["url"] as? URL,
-                  let clientId = excludedClientIds.first else { return }
-            var notes = ChatStore.shared.notes(for: clientId)
-            var changed = false
-            for idx in notes.indices {
-                if case var .audio(audios) = notes[idx].bundle {
-                    let before = audios.count
-                    audios.removeAll { $0.url == url }
-                    if audios.count != before {
-                        notes[idx].bundle = audios.isEmpty ? nil : .audio(audios)
-                        changed = true
-                    }
-                }
-            }
-            if changed { ChatStore.shared.setNotes(notes, for: clientId) }
-        }
-		.onAppear { selectedTab = section }
+        .onAppear { viewModel.send(.onAppear) }
 	}
 
 	@ViewBuilder
 	private var content: some View {
 		ScrollView {
             LazyVStack(alignment: .leading, spacing: Metrics.groupMonthMediaGap) {
-				switch selectedTab {
+				switch viewModel.selectedTab {
 				case .media:
-					let groups = groupByMonth(media, date: { $0.uploadedAt })
+					let groups = groupByMonth(viewModel.media, date: { $0.uploadedAt })
 					ForEach(groups.indices, id: \.self) { gIdx in
 						let group = groups[gIdx]
                         VStack(alignment: .leading, spacing: Metrics.monthAndMediaGap) {
@@ -209,29 +182,16 @@ struct ArchiveListView: View {
 												}
 											},
 											index: idx,
-											title: ownerNameForFlattenedMedia(item) ?? viewerTitle,
+											title: viewModel.ownerName(for: item) ?? viewModel.viewerTitle,
 											uploadedAt: group.items[idx].uploadedAt,
-                                            excludedClientIds: excludedClientIds,
+                                            excludedClientIds: viewModel.excludedClientIds,
                                             onDelete: { removedIndex, _ in
                                                 let flat = group.items
                                                 guard flat.indices.contains(removedIndex) else { return }
-                                                // Try to infer clientId from excludedClientIds first (ChatDetail passes single client id)
-                                                if let clientId = excludedClientIds.first {
-                                                    deleteFlattenedMedia(item: flat[removedIndex], clientId: clientId)
-                                                }
+                                                viewModel.deleteFlattenedMedia(flat[removedIndex])
                                             },
                                             onTitleTap: { current in
-                                                // Map current index to owning client and note id, then navigate
-                                                let anchors: [(clientId: UUID, noteId: UUID)?] = group.items.map { mediaItem in
-                                                    if let parsed = parseFlattenedMediaId(mediaItem.id) {
-                                                        if let owner = ownerForFlattenedMedia(mediaItem) {
-                                                            return (owner.clientId, parsed.noteId)
-                                                        }
-                                                    }
-                                                    return nil
-                                                }
-                                                guard anchors.indices.contains(current),
-                                                      let anchor = anchors[current] else { return }
+                                                guard let anchor = viewModel.anchor(in: group.items, current: current) else { return }
                                                 // Dismiss ArchiveListView first, then push chat to ensure it appears on top
                                                 onClose()
                                                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -277,7 +237,7 @@ struct ArchiveListView: View {
                         }
 					}
 				case .files:
-					let groups = groupByMonth(files, date: { $0.uploadedAt })
+					let groups = groupByMonth(viewModel.files, date: { $0.uploadedAt })
 					ForEach(groups.indices, id: \.self) { gIdx in
 						let group = groups[gIdx]
                         VStack(alignment: .leading, spacing: Metrics.monthAndMediaGap) {
@@ -303,7 +263,7 @@ struct ArchiveListView: View {
                         }
 					}
 				case .links:
-					let groups = groupByMonth(links, date: { $0.uploadedAt })
+					let groups = groupByMonth(viewModel.links, date: { $0.uploadedAt })
                     let colWidth = (UIScreen.main.bounds.width - Metrics.horizontalPadding * 2 - Metrics.mediaGap) / 2.0
 					ForEach(groups.indices, id: \.self) { gIdx in
 						let group = groups[gIdx]
@@ -319,7 +279,7 @@ struct ArchiveListView: View {
                         }
 					}
 				case .audio:
-					let groups = groupByMonth(audios, date: { $0.uploadedAt })
+					let groups = groupByMonth(viewModel.audios, date: { $0.uploadedAt })
 					ForEach(groups.indices, id: \.self) { gIdx in
 						let group = groups[gIdx]
                         VStack(alignment: .leading, spacing: Metrics.monthAndMediaGap) {
@@ -340,7 +300,7 @@ struct ArchiveListView: View {
                                     )
                                     .allowsHitTesting(false)
                                     .contentShape(Rectangle())
-                                    .onTapGesture { recordPayload = ArchiveRecordPayload(url: item.url) }
+                                    .onTapGesture { viewModel.send(.openRecord(item.url)) }
                                 }
                             }
                         }
@@ -348,25 +308,7 @@ struct ArchiveListView: View {
 				}
 			}
 			.padding(.top, 8)
-			.id(selectedTab)
-		}
-	}
-
-	private func tabIndex(from tab: ArchiveSection) -> Int {
-		switch tab {
-		case .media: return 0
-		case .files: return 1
-		case .links: return 2
-		case .audio: return 3
-		}
-	}
-	private func indexToTab(_ idx: Int) -> ArchiveSection {
-		switch idx {
-		case 0: return .media
-		case 1: return .files
-		case 2: return .links
-		case 3: return .audio
-		default: return .media
+			.id(viewModel.selectedTab)
 		}
 	}
 
@@ -403,83 +345,6 @@ struct ArchiveListView: View {
 }
 
 // Media tile moved to common: APEXMediaTile
-
-// MARK: - Video duration helper
-private func format(durationOf url: URL) -> String {
-    let asset = AVAsset(url: url)
-    let seconds = Int(CMTimeGetSeconds(asset.duration).rounded())
-    let minutes = seconds / 60
-    let remainingSeconds = seconds % 60
-    return String(format: "%02d:%02d", minutes, remainingSeconds)
-}
-
-// MARK: - Media deletion helper (mirrors ChattingDetailView logic)
-private func deleteFlattenedMedia(item: FlattenedMediaItem, clientId: UUID) {
-    var notes = ChatStore.shared.notes(for: clientId)
-    guard let parsed = parseFlattenedMediaId(item.id),
-          let noteIndex = notes.firstIndex(where: { $0.id == parsed.noteId }),
-          case var .media(images, videos) = notes[noteIndex].bundle else { return }
-    if parsed.isImage {
-        guard images.indices.contains(parsed.localIndex) else { return }
-        images.remove(at: parsed.localIndex)
-    } else {
-        guard videos.indices.contains(parsed.localIndex) else { return }
-        videos.remove(at: parsed.localIndex)
-    }
-    struct Combined { let isImage: Bool; let idx: Int; let order: Int }
-    var merged: [Combined] = []
-    for i in images.indices {
-        let order = images[i].orderIndex ?? i
-        merged.append(Combined(isImage: true, idx: i, order: order))
-    }
-    for v in videos.indices {
-        let order = videos[v].orderIndex ?? (images.count + v)
-        merged.append(Combined(isImage: false, idx: v, order: order))
-    }
-    merged.sort { $0.order < $1.order }
-    for (newOrder, entry) in merged.enumerated() {
-        if entry.isImage { images[entry.idx].orderIndex = newOrder } else { videos[entry.idx].orderIndex = newOrder }
-    }
-    notes[noteIndex].bundle = (images.isEmpty && videos.isEmpty) ? nil : .media(images: images, videos: videos)
-    ChatStore.shared.setNotes(notes, for: clientId)
-}
-
-private func parseFlattenedMediaId(_ id: String) -> (noteId: UUID, isImage: Bool, localIndex: Int)? {
-    if let range = id.range(of: "-i-", options: .backwards) {
-        let uuidPart = String(id[..<range.lowerBound])
-        let indexPart = String(id[range.upperBound...])
-        guard let noteId = UUID(uuidString: uuidPart), let localIndex = Int(indexPart) else { return nil }
-        return (noteId, true, localIndex)
-    } else if let range = id.range(of: "-v-", options: .backwards) {
-        let uuidPart = String(id[..<range.lowerBound])
-        let indexPart = String(id[range.upperBound...])
-        guard let noteId = UUID(uuidString: uuidPart), let localIndex = Int(indexPart) else { return nil }
-        return (noteId, false, localIndex)
-    } else {
-        return nil
-    }
-}
-
-// MARK: - Owner resolvers for media items
-private func ownerForFlattenedMedia(_ item: FlattenedMediaItem) -> (clientId: UUID, noteId: UUID)? {
-    guard let parsed = parseFlattenedMediaId(item.id) else { return nil }
-    for client in ClientsStore.shared.clients {
-        var notesForClient = ChatStore.shared.notes(for: client.id)
-        if notesForClient.isEmpty { notesForClient = client.notes }
-        if notesForClient.contains(where: { $0.id == parsed.noteId }) {
-            return (client.id, parsed.noteId)
-        }
-    }
-    return nil
-}
-
-private func ownerNameForFlattenedMedia(_ item: FlattenedMediaItem) -> String? {
-    guard let owner = ownerForFlattenedMedia(item) else { return nil }
-    if let client = ClientsStore.shared.clients.first(where: { $0.id == owner.clientId }) {
-        return client.autoFormattedName
-    }
-    return nil
-}
 
 #Preview {
 	ArchiveListView(section: .media, media: [], files: [], links: [], audios: [], viewerTitle: "홍 길동", excludedClientIds: [], onClose: {})

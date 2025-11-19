@@ -10,11 +10,11 @@ import UniformTypeIdentifiers
 
 struct SearchView: View {
 	@EnvironmentObject private var router: NavigationRouter
-    @ObservedObject private var clientsStore = ClientsStore.shared
 	private let onCloseAction: (() -> Void)?
 	
-	// Search
-	@State private var query: String = ""
+	// VM
+	@StateObject private var viewModel: SearchViewModel
+	// Search focus
 	@FocusState private var isSearchFocused: Bool
 	
 	// Preview initializer to seed states
@@ -28,54 +28,21 @@ struct SearchView: View {
 		previewAllAudios: [FlattenedAudioItem] = []
 	) {
 		self.onCloseAction = onClose
-		if let previewQuery {
-			_query = State(initialValue: previewQuery)
-		}
-		_recentQueries = State(initialValue: previewRecentQueries)
-		_allMedia = State(initialValue: previewAllMedia)
-		_allFiles = State(initialValue: previewAllFiles)
-		_allLinks = State(initialValue: previewAllLinks)
-		_allAudios = State(initialValue: previewAllAudios)
+		_viewModel = .init(wrappedValue: SearchViewModel(
+			initialQuery: previewQuery ?? "",
+			previewRecentQueries: previewRecentQueries,
+			previewAllMedia: previewAllMedia,
+			previewAllFiles: previewAllFiles,
+			previewAllLinks: previewAllLinks,
+			previewAllAudios: previewAllAudios
+		))
 	}
-	
-	// Recent searches
-	@AppStorage("apex.search.recentQueries") private var recentQueriesStorage: String = ""
-	@State private var recentQueries: [String] = []
-	
-	// Aggregated data across all clients
-	@State private var allMedia: [FlattenedMediaItem] = []
-	@State private var allFiles: [FlattenedFileItem] = []
-	@State private var allAudios: [FlattenedAudioItem] = []
-	@State private var allLinks: [FlattenedLinkItem] = []
-	
-	// Navigation to archive list from headers
-	private struct ArchivePushPayload: Identifiable, Hashable {
-		let id = UUID()
-		let section: ArchiveSection
-		let media: [FlattenedMediaItem]
-		let files: [FlattenedFileItem]
-		let links: [FlattenedLinkItem]
-		let audios: [FlattenedAudioItem]
-		let title: String
-		let excludedClientIds: [UUID]
-		
-		static func == (lhs: ArchivePushPayload, rhs: ArchivePushPayload) -> Bool {
-			lhs.id == rhs.id
-		}
-		func hash(into hasher: inout Hasher) {
-			hasher.combine(id)
-		}
-	}
-	@State private var archivePayload: ArchivePushPayload?
-    // Record viewer
-    private struct RecordPayload: Identifiable { let id = UUID(); let url: URL }
-    @State private var recordPayload: RecordPayload?
 	
 	var body: some View {
 		ScrollView {
 			VStack(alignment: .leading, spacing: 16) {
 				// 검색 전 상태
-				if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+				if viewModel.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
 					recentSearchesSection
 					globalMediaSection
 					globalFilesSection
@@ -98,18 +65,21 @@ struct SearchView: View {
 		.scrollEdgeEffectStyle(.soft, for: .top)
 		.toolbar(.hidden, for: .tabBar)
 		.safeAreaInset(edge: .bottom) {
-			let isSearching = !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+			let isSearching = !viewModel.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
 			APEXSearchBar(
-				text: $query,
+				text: Binding(
+					get: { viewModel.query },
+					set: { viewModel.send(.updateQuery($0)) }
+				),
 				isFocused: _isSearchFocused,
 				onPrev: {},
 				onNext: {},
 				onClose: {
 					isSearchFocused = false
-					if !query.isEmpty {
-						saveRecent(query)
+					if !viewModel.query.isEmpty {
+						viewModel.send(.saveRecent(viewModel.query))
 					}
-					query = ""
+					viewModel.send(.updateQuery(""))
 					onCloseAction?()
 				},
 				onTextChange: { _ in
@@ -123,10 +93,9 @@ struct SearchView: View {
 		}
 		.toolbar(.hidden, for: .navigationBar)
 		.onAppear {
-			loadRecent()
-			reloadAllAggregates()
+			viewModel.send(.onAppear)
 		}
-		.fullScreenCover(item: $archivePayload) { payload in
+		.fullScreenCover(item: $viewModel.archivePayload) { payload in
 			ArchiveListView(
 				section: payload.section,
 				media: payload.media,
@@ -135,10 +104,10 @@ struct SearchView: View {
 				audios: payload.audios,
 				viewerTitle: payload.title,
 				excludedClientIds: payload.excludedClientIds,
-				onClose: { archivePayload = nil }
+				onClose: { viewModel.archivePayload = nil }
 			)
 		}
-        .fullScreenCover(item: $recordPayload) { payload in
+        .fullScreenCover(item: $viewModel.recordPayload) { payload in
             RecordView(audioURL: payload.url)
         }
 	}
@@ -148,14 +117,14 @@ struct SearchView: View {
 private extension SearchView {
 	var recentSearchesSection: some View {
 		Group {
-			if !recentQueries.isEmpty {
+			if !viewModel.recentQueries.isEmpty {
 				VStack(alignment: .leading, spacing: 8) {
 					sectionHeader(title: "최근 검색", iconName: "Recent", onTapArrow: {
 						// No destination; keep behavior as non-clickable header
 					}, showsArrow: false)
 					.overlay(alignment: .trailing) {
 						Button {
-							clearRecent()
+							viewModel.send(.clearRecent)
 						} label: {
 							Text("초기화")
 								.font(.body3)
@@ -170,9 +139,9 @@ private extension SearchView {
 					}
 					ScrollView(.horizontal, showsIndicators: false) {
 						HStack(spacing: 8) {
-							ForEach(recentQueries, id: \.self) { item in
+							ForEach(viewModel.recentQueries, id: \.self) { item in
 								Button {
-									query = item
+									viewModel.send(.updateQuery(item))
 									isSearchFocused = true
 								} label: {
 									Text(item)
@@ -196,17 +165,17 @@ private extension SearchView {
 	var globalMediaSection: some View {
 		VStack(alignment: .leading, spacing: 8) {
 			sectionHeader(title: "사진/동영상", iconName: "Photo", onTapArrow: {
-				archivePayload = ArchivePushPayload(section: .media, media: allMedia, files: allFiles, links: allLinks, audios: allAudios, title: "모든 클라이언트", excludedClientIds: [])
+				viewModel.send(.openArchiveAll(.media))
 			})
-			if !allMedia.isEmpty {
-				let shouldShowSeeAll = allMedia.count >= 9
-				let previewItems = shouldShowSeeAll ? Array(allMedia.prefix(8)) : allMedia
+			if !viewModel.allMedia.isEmpty {
+				let shouldShowSeeAll = viewModel.allMedia.count >= 9
+				let previewItems = shouldShowSeeAll ? Array(viewModel.allMedia.prefix(8)) : viewModel.allMedia
 				ScrollView(.horizontal, showsIndicators: false) {
 					HStack(spacing: 2) {
 						ForEach(Array(previewItems.enumerated()), id: \.element.id) { _, item in
-							let owner = ownerForFlattenedMedia(item)
-							let payload = owner.flatMap { mediaPayloadForClient($0.client) }
-							let parsed = parseFlattenedMediaId(item.id)
+							let owner = viewModel.ownerForFlattenedMedia(item)
+							let payload = owner.flatMap { viewModel.mediaPayloadForClient($0.client) }
+							let parsed = viewModel.parseFlattenedMediaId(item.id)
 							let selectedIndex = payload.flatMap { payloadData in
 								payloadData.anchors.firstIndex(where: { $0.noteId == parsed?.noteId && $0.isImage == (parsed?.isImage ?? false) && $0.localIndex == (parsed?.localIndex ?? -1) })
 							} ?? 0
@@ -253,7 +222,7 @@ private extension SearchView {
 						if shouldShowSeeAll {
 							ChattingArchiveView.SeeAllTile(size: 121.67, title: "전체보기")
 								.onTapGesture {
-									archivePayload = ArchivePushPayload(section: .media, media: allMedia, files: allFiles, links: allLinks, audios: allAudios, title: "모든 클라이언트", excludedClientIds: [])
+									viewModel.send(.openArchiveAll(.media))
 								}
 						}
 					}
@@ -266,11 +235,11 @@ private extension SearchView {
 	var globalFilesSection: some View {
 		VStack(alignment: .leading, spacing: 8) {
 			sectionHeader(title: "파일", iconName: "File", onTapArrow: {
-				archivePayload = ArchivePushPayload(section: .files, media: allMedia, files: allFiles, links: allLinks, audios: allAudios, title: "모든 클라이언트", excludedClientIds: [])
+				viewModel.send(.openArchiveAll(.files))
 			})
-			if !allFiles.isEmpty {
-				let shouldShowSeeAll = allFiles.count >= 9
-				let previewItems = shouldShowSeeAll ? Array(allFiles.prefix(8)) : allFiles
+			if !viewModel.allFiles.isEmpty {
+				let shouldShowSeeAll = viewModel.allFiles.count >= 9
+				let previewItems = shouldShowSeeAll ? Array(viewModel.allFiles.prefix(8)) : viewModel.allFiles
 				ScrollView(.horizontal, showsIndicators: false) {
 					HStack(spacing: 2) {
 						ForEach(previewItems, id: \.id) { item in
@@ -289,7 +258,7 @@ private extension SearchView {
 						if shouldShowSeeAll {
 							ChattingArchiveView.SeeAllTile(size: 121.67, title: "전체보기")
 								.onTapGesture {
-									archivePayload = ArchivePushPayload(section: .files, media: allMedia, files: allFiles, links: allLinks, audios: allAudios, title: "모든 클라이언트", excludedClientIds: [])
+									viewModel.send(.openArchiveAll(.files))
 								}
 						}
 					}
@@ -302,11 +271,11 @@ private extension SearchView {
 	var globalLinksSection: some View {
 		VStack(alignment: .leading, spacing: 8) {
 			sectionHeader(title: "링크", iconName: "URL", onTapArrow: {
-				archivePayload = ArchivePushPayload(section: .links, media: allMedia, files: allFiles, links: allLinks, audios: allAudios, title: "모든 클라이언트", excludedClientIds: [])
+				viewModel.send(.openArchiveAll(.links))
 			})
-			if !allLinks.isEmpty {
-				let shouldShowSeeAll = allLinks.count >= 9
-				let previewItems = shouldShowSeeAll ? Array(allLinks.prefix(8)) : allLinks
+			if !viewModel.allLinks.isEmpty {
+				let shouldShowSeeAll = viewModel.allLinks.count >= 9
+				let previewItems = shouldShowSeeAll ? Array(viewModel.allLinks.prefix(8)) : viewModel.allLinks
 				ScrollView(.horizontal, showsIndicators: false) {
 					HStack(spacing: 2) {
 						ForEach(previewItems, id: \.id) { item in
@@ -315,7 +284,7 @@ private extension SearchView {
 						if shouldShowSeeAll {
 							ChattingArchiveView.SeeAllTile(size: 121.67, title: "전체보기")
 								.onTapGesture {
-									archivePayload = ArchivePushPayload(section: .links, media: allMedia, files: allFiles, links: allLinks, audios: allAudios, title: "모든 클라이언트", excludedClientIds: [])
+									viewModel.send(.openArchiveAll(.links))
 								}
 						}
 					}
@@ -328,11 +297,11 @@ private extension SearchView {
 	var globalAudioSection: some View {
 		VStack(alignment: .leading, spacing: 8) {
 			sectionHeader(title: "음성메모", iconName: "Waveform", onTapArrow: {
-				archivePayload = ArchivePushPayload(section: .audio, media: allMedia, files: allFiles, links: allLinks, audios: allAudios, title: "모든 클라이언트", excludedClientIds: [])
+				viewModel.send(.openArchiveAll(.audio))
 			})
-			if !allAudios.isEmpty {
-				let shouldShowSeeAll = allAudios.count >= 9
-				let previewItems = shouldShowSeeAll ? Array(allAudios.prefix(8)) : allAudios
+			if !viewModel.allAudios.isEmpty {
+				let shouldShowSeeAll = viewModel.allAudios.count >= 9
+				let previewItems = shouldShowSeeAll ? Array(viewModel.allAudios.prefix(8)) : viewModel.allAudios
 				ScrollView(.horizontal, showsIndicators: false) {
 					HStack(spacing: 2) {
 						ForEach(previewItems, id: \.id) { item in
@@ -347,12 +316,12 @@ private extension SearchView {
 								.allowsHitTesting(false)
                             }
                             .contentShape(Rectangle())
-                            .onTapGesture { recordPayload = RecordPayload(url: item.url) }
+                            .onTapGesture { viewModel.send(.openRecord(item.url)) }
 						}
 						if shouldShowSeeAll {
 							ChattingArchiveView.SeeAllTile(size: 121.67, title: "전체보기")
 								.onTapGesture {
-									archivePayload = ArchivePushPayload(section: .audio, media: allMedia, files: allFiles, links: allLinks, audios: allAudios, title: "모든 클라이언트", excludedClientIds: [])
+									viewModel.send(.openArchiveAll(.audio))
 								}
 						}
 					}
@@ -366,17 +335,8 @@ private extension SearchView {
 // MARK: - Sections (Searching)
 private extension SearchView {
 	var matchedClientsSection: some View {
-		let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-		let clients = clientsStore.clients
-		let filtered = clients.filter { client in
-			guard !trimmed.isEmpty else { return false }
-			let haystacks: [String] = [
-				client.name, client.surname,
-				client.company, client.position ?? "",
-				client.email ?? "", client.phoneNumber ?? ""
-			]
-			return haystacks.contains(where: { $0.localizedCaseInsensitiveContains(trimmed) })
-		}
+		let trimmed = viewModel.query.trimmingCharacters(in: .whitespacesAndNewlines)
+		let filtered = viewModel.filteredClients(trimmed)
 		return Group {
 			if !filtered.isEmpty {
 				VStack(alignment: .leading, spacing: 8) {
@@ -386,7 +346,7 @@ private extension SearchView {
 					VStack(spacing: 0) {
 						ForEach(filtered) { client in
 							Button {
-								saveRecent(trimmed)
+								viewModel.send(.saveRecent(trimmed))
 								let myId = ClientsStore.shared.clients.first?.id
 								let isMe = (client.id == myId)
 								if isMe {
@@ -429,15 +389,8 @@ private extension SearchView {
 	}
 	
 	var matchedNotesSection: some View {
-		let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-		let pairs: [(Client, Note)] = allClientNotes().compactMap { pair in
-			let (client, note) = pair
-			guard let text = note.text, !trimmed.isEmpty else { return nil }
-			if text.localizedCaseInsensitiveContains(trimmed) {
-				return (client, note)
-			}
-			return nil
-		}
+		let trimmed = viewModel.query.trimmingCharacters(in: .whitespacesAndNewlines)
+		let pairs: [(Client, Note)] = viewModel.matchedClientNotes(trimmed)
 		return Group {
 			if !pairs.isEmpty {
 				VStack(alignment: .leading, spacing: 8) {
@@ -447,7 +400,7 @@ private extension SearchView {
 					VStack(spacing: 8) {
 						ForEach(pairs, id: \.1.id) { client, note in
 							Button {
-								saveRecent(trimmed)
+								viewModel.send(.saveRecent(trimmed))
 								router.push(.chat(client.id))
 								DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
 									NotificationCenter.default.post(name: .apexNavigateToNote, object: nil, userInfo: ["noteId": note.id])
@@ -490,13 +443,11 @@ private extension SearchView {
 	}
 	
 	var filteredMediaSection: some View {
-		let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-		let noteIdsWithMatch: Set<UUID> = Set(allClientNotes().compactMap { (_, note) in
-			guard let text = note.text, !trimmed.isEmpty else { return nil }
-			return text.localizedCaseInsensitiveContains(trimmed) ? note.id : nil
-		})
-		let items = allMedia.filter { item in
-			guard let parsed = parseFlattenedMediaId(item.id) else { return false }
+		let trimmed = viewModel.query.trimmingCharacters(in: .whitespacesAndNewlines)
+		let matched = viewModel.matchedClientNotes(trimmed)
+		let noteIdsWithMatch: Set<UUID> = Set(matched.map { $0.1.id })
+		let items = viewModel.allMedia.filter { item in
+			guard let parsed = viewModel.parseFlattenedMediaId(item.id) else { return false }
 			return noteIdsWithMatch.contains(parsed.noteId)
 		}
 		return filteredMediaSectionCore(items: items, title: "사진/동영상")
@@ -507,17 +458,16 @@ private extension SearchView {
 			if !items.isEmpty {
 				VStack(alignment: .leading, spacing: 8) {
 					sectionHeader(title: title, iconName: "photo", onTapArrow: {
-						let filtered = filteredAggregates(for: query)
-						archivePayload = ArchivePushPayload(section: .media, media: filtered.media, files: filtered.files, links: filtered.links, audios: filtered.audios, title: "검색 결과", excludedClientIds: [])
+						viewModel.send(.openArchiveFiltered(.media))
 					})
 					let shouldShowSeeAll = items.count >= 9
 					let previewItems = shouldShowSeeAll ? Array(items.prefix(8)) : items
 					ScrollView(.horizontal, showsIndicators: false) {
 						HStack(spacing: 2) {
 							ForEach(Array(previewItems.enumerated()), id: \.element.id) { _, item in
-								let owner = ownerForFlattenedMedia(item)
-								let payload = owner.flatMap { mediaPayloadForClient($0.client) }
-								let parsed = parseFlattenedMediaId(item.id)
+								let owner = viewModel.ownerForFlattenedMedia(item)
+								let payload = owner.flatMap { viewModel.mediaPayloadForClient($0.client) }
+								let parsed = viewModel.parseFlattenedMediaId(item.id)
 								let selectedIndex = payload.flatMap { payloadData in
 									payloadData.anchors.firstIndex(where: { $0.noteId == parsed?.noteId && $0.isImage == (parsed?.isImage ?? false) && $0.localIndex == (parsed?.localIndex ?? -1) })
 								} ?? 0
@@ -561,8 +511,7 @@ private extension SearchView {
 							if shouldShowSeeAll {
 								ChattingArchiveView.SeeAllTile(size: 121.67, title: "전체보기")
 									.onTapGesture {
-										let filtered = filteredAggregates(for: query)
-										archivePayload = ArchivePushPayload(section: .media, media: filtered.media, files: filtered.files, links: filtered.links, audios: filtered.audios, title: "검색 결과", excludedClientIds: [])
+										viewModel.send(.openArchiveFiltered(.media))
 									}
 							}
 						}
@@ -574,16 +523,15 @@ private extension SearchView {
 	}
 	
 	var filteredFilesSection: some View {
-		let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-		let items = allFiles.filter { file in
+		let trimmed = viewModel.query.trimmingCharacters(in: .whitespacesAndNewlines)
+		let items = viewModel.allFiles.filter { file in
 			file.url.lastPathComponent.localizedCaseInsensitiveContains(trimmed)
 		}
 		return Group {
 			if !items.isEmpty {
 				VStack(alignment: .leading, spacing: 8) {
 					sectionHeader(title: "파일", iconName: "document", onTapArrow: {
-						let filtered = filteredAggregates(for: query)
-						archivePayload = ArchivePushPayload(section: .files, media: filtered.media, files: filtered.files, links: filtered.links, audios: filtered.audios, title: "검색 결과", excludedClientIds: [])
+						viewModel.send(.openArchiveFiltered(.files))
 					})
 					let shouldShowSeeAll = items.count >= 9
 					let previewItems = shouldShowSeeAll ? Array(items.prefix(8)) : items
@@ -605,8 +553,7 @@ private extension SearchView {
 							if shouldShowSeeAll {
 								ChattingArchiveView.SeeAllTile(size: 121.67, title: "전체보기")
 									.onTapGesture {
-										let filtered = filteredAggregates(for: query)
-										archivePayload = ArchivePushPayload(section: .files, media: filtered.media, files: filtered.files, links: filtered.links, audios: filtered.audios, title: "검색 결과", excludedClientIds: [])
+										viewModel.send(.openArchiveFiltered(.files))
 									}
 							}
 						}
@@ -618,16 +565,15 @@ private extension SearchView {
 	}
 	
 	var filteredLinksSection: some View {
-		let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-		let items = allLinks.filter { link in
+		let trimmed = viewModel.query.trimmingCharacters(in: .whitespacesAndNewlines)
+		let items = viewModel.allLinks.filter { link in
 			link.url.absoluteString.localizedCaseInsensitiveContains(trimmed)
 		}
 		return Group {
 			if !items.isEmpty {
 				VStack(alignment: .leading, spacing: 8) {
 					sectionHeader(title: "링크", iconName: "URL", onTapArrow: {
-						let filtered = filteredAggregates(for: query)
-						archivePayload = ArchivePushPayload(section: .links, media: filtered.media, files: filtered.files, links: filtered.links, audios: filtered.audios, title: "검색 결과", excludedClientIds: [])
+						viewModel.send(.openArchiveFiltered(.links))
 					})
 					let shouldShowSeeAll = items.count >= 9
 					let previewItems = shouldShowSeeAll ? Array(items.prefix(8)) : items
@@ -639,8 +585,7 @@ private extension SearchView {
 							if shouldShowSeeAll {
 								ChattingArchiveView.SeeAllTile(size: 121.67, title: "전체보기")
 									.onTapGesture {
-										let filtered = filteredAggregates(for: query)
-										archivePayload = ArchivePushPayload(section: .links, media: filtered.media, files: filtered.files, links: filtered.links, audios: filtered.audios, title: "검색 결과", excludedClientIds: [])
+										viewModel.send(.openArchiveFiltered(.links))
 									}
 							}
 						}
@@ -652,8 +597,8 @@ private extension SearchView {
 	}
 	
 	var filteredAudioSection: some View {
-		let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-		let items = allAudios.filter { audio in
+		let trimmed = viewModel.query.trimmingCharacters(in: .whitespacesAndNewlines)
+		let items = viewModel.allAudios.filter { audio in
 			let base = audio.url.deletingPathExtension().lastPathComponent
 			return base.localizedCaseInsensitiveContains(trimmed)
 		}
@@ -661,8 +606,7 @@ private extension SearchView {
 			if !items.isEmpty {
 				VStack(alignment: .leading, spacing: 8) {
 					sectionHeader(title: "음성메모", iconName: "Waveform", onTapArrow: {
-						let filtered = filteredAggregates(for: query)
-						archivePayload = ArchivePushPayload(section: .audio, media: filtered.media, files: filtered.files, links: filtered.links, audios: filtered.audios, title: "검색 결과", excludedClientIds: [])
+						viewModel.send(.openArchiveFiltered(.audio))
 					})
 					let shouldShowSeeAll = items.count >= 9
 					let previewItems = shouldShowSeeAll ? Array(items.prefix(8)) : items
@@ -680,13 +624,12 @@ private extension SearchView {
 									.allowsHitTesting(false)
 								}
 								.contentShape(Rectangle())
-                                .onTapGesture { recordPayload = RecordPayload(url: item.url) }
+                                .onTapGesture { viewModel.send(.openRecord(item.url)) }
 							}
 							if shouldShowSeeAll {
 								ChattingArchiveView.SeeAllTile(size: 121.67, title: "전체보기")
 									.onTapGesture {
-										let filtered = filteredAggregates(for: query)
-										archivePayload = ArchivePushPayload(section: .audio, media: filtered.media, files: filtered.files, links: filtered.links, audios: filtered.audios, title: "검색 결과", excludedClientIds: [])
+										viewModel.send(.openArchiveFiltered(.audio))
 									}
 							}
 						}
@@ -700,218 +643,6 @@ private extension SearchView {
 
 // MARK: - Helpers
 private extension SearchView {
-	func loadRecent() {
-		recentQueries = recentQueriesStorage
-			.split(separator: "\n")
-			.map { String($0) }
-			.filter { !$0.isEmpty }
-	}
-	
-    func saveRecent(_ queryString: String) {
-        let trimmed = queryString.trimmingCharacters(in: .whitespacesAndNewlines)
-		guard !trimmed.isEmpty else { return }
-		var set = [trimmed] + recentQueries.filter { $0.caseInsensitiveCompare(trimmed) != .orderedSame }
-		if set.count > 12 { set = Array(set.prefix(12)) }
-		recentQueries = set
-		recentQueriesStorage = set.joined(separator: "\n")
-	}
-	
-	func reloadAllAggregates() {
-		let notes = allClientNotes().map { $0.1 }
-		allMedia = computeMediaItems(from: notes)
-		allFiles = computeFileItems(from: notes)
-		allAudios = computeAudioItems(from: notes)
-		allLinks = computeLinkItems(from: notes)
-	}
-	
-	func clearRecent() {
-		recentQueries = []
-		recentQueriesStorage = ""
-	}
-	
-	func computeMediaItems(from notes: [Note]) -> [FlattenedMediaItem] {
-		var result: [FlattenedMediaItem] = []
-		for note in notes {
-			guard case let .media(images, videos)? = note.bundle else { continue }
-			struct LocalEntry { let isImage: Bool; let index: Int; let order: Int }
-			var merged: [LocalEntry] = []
-			for (imageIndex, img) in images.enumerated() {
-				let order = img.orderIndex ?? imageIndex
-				merged.append(LocalEntry(isImage: true, index: imageIndex, order: order))
-			}
-			for (videoIndex, vid) in videos.enumerated() {
-				let order = vid.orderIndex ?? (images.count + videoIndex)
-				merged.append(LocalEntry(isImage: false, index: videoIndex, order: order))
-			}
-			merged.sort { $0.order < $1.order }
-			for entry in merged {
-				if entry.isImage {
-					result.append(.init(id: "\(note.id.uuidString)-i-\(entry.index)", isVideo: false, imageData: images[entry.index].data, videoURL: nil, uploadedAt: note.uploadedAt, localOrder: entry.order))
-				} else {
-					result.append(.init(id: "\(note.id.uuidString)-v-\(entry.index)", isVideo: true, imageData: nil, videoURL: videos[entry.index].url, uploadedAt: note.uploadedAt, localOrder: entry.order))
-				}
-			}
-		}
-		return result.sorted {
-			if $0.uploadedAt != $1.uploadedAt { return $0.uploadedAt > $1.uploadedAt }
-			if $0.id.prefix(36) == $1.id.prefix(36) { return $0.localOrder > $1.localOrder }
-			return $0.id > $1.id
-		}
-	}
-	
-	func computeFileItems(from notes: [Note]) -> [FlattenedFileItem] {
-		var result: [FlattenedFileItem] = []
-		for note in notes {
-			if case let .files(fileSet)? = note.bundle {
-				for (index, fileAttachment) in fileSet.enumerated() {
-					result.append(.init(id: "\(note.id.uuidString)-f-\(index)", url: fileAttachment.url, contentType: fileAttachment.contentType, uploadedAt: note.uploadedAt, localIndex: index))
-				}
-			}
-		}
-		return result.sorted {
-			if $0.uploadedAt != $1.uploadedAt { return $0.uploadedAt > $1.uploadedAt }
-			if $0.id.prefix(36) == $1.id.prefix(36) { return $0.localIndex < $1.localIndex }
-			return $0.id > $1.id
-		}
-	}
-	
-	func computeAudioItems(from notes: [Note]) -> [FlattenedAudioItem] {
-		var result: [FlattenedAudioItem] = []
-		for note in notes {
-			if case let .audio(audioSet)? = note.bundle {
-				for (index, audioAttachment) in audioSet.enumerated() {
-					result.append(.init(id: "\(note.id.uuidString)-a-\(index)", url: audioAttachment.url, duration: audioAttachment.duration, uploadedAt: note.uploadedAt, localIndex: index))
-				}
-			}
-		}
-		return result.sorted {
-			if $0.uploadedAt != $1.uploadedAt { return $0.uploadedAt > $1.uploadedAt }
-			if $0.id.prefix(36) == $1.id.prefix(36) { return $0.localIndex < $1.localIndex }
-			return $0.id > $1.id
-		}
-	}
-	
-	func computeLinkItems(from notes: [Note]) -> [FlattenedLinkItem] {
-		var all: [FlattenedLinkItem] = []
-		for note in notes {
-			guard let text = note.text else { continue }
-			let found = urls(in: text, limit: Int.max)
-			for foundURL in found {
-				all.append(.init(id: "\(note.id.uuidString)-l-\(foundURL.absoluteString)", url: foundURL, uploadedAt: note.uploadedAt))
-			}
-		}
-		let sorted = all.sorted { $0.uploadedAt == $1.uploadedAt ? $0.id > $1.id : $0.uploadedAt > $1.uploadedAt }
-		var seen = Set<String>()
-		var dedup: [FlattenedLinkItem] = []
-		for item in sorted where seen.insert(item.url.absoluteString).inserted {
-			dedup.append(item)
-		}
-		return dedup
-	}
-	
-	func urls(in text: String, limit: Int = 3) -> [URL] {
-		let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
-		let textAsNSString = text as NSString
-		let fullRange = NSRange(location: 0, length: textAsNSString.length)
-		let matches = detector?.matches(in: text, options: [], range: fullRange) ?? []
-		var seen = Set<String>()
-		var extractedURLs: [URL] = []
-		for match in matches {
-			guard let url = match.url else { continue }
-			if seen.insert(url.absoluteString).inserted {
-				extractedURLs.append(url)
-				if extractedURLs.count >= limit { break }
-			}
-		}
-		return extractedURLs
-	}
-
-	// Compute all filtered aggregates for the current query to show only search results in ArchiveListView
-	func filteredAggregates(for queryString: String) -> (media: [FlattenedMediaItem], files: [FlattenedFileItem], links: [FlattenedLinkItem], audios: [FlattenedAudioItem]) {
-		let trimmed = queryString.trimmingCharacters(in: .whitespacesAndNewlines)
-		guard !trimmed.isEmpty else { return ([], [], [], []) }
-		// Note IDs whose text matches the query (used for media filtering)
-		let noteIdsWithMatch: Set<UUID> = Set(allClientNotes().compactMap { (_, note) in
-			guard let text = note.text, !trimmed.isEmpty else { return nil }
-			return text.localizedCaseInsensitiveContains(trimmed) ? note.id : nil
-		})
-		let mediaFiltered = allMedia.filter { item in
-			guard let parsed = parseFlattenedMediaId(item.id) else { return false }
-			return noteIdsWithMatch.contains(parsed.noteId)
-		}
-		let filesFiltered = allFiles.filter { file in
-			file.url.lastPathComponent.localizedCaseInsensitiveContains(trimmed)
-		}
-		let linksFiltered = allLinks.filter { link in
-			link.url.absoluteString.localizedCaseInsensitiveContains(trimmed)
-		}
-		let audiosFiltered = allAudios.filter { audio in
-			let base = audio.url.deletingPathExtension().lastPathComponent
-			return base.localizedCaseInsensitiveContains(trimmed)
-		}
-		return (mediaFiltered, filesFiltered, linksFiltered, audiosFiltered)
-	}
-	
-	func allClientNotes() -> [(Client, Note)] {
-		var pairs: [(Client, Note)] = []
-        for client in clientsStore.clients {
-            var notesForClient = ChatStore.shared.notes(for: client.id)
-            if notesForClient.isEmpty {
-                notesForClient = client.notes
-            }
-            for noteItem in notesForClient {
-                pairs.append((client, noteItem))
-            }
-        }
-		return pairs
-	}
-	
-	func parseFlattenedMediaId(_ id: String) -> (noteId: UUID, isImage: Bool, localIndex: Int)? {
-		if let range = id.range(of: "-i-", options: .backwards) {
-			let uuidPart = String(id[..<range.lowerBound])
-			let indexPart = String(id[range.upperBound...])
-			guard let noteId = UUID(uuidString: uuidPart), let localIndex = Int(indexPart) else { return nil }
-			return (noteId, true, localIndex)
-		} else if let range = id.range(of: "-v-", options: .backwards) {
-			let uuidPart = String(id[..<range.lowerBound])
-			let indexPart = String(id[range.upperBound...])
-			guard let noteId = UUID(uuidString: uuidPart), let localIndex = Int(indexPart) else { return nil }
-			return (noteId, false, localIndex)
-		} else {
-			return nil
-		}
-	}
-    
-    func ownerForFlattenedMedia(_ item: FlattenedMediaItem) -> (client: Client, noteId: UUID)? {
-        guard let parsed = parseFlattenedMediaId(item.id) else { return nil }
-        for client in clientsStore.clients {
-            var notesForClient = ChatStore.shared.notes(for: client.id)
-            if notesForClient.isEmpty { notesForClient = client.notes }
-            if notesForClient.contains(where: { $0.id == parsed.noteId }) {
-                return (client, parsed.noteId)
-            }
-        }
-        return nil
-    }
-    
-    func mediaPayloadForClient(_ client: Client) -> (items: [MediaSource], anchors: [(noteId: UUID, isImage: Bool, localIndex: Int)]) {
-        var notesForClient = ChatStore.shared.notes(for: client.id)
-        if notesForClient.isEmpty { notesForClient = client.notes }
-        let flattened = computeMediaItems(from: notesForClient)
-        let items: [MediaSource] = flattened.map { flattenedItem in
-            if flattenedItem.isVideo, let url = flattenedItem.videoURL {
-                return .video(url)
-            } else {
-                return .image(flattenedItem.imageData ?? Data())
-            }
-        }
-        let anchors: [(UUID, Bool, Int)] = flattened.compactMap { flattenedItem in
-            guard let parsed = parseFlattenedMediaId(flattenedItem.id) else { return nil }
-            return (parsed.noteId, parsed.isImage, parsed.localIndex)
-        }
-        return (items, anchors)
-    }
-	
 	func sectionHeader(title: String, iconName: String, onTapArrow: @escaping () -> Void, showsArrow: Bool = true) -> some View {
 		Button(action: onTapArrow) {
 			HStack(alignment: .center, spacing: 8) {
