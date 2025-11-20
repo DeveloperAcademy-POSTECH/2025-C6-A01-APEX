@@ -497,7 +497,7 @@ private extension PhotoAddView {
         case .notDetermined:
             presentToast(
                 text: isProfile ? "프로필 사진을 선택하려면 사진 접근 권한이 필요합니다." : "명함 사진을 선택하려면 사진 접근 권한이 필요합니다.",
-                buttonTitle: "허용하기"
+                buttonTitle: "계속"
             ) {
                 showLibraryPicker = true
             }

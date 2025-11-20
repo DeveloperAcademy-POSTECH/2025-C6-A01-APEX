@@ -23,6 +23,10 @@ final class ClientsStore: ObservableObject {
             self.clients = fromAppGroup
             // Ensure my profile exists even after loading
             injectMyProfileIfNeeded()
+            // Repair stale file URLs that may still point to Documents
+            if repairAttachmentURLsIfNeeded() {
+                localStore.saveClients(self.clients)
+            }
             // Persist back to documents and mirror to App Group
             localStore.saveClients(self.clients)
             // Push notes into ChatStore so open chats reflect latest
@@ -31,6 +35,10 @@ final class ClientsStore: ObservableObject {
             self.clients = persisted
             // Ensure my profile exists even after loading
             injectMyProfileIfNeeded()
+            // Repair stale file URLs that may still point to Documents
+            if repairAttachmentURLsIfNeeded() {
+                localStore.saveClients(self.clients)
+            }
             // Mirror to App Group so Share Extension can read recipients
             localStore.saveClients(self.clients)
             // Push notes into ChatStore so open chats reflect latest
@@ -82,6 +90,9 @@ final class ClientsStore: ObservableObject {
                 if let fromAppGroup = self.localStore.loadClientsFromAppGroup() {
                     self.clients = fromAppGroup
                     self.injectMyProfileIfNeeded()
+                    if self.repairAttachmentURLsIfNeeded() {
+                        self.localStore.saveClients(self.clients)
+                    }
                     self.localStore.saveClients(self.clients)
                     self.syncAllNotesToChatStore()
                 }
@@ -93,6 +104,74 @@ final class ClientsStore: ObservableObject {
         for client in clients {
             ChatStore.shared.setNotes(client.notes, for: client.id)
         }
+    }
+
+    // Attempt to fix attachment URLs that reference old Documents paths by rebinding
+    // them to the App Group container if a matching file exists there.
+    private func repairAttachmentURLsIfNeeded() -> Bool {
+        guard let appGroupBase = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.apex.StashShareExtension") else {
+            return false
+        }
+        let videoDir = appGroupBase.appendingPathComponent("SharedVideos", isDirectory: true)
+        let fileDir  = appGroupBase.appendingPathComponent("SharedFiles", isDirectory: true)
+        let audioDir = appGroupBase.appendingPathComponent("SharedAudios", isDirectory: true)
+        var changed = false
+
+        func rebindURLIfMissing(_ url: URL, in dir: URL) -> URL {
+            if FileManager.default.fileExists(atPath: url.path) {
+                return url
+            }
+            let candidate = dir.appendingPathComponent(url.lastPathComponent)
+            if FileManager.default.fileExists(atPath: candidate.path) {
+                changed = true
+                return candidate
+            }
+            // If exact name not found, try to find same base name with suffix " 2", " 3", etc.
+            let base = url.deletingPathExtension().lastPathComponent
+            let ext = url.pathExtension
+            if let items = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) {
+                if let match = items.first(where: { $0.deletingPathExtension().lastPathComponent.hasPrefix(base) && $0.pathExtension == ext }) {
+                    changed = true
+                    return match
+                }
+            }
+            return url
+        }
+
+        for clientIndex in clients.indices {
+            var client = clients[clientIndex]
+            for noteIndex in client.notes.indices {
+                var note = client.notes[noteIndex]
+                if var bundle = note.bundle {
+                    switch bundle {
+                    case .media(let images, let videos):
+                        let fixedVideos: [VideoAttachment] = videos.map { item in
+                            let rebound = rebindURLIfMissing(item.url, in: videoDir)
+                            return VideoAttachment(url: rebound, progress: item.progress, orderIndex: item.orderIndex)
+                        }
+                        bundle = .media(images: images, videos: fixedVideos)
+                        note.bundle = bundle
+                    case .files(let files):
+                        let fixedFiles: [FileAttachment] = files.map { item in
+                            let rebound = rebindURLIfMissing(item.url, in: fileDir)
+                            return FileAttachment(url: rebound, contentType: item.contentType, progress: item.progress)
+                        }
+                        bundle = .files(fixedFiles)
+                        note.bundle = bundle
+                    case .audio(let audios):
+                        let fixedAudios: [AudioAttachment] = audios.map { item in
+                            let rebound = rebindURLIfMissing(item.url, in: audioDir)
+                            return AudioAttachment(url: rebound, duration: item.duration)
+                        }
+                        bundle = .audio(fixedAudios)
+                        note.bundle = bundle
+                    }
+                }
+                client.notes[noteIndex] = note
+            }
+            clients[clientIndex] = client
+        }
+        return changed
     }
 
     func add(_ client: Client, atTop: Bool = true) {

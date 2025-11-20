@@ -26,6 +26,8 @@ struct ChatMediaPickerSheet: View {
     @State private var assets: [PHAsset] = []
     @State private var thumbnails: [String: UIImage] = [:]
     @State private var selectedIds: Set<String> = []
+    // Preserve user tap order to keep selection order when building items
+    @State private var selectionOrder: [String] = []
     @State private var videoDurations: [String: TimeInterval] = [:]
     private let maxSelectableCount: Int = 24
 
@@ -140,6 +142,7 @@ struct ChatMediaPickerSheet: View {
             if showLargeHeader {
                 Button {
                     selectedIds.removeAll()
+                    selectionOrder.removeAll()
                     onConfirmUpload()
                     isPresented = false
                 } label: {
@@ -156,7 +159,10 @@ struct ChatMediaPickerSheet: View {
                 .padding(16)
             }
         }
-        .onDisappear { selectedIds.removeAll() }
+    .onDisappear {
+        selectedIds.removeAll()
+        selectionOrder.removeAll()
+    }
         .onAppear { requestAndFetchRecents() }
         .onAppear { onDetentChanged(detentSelection) }
         .presentationDetents([.fraction(0.4), .large], selection: $detentSelection)
@@ -187,9 +193,13 @@ struct ChatMediaPickerSheet: View {
         let id = asset.localIdentifier
         if selectedIds.contains(id) {
             selectedIds.remove(id)
+            if let idx = selectionOrder.firstIndex(of: id) {
+                selectionOrder.remove(at: idx)
+            }
         } else {
             if selectedIds.count < maxSelectableCount {
                 selectedIds.insert(id)
+                selectionOrder.append(id)
             } else {
                 // Optional: light haptic to indicate limit reached
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -206,21 +216,24 @@ struct ChatMediaPickerSheet: View {
     }
 
     private func synchronizeSelectedItems() {
+        // Build a map for quick lookup
+        let idToAsset: [String: PHAsset] = Dictionary(uniqueKeysWithValues: assets.map { ($0.localIdentifier, $0) })
         var newItems: [ShareAttachmentItem] = []
-        for asset in assets where selectedIds.contains(asset.localIdentifier) {
+        for selId in selectionOrder where selectedIds.contains(selId) {
+            guard let asset = idToAsset[selId] else { continue }
             switch asset.mediaType {
             case .image:
-                let ui = thumbnails[asset.localIdentifier] ?? makeThumbSync(for: asset)
+                let ui = thumbnails[selId] ?? makeThumbSync(for: asset)
                 let image = ui ?? UIImage(systemName: "photo") ?? UIImage()
                 newItems.append(ShareAttachmentItem(id: UUID(), kind: .image(image)))
             case .video:
-                let thumb = thumbnails[asset.localIdentifier] ?? makeThumbSync(for: asset)
-                let id = UUID()
-                newItems.append(ShareAttachmentItem(id: id, kind: .video(nil, thumbnail: thumb)))
+                let thumb = thumbnails[selId] ?? makeThumbSync(for: asset)
+                let newId = UUID()
+                newItems.append(ShareAttachmentItem(id: newId, kind: .video(nil, thumbnail: thumb)))
                 // Try to resolve a temporary URL for the selected video asset
                 fetchVideoURL(for: asset) { url in
                     DispatchQueue.main.async {
-                        if let idx = selectedAttachmentItems.firstIndex(where: { $0.id == id }) {
+                        if let idx = selectedAttachmentItems.firstIndex(where: { $0.id == newId }) {
                             selectedAttachmentItems[idx].kind = .video(url, thumbnail: thumb)
                         }
                     }

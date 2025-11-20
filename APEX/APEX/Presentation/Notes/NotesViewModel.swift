@@ -22,6 +22,7 @@ final class NotesViewModel: ViewModelable {
     
     // External stores
     private let clientsStore: ClientsStore = .shared
+    private var cancellables: Set<AnyCancellable> = []
     
     // MARK: - UI State
     @Published var selectedFilter: NotesFilter = .all
@@ -30,6 +31,7 @@ final class NotesViewModel: ViewModelable {
     @Published var clientToDelete: Client?
     @Published var showDeleteDialog: Bool = false
     @Published var isDeleteConfirmed: Bool = false
+    @Published var availableFilters: [NotesFilterItem] = []
     
     // Undo state
     private var lastToggledClientId: UUID?
@@ -39,7 +41,30 @@ final class NotesViewModel: ViewModelable {
         case removed
     }
     
+    // Preferences keys (mirror CompanyManagementSheet)
+    private let enabledCompaniesDefaultsKey = "apex.notes.enabledCompanies"
+    private let companyOrderDefaultsKey = "apex.notes.companyOrder"
+    
     init() {
+        // Build initial filters
+        rebuildFilters()
+        
+        // Observe company preference updates
+        NotificationCenter.default.addObserver(
+            forName: .apexCompanyPreferencesUpdated,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.rebuildFilters()
+        }
+        
+        // Observe clients changes to reflect new/renamed companies
+        clientsStore.$clients
+            .sink { [weak self] _ in
+                self?.rebuildFilters()
+            }
+            .store(in: &cancellables)
+        
         // Observe notes updates to keep clients' notes fresh
         NotificationCenter.default.addObserver(
             forName: .apexChatNotesUpdated,
@@ -91,14 +116,6 @@ final class NotesViewModel: ViewModelable {
             let trimmed = client.company.trimmingCharacters(in: .whitespacesAndNewlines)
             return trimmed.isEmpty ? nil : trimmed
         }).sorted()
-    }
-    
-    var availableFilters: [NotesFilterItem] {
-        let allFilter = NotesFilterItem(filter: .all, isEnabled: true)
-        let companyFilters = companyNamesWithNotes.map {
-            NotesFilterItem(filter: .company($0), isEnabled: true)
-        }
-        return [allFilter] + companyFilters
     }
     
     // MARK: - ViewModelable
@@ -158,6 +175,40 @@ final class NotesViewModel: ViewModelable {
     }
     
     // MARK: - Private actions
+    private func rebuildFilters() {
+        let allCompaniesSet: Set<String> = Set(
+            clientsStore.clients.compactMap { client in
+                let trimmed = client.company.trimmingCharacters(in: .whitespacesAndNewlines)
+                return trimmed.isEmpty ? nil : trimmed
+            }
+        )
+        
+        // Load enabled list; default to all companies
+        let enabledArray = (UserDefaults.standard.array(forKey: enabledCompaniesDefaultsKey) as? [String]) ?? Array(allCompaniesSet)
+        let enabledSet = Set(enabledArray).intersection(allCompaniesSet)
+        
+        // Load order; fallback to alphabetical of all companies
+        let rawOrder = (UserDefaults.standard.array(forKey: companyOrderDefaultsKey) as? [String]) ?? Array(allCompaniesSet).sorted { $0.localizedCompare($1) == .orderedAscending }
+        
+        // Derive final ordered list: order filtered by enabled and existence, then append any enabled not present in order alphabetically
+        var ordered: [String] = rawOrder.filter { enabledSet.contains($0) && allCompaniesSet.contains($0) }
+        let missing = enabledSet.subtracting(Set(ordered))
+        if !missing.isEmpty {
+            ordered.append(contentsOf: missing.sorted { $0.localizedCompare($1) == .orderedAscending })
+        }
+        
+        var newFilters: [NotesFilterItem] = [NotesFilterItem(filter: .all, isEnabled: true)]
+        newFilters.append(contentsOf: ordered.map { NotesFilterItem(filter: .company($0), isEnabled: true) })
+        availableFilters = newFilters
+        
+        // Guard current selection
+        if case .company(let name) = selectedFilter {
+            if !enabledSet.contains(name) {
+                selectedFilter = .all
+            }
+        }
+    }
+    
     private func togglePin(_ client: Client) {
         guard let index = clientsStore.clients.firstIndex(where: { $0.id == client.id }) else { return }
         

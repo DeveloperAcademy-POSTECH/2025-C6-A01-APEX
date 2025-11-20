@@ -14,27 +14,7 @@ struct ProfileAddView: View {
     @Environment(\.dismiss) private var dismiss
     
     var onComplete: ((Client) -> Void)? = nil
-    @State private var profileUIImage: UIImage? = nil
-    @State private var cardFrontUIImage: UIImage? = nil
-    @State private var cardBackUIImage: UIImage? = nil
-    @State private var presentedPhotoType: PhotoAddView.PhotoType?
-    @State private var isAddItemPresented: Bool = false
-    @State private var addItemConfig: AddItemConfig = .default
-    @State private var surname: String = ""
-    @State private var name: String = ""
-    @State private var company: String = ""
-    @State private var department: String = ""
-    @State private var position: String = ""
-    @State private var emails: [String] = []
-    @State private var contacts: [String] = []
-    @State private var urls: [String] = []
-    @State private var linkedinLink: String = ""
-    @State private var industry: String = ""
-    @State private var address: String = ""
-    @State private var faxNumber: String = ""
-    @State private var revenue: String = ""
-    @State private var employees: String = ""
-    @State private var memo: String = ""
+    @StateObject private var viewModel = ProfileAddViewModel()
     
     var body: some View {
         ZStack {
@@ -55,12 +35,12 @@ struct ProfileAddView: View {
                 HStack {
                     /* 닫기 */
                     Button {
-                        presentedPhotoType = .profile
+                        viewModel.send(.tapPhoto(.profile))
                     } label: {
                         VStack(spacing: 10) {
-                            let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-                            let trimmedSurname = surname.trimmingCharacters(in: .whitespacesAndNewlines)
-                            if let image = profileUIImage {
+                            let trimmedName = viewModel.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                            let trimmedSurname = viewModel.surname.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if let image = viewModel.profileUIImage {
                                 Profile(
                                     image: image,
                                     initials: Profile.makeInitials(name: trimmedName, surname: trimmedSurname),
@@ -84,10 +64,10 @@ struct ProfileAddView: View {
                     Spacer()
                     
                     Button {
-                        presentedPhotoType = .card
+                        viewModel.send(.tapPhoto(.card))
                     } label: {
                         VStack(spacing: 13) {
-                            if let image = (cardFrontUIImage ?? cardBackUIImage) {
+                            if let image = (viewModel.cardFrontUIImage ?? viewModel.cardBackUIImage) {
                                 Image(uiImage: image)
                                     .resizable()
                                     .scaledToFit()
@@ -106,50 +86,50 @@ struct ProfileAddView: View {
                 .padding(.top, 24)  // 원래대로 복구
                 .padding(.bottom, 48)
                 
-                APEXTextField(style: .field, placeholder: "성", text: $surname)
+                APEXTextField(style: .field, placeholder: "성", text: $viewModel.surname)
                     .padding(.bottom, 8)
-                APEXTextField(style: .field, placeholder: "이름", text: $name)
+                APEXTextField(style: .field, placeholder: "이름", text: $viewModel.name)
                     .padding(.bottom, 48)
                 
-                APEXTextField(style: .field, placeholder: "회사", text: $company)
+                APEXTextField(style: .field, placeholder: "회사", text: $viewModel.company)
                     .padding(.bottom, 8)
-                APEXTextField(style: .field, placeholder: "부서", text: $department)
+                APEXTextField(style: .field, placeholder: "부서", text: $viewModel.department)
                     .padding(.bottom, 8)
-                APEXTextField(style: .field, placeholder: "직책", text: $position)
+                APEXTextField(style: .field, placeholder: "직책", text: $viewModel.position)
                     .padding(.bottom, 48)
                 
                 
                 contactInfoGroup
                 // Remove extra group padding; per-row bottom padding now controls spacing
 
-                if addItemConfig.showsIndustry {
-                    APEXTextField(style: .field, placeholder: "회사 업종", text: $industry)
+                if viewModel.addItemConfig.showsIndustry {
+                    APEXTextField(style: .field, placeholder: "회사 업종", text: $viewModel.industry)
                         .padding(.bottom, 8)
                 }
-                if addItemConfig.showsAddress {
-                    APEXTextField(style: .field, placeholder: "주소", text: $address)
+                if viewModel.addItemConfig.showsAddress {
+                    APEXTextField(style: .field, placeholder: "주소", text: $viewModel.address)
                         .padding(.bottom, 8)
                 }
-                if addItemConfig.showsFax {
-                    APEXTextField(style: .field, placeholder: "팩스번호", text: $faxNumber)
+                if viewModel.addItemConfig.showsFax {
+                    APEXTextField(style: .field, placeholder: "팩스번호", text: $viewModel.faxNumber)
                         .padding(.bottom, 8)
                 }
-                if addItemConfig.showsRevenue {
-                    APEXTextField(style: .field, placeholder: "연매출", text: $revenue)
+                if viewModel.addItemConfig.showsRevenue {
+                    APEXTextField(style: .field, placeholder: "연매출", text: $viewModel.revenue)
                         .padding(.bottom, 8)
                 }
-                if addItemConfig.showsEmployees {
-                    APEXTextField(style: .field, placeholder: "근무 인원", text: $employees)
+                if viewModel.addItemConfig.showsEmployees {
+                    APEXTextField(style: .field, placeholder: "근무 인원", text: $viewModel.employees)
                         .padding(.bottom, 48)
                 }
                 
                 if isFieldEnabled(.memo) {
-                    APEXTextField(style: .editor, label: "메모", placeholder: "주요 대화", text: $memo, maxLength: 100)
+                    APEXTextField(style: .editor, label: "메모", placeholder: "주요 대화", text: $viewModel.memo, maxLength: 100)
                         .padding(.bottom, 48)
                 }
                 
                 Button {
-                    isAddItemPresented = true
+                    viewModel.send(.presentAddItems(true))
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "plus.circle.fill")
@@ -166,77 +146,51 @@ struct ProfileAddView: View {
             }
             .padding(.horizontal, 24)
         }
-        .scrollEdgeEffectStyle(.hard, for: .all)
-        .sheet(item: $presentedPhotoType) { sheetType in
+        .scrollEdgeEffectStyle(.soft, for: .all)
+        .sheet(item: $viewModel.presentedPhotoType) { sheetType in
             PhotoAddView(
                 type: sheetType,
                 onCroppedProfile: { uiImage in
-                    profileUIImage = uiImage
+                    viewModel.send(.setProfileImage(uiImage))
                 },
                 onCroppedCard: { uiImage, isFront in
-                    if isFront { cardFrontUIImage = uiImage } else { cardBackUIImage = uiImage }
+                    viewModel.send(.setCardImage(uiImage, isFront: isFront))
                 },
-                initialProfile: profileUIImage,
-                initialFront: cardFrontUIImage,
-                initialBack: cardBackUIImage
+                initialProfile: viewModel.profileUIImage,
+                initialFront: viewModel.cardFrontUIImage,
+                initialBack: viewModel.cardBackUIImage
             )
             .padding(.top, 30)
         }
-        .sheet(isPresented: $isAddItemPresented) {
-            AddItemView(config: $addItemConfig)
+        .sheet(isPresented: $viewModel.isAddItemPresented) {
+            AddItemView(config: $viewModel.addItemConfig)
                 .padding(.top, 30)
         }
         .safeAreaBar(edge: .top) {
             APEXSheetTopBar(
                 title: "연락처 추가",
                 rightTitle: "완료",
-                isRightEnabled: !surname
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                    .isEmpty || !name
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                    .isEmpty,
+                isRightEnabled: viewModel.isDoneEnabled,
                 onRightTap: {
-                let client = Client(
-                    profile: profileUIImage,
-                    nameCardFront: cardFrontUIImage.map { Image(uiImage: $0) },
-                    nameCardBack: cardBackUIImage.map { Image(uiImage: $0) },
-                    surname: surname,
-                    name: name,
-                    position: position.isEmpty ? nil : position,
-                    company: company,
-                    department: department.isEmpty ? nil : department,
-                    email: emails.first,
-                    phoneNumber: contacts.first,
-                    linkedinURL: linkedinLink.isEmpty ? nil : linkedinLink,
-                    memo: memo.isEmpty ? nil : memo,
-                    action: nil,
-                    favorite: false,
-                    pin: false,
-                    notes: [],
-                    industry: industry.isEmpty ? nil : industry,
-                    address: address.isEmpty ? nil : address,
-                    faxNumber: faxNumber.isEmpty ? nil : faxNumber,
-                    revenue: revenue.isEmpty ? nil : revenue,
-                    employees: employees.isEmpty ? nil : employees,
-                    additionalEmails: Array(emails.dropFirst()),
-                    additionalPhones: Array(contacts.dropFirst()),
-                    additionalURLs: urls.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-                )
+                let client = viewModel.makeClient()
                 onComplete?(client)
             }, onClose: {
                 dismiss()
             })
         }
+        .onAppear { viewModel.send(.onAppear) }
+        .onChange(of: viewModel.addItemConfig.emailCount) { _ in viewModel.ensureFieldArrays() }
+        .onChange(of: viewModel.addItemConfig.phoneCount) { _ in viewModel.ensureFieldArrays() }
+        .onChange(of: viewModel.addItemConfig.urlCount) { _ in viewModel.ensureFieldArrays() }
     }
 
     // MARK: - Helpers
     @ViewBuilder
     private var contactInfoGroup: some View {
-        let totalBlockCount = addItemConfig.emailCount + addItemConfig.phoneCount + (addItemConfig.showsLinkedIn ? 1 : 0) + addItemConfig.urlCount
+        let totalBlockCount = viewModel.addItemConfig.emailCount + viewModel.addItemConfig.phoneCount + (viewModel.addItemConfig.showsLinkedIn ? 1 : 0) + viewModel.addItemConfig.urlCount
 
-
-        if addItemConfig.emailCount > 0 {
-            ForEach(0..<addItemConfig.emailCount, id: \.self) { idx in
+        if viewModel.addItemConfig.emailCount > 0 {
+            ForEach(0..<viewModel.addItemConfig.emailCount, id: \.self) { idx in
                 APEXTextField(
                     style: .field,
                     placeholder: emailPlaceholder(for: idx),
@@ -246,30 +200,30 @@ struct ProfileAddView: View {
             }
         }
 
-        if addItemConfig.phoneCount > 0 {
-            ForEach(0..<addItemConfig.phoneCount, id: \.self) { idx in
+        if viewModel.addItemConfig.phoneCount > 0 {
+            ForEach(0..<viewModel.addItemConfig.phoneCount, id: \.self) { idx in
                 ContactsField(
                     phone: contactBinding(index: idx),
                     placeholder: phonePlaceholder(for: idx),
                     isRegionInteractive: true
                 )
-                .padding(.bottom, bottomPaddingForGroup(globalIndex: addItemConfig.emailCount + idx, total: totalBlockCount))
+                .padding(.bottom, bottomPaddingForGroup(globalIndex: viewModel.addItemConfig.emailCount + idx, total: totalBlockCount))
             }
         }
 
-        if addItemConfig.showsLinkedIn {
-            APEXTextField(style: .field, placeholder: "링크드인 URL", text: $linkedinLink)
+        if viewModel.addItemConfig.showsLinkedIn {
+            APEXTextField(style: .field, placeholder: "링크드인 URL", text: $viewModel.linkedinLink)
                 .padding(
                     .bottom,
                     bottomPaddingForGroup(
-                        globalIndex: addItemConfig.emailCount + addItemConfig.phoneCount,
+                        globalIndex: viewModel.addItemConfig.emailCount + viewModel.addItemConfig.phoneCount,
                         total: totalBlockCount
                     )
                 )
         }
 
-        if addItemConfig.urlCount > 0 {
-            ForEach(0..<addItemConfig.urlCount, id: \.self) { idx in
+        if viewModel.addItemConfig.urlCount > 0 {
+            ForEach(0..<viewModel.addItemConfig.urlCount, id: \.self) { idx in
                 APEXTextField(
                     style: .field,
                     placeholder: "URL \(idx + 1)",
@@ -278,7 +232,7 @@ struct ProfileAddView: View {
                 .padding(
                     .bottom,
                     bottomPaddingForGroup(
-                        globalIndex: addItemConfig.emailCount + addItemConfig.phoneCount + (addItemConfig.showsLinkedIn ? 1 : 0) + idx,
+                        globalIndex: viewModel.addItemConfig.emailCount + viewModel.addItemConfig.phoneCount + (viewModel.addItemConfig.showsLinkedIn ? 1 : 0) + idx,
                         total: totalBlockCount
                     )
                 )
@@ -288,16 +242,10 @@ struct ProfileAddView: View {
 
     private func isFieldEnabled(_ field: AddItemConfig.Field) -> Bool {
         // Required fields are always enabled; otherwise use toggled state
-        if let item = addItemConfig.items.first(where: { $0.field == field }) {
+        if let item = viewModel.addItemConfig.items.first(where: { $0.field == field }) {
             return item.isEnabled || item.isRequired
         }
         return true
-    }
-
-    private func ensureFieldArrays() {
-        resize(&emails, to: addItemConfig.emailCount)
-        resize(&contacts, to: addItemConfig.phoneCount)
-        resize(&urls, to: addItemConfig.urlCount)
     }
 
     // Calculates per-row bottom padding within the first grouped block (emails, phones, LinkedIn, URLs)
@@ -308,46 +256,37 @@ struct ProfileAddView: View {
 
     private func emailBinding(index: Int) -> Binding<String> {
         Binding<String>(
-            get: { emails.indices.contains(index) ? emails[index] : "" },
+            get: { viewModel.emails.indices.contains(index) ? viewModel.emails[index] : "" },
             set: { value in
-                if emails.indices.contains(index) { emails[index] = value }
+                if viewModel.emails.indices.contains(index) { viewModel.emails[index] = value }
             }
         )
     }
 
     private func contactBinding(index: Int) -> Binding<String> {
         Binding<String>(
-            get: { contacts.indices.contains(index) ? contacts[index] : "" },
+            get: { viewModel.contacts.indices.contains(index) ? viewModel.contacts[index] : "" },
             set: { value in
-                if contacts.indices.contains(index) { contacts[index] = value }
+                if viewModel.contacts.indices.contains(index) { viewModel.contacts[index] = value }
             }
         )
     }
 
     private func urlBinding(index: Int) -> Binding<String> {
         Binding<String>(
-            get: { urls.indices.contains(index) ? urls[index] : "" },
+            get: { viewModel.urls.indices.contains(index) ? viewModel.urls[index] : "" },
             set: { value in
-                if urls.indices.contains(index) { urls[index] = value }
+                if viewModel.urls.indices.contains(index) { viewModel.urls[index] = value }
             }
         )
     }
 
     private func emailPlaceholder(for index: Int) -> String {
-        return addItemConfig.emailCount == 1 ? "이메일" : "이메일 \(index + 1)"
+        return viewModel.addItemConfig.emailCount == 1 ? "이메일" : "이메일 \(index + 1)"
     }
 
     private func phonePlaceholder(for index: Int) -> String {
-        return addItemConfig.phoneCount == 1 ? "연락처" : "연락처 \(index + 1)"
-    }
-
-    private func resize(_ array: inout [String], to newCount: Int) {
-        if newCount < 0 { return }
-        if array.count < newCount {
-            array.append(contentsOf: Array(repeating: "", count: newCount - array.count))
-        } else if array.count > newCount {
-            array = Array(array.prefix(newCount))
-        }
+        return viewModel.addItemConfig.phoneCount == 1 ? "연락처" : "연락처 \(index + 1)"
     }
 }
 
