@@ -283,10 +283,10 @@
 				};
 			};
 			buildConfigurationList = 0DCB62242E7EC7C20065DA6C /* Build configuration list for PBXProject "APEX" */;
-			developmentRegion = en;
+			developmentRegion = ko;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				en,
+				ko,
 				Base,
 			);
 			mainGroup = 0DCB62202E7EC7C20065DA6C;
