@@ -361,7 +361,7 @@ struct DMContactRow: View {
                     image: contact.image, 
                     initials: contact.initials, 
                     size: .extraSmall,
-                    fontSize: 30.72,
+                    fontSize: dynamicFontSize(for: contact.initials), // 동적 폰트 크기 적용
                     backgroundColor: Color("PrimaryContainer"),
                     textColor: .white,
                     fontWeight: .semibold
@@ -383,6 +383,18 @@ struct DMContactRow: View {
         }
         .buttonStyle(ContactRowHoverStyle())
     }
+    
+    // 이니셜 길이에 따른 동적 폰트 크기 계산
+    private func dynamicFontSize(for initials: String) -> CGFloat {
+        let baseSize: CGFloat = 30.72 // 48 * 0.64
+        if initials.count <= 1 {
+            return baseSize // 한 글자: 기본 크기
+        } else if initials.count == 2 {
+            return baseSize * 0.85 // 두 글자: 15% 축소
+        } else {
+            return baseSize * 0.7 // 세 글자 이상: 30% 축소
+        }
+    }
 }
 
 // MARK: - Confirm Dialog (overlay card)
@@ -397,142 +409,159 @@ struct DMConfirmDialog: View {
     var onCancel: () -> Void
 
     private enum Metrics {
-        static let corner: CGFloat = 34
-        static let paddingH: CGFloat = 14
-        static let paddingV: CGFloat = 14
+        // 통일된 값들
+        static let cornerRadius: CGFloat = 32
+        static let horizontalPadding: CGFloat = 16
+        static let verticalPadding: CGFloat = 16
+        
+        // 간격들
         static let titleTop: CGFloat = 8
-        static let titleToBody: CGFloat = 10
-        static let bodyToCheck: CGFloat = 10
-        static let checkToButtons: CGFloat = 24
-        static let buttonsSpacing: CGFloat = 16
+        static let sectionSpacing: CGFloat = 16
+        static let checkboxToButtonSpacing: CGFloat = 24  // 체크박스와 버튼 사이
+        static let buttonSpacing: CGFloat = 16
+        
+        // 체크박스
         static let checkboxSize: CGFloat = 24
+        static let confirmSpacing: CGFloat = 16
+        
+        // 버튼
         static let buttonHeight: CGFloat = 48
-        static let buttonWidth: CGFloat = 133
+        static let buttonWidth: CGFloat = 120
         static let buttonCorner: CGFloat = 100
-        static let buttonHPadding: CGFloat = 16
-        static let buttonVPadding: CGFloat = 13
-        static let confirmCheckSpacing: CGFloat = 16
     }
 
     var body: some View {
         if isVisible {
             ZStack {
+                // 딤 배경
                 Color.black.opacity(0.35)
                     .ignoresSafeArea()
-                    .onTapGesture { withAnimation { isVisible = false; onCancel() } }
+                    .contentShape(Rectangle())
+                    .onTapGesture { 
+                        withAnimation { 
+                            isVisible = false
+                            onCancel() 
+                        } 
+                    }
 
                 VStack(spacing: 0) {
-                    VStack(spacing: 0) {
-                        VStack(spacing: 0) {
-                            Spacer().frame(height: Metrics.titleTop)
-                            Text(title)
-                                .font(.body1)
-                                .foregroundColor(.black)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, Metrics.paddingH)
-                            Spacer().frame(height: Metrics.titleToBody)
-                        }
-
-                        Text(bodyText)
-                            .font(.body3)
-                            .foregroundColor(.black)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, Metrics.paddingH + 8)
-                            .padding(.bottom, Metrics.bodyToCheck)
-
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.2)) { isChecked.toggle() }
-                        } label: {
-                            HStack(spacing: Metrics.confirmCheckSpacing) {
-                                ZStack {
-                                    Circle()
-                                        .fill(isChecked ? Color("Primary") : Color.white)
-                                        .frame(width: 24, height: 24)
-                                        .overlay(
-                                            Circle().stroke(isChecked ? Color("Primary") : Color("BackgroundDisabled"), lineWidth: 1)
-                                        )
-                                    Image(systemName: "checkmark")
-                                        .font(.system(size: 12, weight: .semibold))
-                                        .foregroundColor(.white)
-                                        .opacity(isChecked ? 1 : 0)
-                                }
-                                .frame(width: Metrics.checkboxSize, height: Metrics.checkboxSize)
-
-                                Text("위 내용을 모두 확인했습니다.")
-                                    .font(.body2)
-                                    .foregroundColor(.black)
-                                Spacer()
-                            }
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal, Metrics.paddingH + 8)
-                        .padding(.top, 8)
-                        .padding(.bottom, 10)
-
-                        VStack(spacing: 0) {
-                            Spacer().frame(height: Metrics.checkToButtons)
-                            HStack(spacing: Metrics.buttonsSpacing) {
-                                Button {
-                                    withAnimation { isVisible = false }
-                                    onCancel()
-                                } label: {
-                                    HStack(spacing: 10) {
-                                        Text(cancelTitle)
-                                            .font(.title5)
-                                            .foregroundColor(.black)
-                                            .frame(maxWidth: .infinity)
-                                    }
-                                    .padding(.horizontal, Metrics.buttonHPadding)
-                                    .padding(.vertical, Metrics.buttonVPadding)
-                                    .frame(width: Metrics.buttonWidth, height: Metrics.buttonHeight)
-                                    .background(Color("BackgroundSecondary"))
-                                    .cornerRadius(Metrics.buttonCorner)
-                                }
-                                .buttonStyle(.plain)
-
-                                Button {
-                                    guard isChecked else { return }
-                                    withAnimation { isVisible = false }
-                                    onConfirm()
-                                } label: {
-                                    HStack(spacing: 10) {
-                                        Text(confirmTitle)
-                                            .font(.title5)
-                                            .foregroundColor(isChecked ? Color(red: 0xCC/255.0, green: 0x41/255.0, blue: 0x41/255.0) : Color(red: 0.55, green: 0.55, blue: 0.55))
-                                            .frame(maxWidth: .infinity)
-                                    }
-                                    .padding(.horizontal, Metrics.buttonHPadding)
-                                    .padding(.vertical, Metrics.buttonVPadding)
-                                    .frame(width: Metrics.buttonWidth, height: Metrics.buttonHeight)
-                                    .background(isChecked ? Color(red: 1.0, green: 0xF6/255.0, blue: 0xF5/255.0) : Color("BackgroundSecondary"))
-                                    .cornerRadius(Metrics.buttonCorner)
-                                }
-                                .buttonStyle(.plain)
-                                .disabled(!isChecked)
-                            }
-                            .padding(.horizontal, Metrics.paddingH)
-                            .padding(.bottom, Metrics.paddingV)
-                        }
-                    }
-                    .padding(.top, Metrics.paddingV)
-                    .background(
-                        ZStack {
-                            Color.clear.background(.ultraThinMaterial)
-                            Color(.sRGB, red: 245/255, green: 245/255, blue: 245/255, opacity: 0.4)
-                        }
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: Metrics.corner, style: .continuous))
-                    .shadow(color: .black.opacity(0.10), radius: 16, x: 0, y: 8)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: Metrics.corner, style: .continuous)
-                            .stroke(Color.white.opacity(0.3), lineWidth: 0.5)
-                    )
-                    .frame(maxWidth: 309)
+                    titleSection
+                    
+                    Spacer()
+                        .frame(height: Metrics.sectionSpacing)
+                    
+                    bodySection
+                    
+                    Spacer()
+                        .frame(height: Metrics.sectionSpacing)
+                    
+                    confirmSection
+                    
+                    Spacer()
+                        .frame(height: Metrics.checkboxToButtonSpacing)
+                    
+                    buttonsSection
                 }
-                .padding(.horizontal, 24)
+                .padding(Metrics.horizontalPadding)
+                .glassEffect(in: .rect(cornerRadius: Metrics.cornerRadius))
+                .padding(.horizontal, 46)
+                .contentShape(Rectangle()) // 모달 카드 영역의 터치를 차단
+                .onTapGesture { } // 빈 제스처로 터치 이벤트 흡수
             }
             .transition(.opacity)
+        }
+    }
+    
+    // MARK: - Sections
+    
+    private var titleSection: some View {
+        Text(title)
+            .font(.body1)
+            .foregroundColor(Color("BlackLabel"))
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 8)
+            .padding(.top, 8)
+    }
+    
+    private var bodySection: some View {
+        Text(bodyText)
+            .font(.body3)
+            .foregroundColor(.black)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 8)
+    }
+    
+    private var confirmSection: some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) { isChecked.toggle() }
+        } label: {
+            HStack(spacing: Metrics.confirmSpacing) {
+                ZStack {
+                    Circle()
+                        .fill(isChecked ? Color("Primary") : Color.white)
+                        .frame(width: 24, height: 24)
+                        .overlay(
+                            Circle().stroke(isChecked ? Color("Primary") : Color("BackgroundDisabled"), lineWidth: 1)
+                        )
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.white)
+                        .opacity(isChecked ? 1 : 0)
+                }
+                .frame(width: Metrics.checkboxSize, height: Metrics.checkboxSize)
+                .animation(.easeInOut(duration: 0.2), value: isChecked)
+
+                Text("위 내용을 모두 확인했습니다.")
+                    .font(.body2)
+                    .foregroundColor(.black)
+                Spacer()
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 8) // 본문과 시작점 맞추기 위해 동일한 패딩
+    }
+    
+    private var buttonsSection: some View {
+        HStack(spacing: Metrics.buttonSpacing) {
+            Button {
+                withAnimation { isVisible = false }
+                onCancel()
+            } label: {
+                HStack(spacing: 10) {
+                    Text(cancelTitle)
+                        .font(.title5)
+                        .foregroundColor(.black)
+                        .frame(maxWidth: .infinity)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 13)
+                .frame(width: Metrics.buttonWidth, height: Metrics.buttonHeight)
+                .background(Color("BackgroundSecondary"))
+                .cornerRadius(Metrics.buttonCorner)
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                guard isChecked else { return }
+                withAnimation { isVisible = false }
+                onConfirm()
+            } label: {
+                HStack(spacing: 10) {
+                    Text(confirmTitle)
+                        .font(.title5)
+                        .foregroundColor(isChecked ? Color("Error") : Color("GrayLabel"))
+                        .frame(maxWidth: .infinity)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 13)
+                .frame(width: Metrics.buttonWidth, height: Metrics.buttonHeight)
+                .background(isChecked ? Color("ErrorHover") : Color("BackgroundSecondary"))
+                .cornerRadius(Metrics.buttonCorner)
+            }
+            .buttonStyle(.plain)
+            .disabled(!isChecked)
         }
     }
 }

@@ -396,17 +396,19 @@ struct ChattingArchiveView: View {
         .buttonStyle(SectionHeaderPressedStyle())
     }
 
-    // NotesView deleteOverlay 재활용 스타일의 오버레이
+    // NotesView 방식의 오버레이 (로컬 상태 사용)
     private var contactDeleteOverlay: some View {
         Group {
             if viewModel.showDeleteContactOverlay {
                 ZStack {
+                    // 딤 배경
                     Color.black.opacity(0.35)
                         .ignoresSafeArea(.all)
                         .contentShape(Rectangle())
                         .onTapGesture {
                             viewModel.send(.showDeleteContactOverlay(false))
                         }
+                    
                     ContactDeleteConfirmCard(
                         isChecked: $viewModel.isDeleteConfirmChecked,
                         onCancel: {
@@ -417,6 +419,8 @@ struct ChattingArchiveView: View {
                         }
                     )
                     .padding(.horizontal, 42)
+                    .contentShape(Rectangle()) // 모달 카드 영역의 터치를 차단
+                    .onTapGesture { } // 빈 제스처로 터치 이벤트 흡수
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 .transition(.opacity)

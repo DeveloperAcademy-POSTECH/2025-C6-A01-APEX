@@ -17,9 +17,23 @@ struct ProfileAddView: View {
     @StateObject private var viewModel = ProfileAddViewModel()
     
     var body: some View {
+        ZStack {
+            mainContent
+        }
+        .background(Color("Background"))
+        .onAppear { ensureFieldArrays() }
+        .onChange(of: addItemConfig.emailCount) { _ in ensureFieldArrays() }
+        .onChange(of: addItemConfig.phoneCount) { _ in ensureFieldArrays() }
+        .onChange(of: addItemConfig.urlCount) { _ in ensureFieldArrays() }
+    }
+
+    // MARK: - Main Content
+    
+    private var mainContent: some View {
         ScrollView {
             VStack {
                 HStack {
+                    /* 닫기 */
                     Button {
                         viewModel.send(.tapPhoto(.profile))
                     } label: {
@@ -30,8 +44,7 @@ struct ProfileAddView: View {
                                 Profile(
                                     image: image,
                                     initials: Profile.makeInitials(name: trimmedName, surname: trimmedSurname),
-                                    size: .small,
-                                    fontSize: 64
+                                    size: .small
                                 )
                             } else if trimmedName.isEmpty && trimmedSurname.isEmpty {
                                 Image("ProfileS")
@@ -39,8 +52,7 @@ struct ProfileAddView: View {
                                 Profile(
                                     image: nil,
                                     initials: Profile.makeInitials(name: trimmedName, surname: trimmedSurname),
-                                    size: .small,
-                                    fontSize: 64
+                                    size: .small
                                 )
                             }
                             Text("프로필")
@@ -71,7 +83,7 @@ struct ProfileAddView: View {
                     .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 24)
+                .padding(.top, 24)  // 원래대로 복구
                 .padding(.bottom, 48)
                 
                 APEXTextField(style: .field, placeholder: "성", text: $viewModel.surname)
@@ -122,7 +134,7 @@ struct ProfileAddView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "plus.circle.fill")
                             .foregroundColor(Color("Primary"))
-                        Text("항목 추가하기")
+                        Text("항목 수정하기")
                             .font(.body2)
                             .foregroundColor(Color("Primary"))
                     }
@@ -278,8 +290,10 @@ struct ProfileAddView: View {
     }
 }
 
+
 #Preview {
     ProfileAddView()
 }
 
 // makeInitials moved to common component: Profile.makeInitials
+

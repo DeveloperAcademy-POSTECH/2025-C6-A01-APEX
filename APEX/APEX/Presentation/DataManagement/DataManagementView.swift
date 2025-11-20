@@ -48,7 +48,6 @@ final class DataManagementViewModel: ObservableObject {
     // Dialog
     @Published var showingDialog: Bool = false
     @Published var dialogKind: DMDialogKind? = nil
-    @Published var dialogChecked: Bool = false
 
     init(sync: StorageSyncService, usage: DataUsageService) {
         self.sync = sync
@@ -98,27 +97,22 @@ final class DataManagementViewModel: ObservableObject {
 
     func requestDeleteAll() {
         dialogKind = .deleteAll(totalText: totalSizeText)
-        dialogChecked = false
         showingDialog = true
     }
 
     func requestDeleteContact(_ id: UUID) {
         guard let target = contacts.first(where: { $0.id == id }) else { return }
         dialogKind = .deleteContact(name: target.name, sizeText: target.sizeText, id: id)
-        dialogChecked = false
         showingDialog = true
     }
-
-    func toggleDialogChecked() { dialogChecked.toggle() }
 
     func cancelDialog() {
         showingDialog = false
         dialogKind = nil
-        dialogChecked = false
     }
 
     func confirmDelete() {
-        guard let kind = dialogKind, dialogChecked else { return }
+        guard let kind = dialogKind else { return }
         Task {
             switch kind {
             case .deleteAll:
@@ -153,6 +147,9 @@ struct DataManagementView: View {
         sync: MockStorageSyncService(),
         usage: RealDataUsageService()
     )
+    
+    // 로컬 상태로 체크박스 관리 (NotesView 방식으로 통일)
+    @State private var isDeleteConfirmed: Bool = false
 
     var body: some View {
         ZStack {
@@ -200,13 +197,20 @@ struct DataManagementView: View {
 
             DMConfirmDialog(
                 isVisible: $vm.showingDialog,
-                isChecked: $vm.dialogChecked,
+                isChecked: $isDeleteConfirmed,
                 title: vm.dialogKind?.title ?? "",
                 bodyText: vm.dialogKind?.body ?? "",
                 confirmTitle: "삭제",
                 cancelTitle: "취소",
-                onConfirm: { vm.confirmDelete() },
-                onCancel: { vm.cancelDialog() }
+                onConfirm: { 
+                    guard isDeleteConfirmed else { return }
+                    vm.confirmDelete()
+                    isDeleteConfirmed = false
+                },
+                onCancel: { 
+                    vm.cancelDialog()
+                    isDeleteConfirmed = false
+                }
             )
         }
         .task { await vm.load() }

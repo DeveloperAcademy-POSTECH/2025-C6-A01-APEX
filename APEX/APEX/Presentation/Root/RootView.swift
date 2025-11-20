@@ -162,6 +162,7 @@ private struct MyProfileScreen: View {
         name: "",
         position: nil,
         company: "",
+        department: nil,
         email: nil,
         phoneNumber: nil,
         linkedinURL: nil,
@@ -169,7 +170,15 @@ private struct MyProfileScreen: View {
         action: nil,
         favorite: false,
         pin: false,
-        notes: []
+        notes: [],
+        industry: nil,
+        address: nil,
+        faxNumber: nil,
+        revenue: nil,
+        employees: nil,
+        additionalEmails: [],
+        additionalPhones: [],
+        additionalURLs: []
     )
     var body: some View {
         MyProfileView(client: $client)
@@ -190,6 +199,7 @@ private struct MyProfileScreen: View {
                 name: first.name,
                 position: first.position,
                 company: first.company,
+                department: first.department,
                 email: first.email,
                 phoneNumber: first.phoneNumber,
                 linkedinURL: first.linkedinURL,
@@ -197,7 +207,15 @@ private struct MyProfileScreen: View {
                 action: first.action,
                 favorite: first.favorite,
                 pin: first.pin,
-                notes: []
+                notes: [],
+                industry: first.industry,
+                address: first.address,
+                faxNumber: first.faxNumber,
+                revenue: first.revenue,
+                employees: first.employees,
+                additionalEmails: first.additionalEmails,
+                additionalPhones: first.additionalPhones,
+                additionalURLs: first.additionalURLs
             )
         }
     }
@@ -340,6 +358,7 @@ private struct ProfileDetailScreen: View {
         name: "",
         position: nil,
         company: "",
+        department: nil,
         email: nil,
         phoneNumber: nil,
         linkedinURL: nil,
@@ -347,7 +366,15 @@ private struct ProfileDetailScreen: View {
         action: nil,
         favorite: false,
         pin: false,
-        notes: []
+        notes: [],
+        industry: nil,
+        address: nil,
+        faxNumber: nil,
+        revenue: nil,
+        employees: nil,
+        additionalEmails: [],
+        additionalPhones: [],
+        additionalURLs: []
     )
     
     init(clientId: UUID) {
@@ -369,6 +396,7 @@ private struct ProfileDetailScreen: View {
             name: client.name,
             position: client.position,
             company: client.company,
+            department: client.department,
             email: client.email,
             phoneNumber: client.phoneNumber,
             linkedinURL: client.linkedinURL,
@@ -376,7 +404,15 @@ private struct ProfileDetailScreen: View {
             action: client.action,
             favorite: client.favorite,
             pin: client.pin,
-            notes: []
+            notes: [],
+            industry: client.industry,
+            address: client.address,
+            faxNumber: client.faxNumber,
+            revenue: client.revenue,
+            employees: client.employees,
+            additionalEmails: client.additionalEmails,
+            additionalPhones: client.additionalPhones,
+            additionalURLs: client.additionalURLs
         )
     }
 }

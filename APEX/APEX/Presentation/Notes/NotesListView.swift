@@ -130,7 +130,7 @@ private struct NotesRow: View {
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             if let onDelete {
-                Button(role: .destructive) {
+                Button { // role: .destructive 제거
                     onDelete()
                 } label: {
                     Image(systemName: "trash")
@@ -156,13 +156,27 @@ private struct NotesRow: View {
                     Circle()
                         .fill(Color("PrimaryContainer"))
                     Text(initials)
-                        .font(.system(size: 30.72, weight: .semibold))
+                        .font(.system(size: dynamicFontSize(for: initials), weight: .semibold))
                         .foregroundColor(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5) // 텍스트가 잘리면 50%까지 축소
                 }
             }
         }
         .frame(width: 48, height: 48)
         .clipShape(Circle())
+    }
+    
+    // 이니셜 길이에 따른 동적 폰트 크기 계산
+    private func dynamicFontSize(for initials: String) -> CGFloat {
+        let baseSize: CGFloat = 30.72 // 48 * 0.64
+        if initials.count <= 1 {
+            return baseSize // 한 글자: 기본 크기
+        } else if initials.count == 2 {
+            return baseSize * 0.85 // 두 글자: 15% 축소 (약 26.1)
+        } else {
+            return baseSize * 0.7 // 세 글자 이상: 30% 축소
+        }
     }
 }
 
@@ -205,17 +219,25 @@ private struct EmptyNotesState: View {
 // MARK: - Formatting & Helpers
 
 enum NotesTextFormatter {
-    // DateFormatter 캐시
-    private static let timeFormatter: DateFormatter = {
+    // 시스템 설정에 따라 동적으로 formatter 생성
+    private static func createTimeFormatter() -> DateFormatter {
         let formatter = DateFormatter()
-        formatter.dateFormat = "h:mma"
+        // 시스템 설정에 따라 12/24시간 자동 결정하되, 12시간제일 때 공백 추가
+        if DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: Locale.current)?.contains("a") == true {
+            // 12시간제: 공백 있는 패턴 사용
+            formatter.dateFormat = "h:mm a"
+        } else {
+            // 24시간제: AM/PM 없는 패턴 사용
+            formatter.dateFormat = "H:mm"
+        }
         return formatter
-    }()
+    }
     private static let monthDayFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "M/d"
         return formatter
     }()
+    
     private static let yearMonthDayFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy/M/d"
@@ -226,9 +248,11 @@ enum NotesTextFormatter {
         guard let latest = notes.max(by: { $0.uploadedAt < $1.uploadedAt }) else { return nil }
         let cal = Calendar.current
         let now = Date()
+        let timeFormatter = createTimeFormatter() // 동적 생성
+        
         if cal.isDate(latest.uploadedAt, inSameDayAs: now) {
             // 오늘: 시간만
-            return timeFormatter.string(from: latest.uploadedAt) // 3:00 PM
+            return timeFormatter.string(from: latest.uploadedAt) // 3:00 PM 또는 15:00
         } else if let yesterday = cal.date(byAdding: .day, value: -1, to: now),
                   cal.isDate(latest.uploadedAt, inSameDayAs: yesterday) {
             // 어제: "어제 + 시간"
