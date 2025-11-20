@@ -352,7 +352,7 @@ private extension InputBar {
         case .notDetermined:
             presentToast(
                 text: "채팅에서 촬영하여 보내려면 카메라 권한이 필요합니다.",
-                buttonTitle: "허용하기"
+                buttonTitle: "계속"
             ) {
                 Task {
                     let granted = await AVCaptureDevice.requestAccess(for: .video)

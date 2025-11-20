@@ -26,27 +26,16 @@ enum MediaSource: Hashable {
 }
 
 struct MediaView: View {
-    let items: [MediaSource]
     let title: String
     let uploadedAt: Date?
-    let excludedClientIds: [UUID]
-    var onSave: ((Int, MediaSource) -> Void)?
-    var onDelete: ((Int, MediaSource) -> Void)?
     var onTitleTap: ((Int) -> Void)?
-    @State private var selectedIndex: Int
-    @State private var pages: [MediaSource]
+    @StateObject private var viewModel: MediaViewModel
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var router: NavigationRouter
-    @State private var showChrome: Bool = true
-    @State private var isVideoPlaying: Bool = false
-    @State private var showDeleteAlert: Bool = false
-    @State private var showShareOptions: Bool = false
-    @State private var showShareSheet: Bool = false
-    @State private var shareAttachments: [ShareAttachmentItem] = []
 
     private var deleteObjectText: String {
-        guard pages.indices.contains(selectedIndex) else { return "항목을" }
-        switch pages[selectedIndex] {
+        guard viewModel.pages.indices.contains(viewModel.selectedIndex) else { return "항목을" }
+        switch viewModel.pages[viewModel.selectedIndex] {
         case .image:
             return "사진을"
         case .video:
@@ -64,46 +53,53 @@ struct MediaView: View {
         onDelete: ((Int, MediaSource) -> Void)? = nil,
         onTitleTap: ((Int) -> Void)? = nil
     ) {
-        self.items = items
         self.title = title
         self.uploadedAt = uploadedAt
-        self.excludedClientIds = excludedClientIds
-        self.onSave = onSave
-        self.onDelete = onDelete
         self.onTitleTap = onTitleTap
-        _selectedIndex = State(initialValue: selectedIndex)
-        _pages = State(initialValue: items)
+        _viewModel = StateObject(
+            wrappedValue: MediaViewModel(
+                items: items,
+                selectedIndex: selectedIndex,
+                excludedClientIds: excludedClientIds,
+                onSave: onSave,
+                onDelete: onDelete
+            )
+        )
     }
 
     var body: some View {
         Group {
-            if !pages.isEmpty {
-                TabView(selection: $selectedIndex, content: {
-                    ForEach(pages.indices, id: \.self) { idx in
-                        pageView(for: pages[idx])
+            if !viewModel.pages.isEmpty {
+                TabView(
+                    selection: Binding(
+                        get: { viewModel.selectedIndex },
+                        set: { viewModel.send(.setSelectedIndex($0)) }
+                    ),
+                    content: {
+                    ForEach(viewModel.pages.indices, id: \.self) { idx in
+                        pageView(for: viewModel.pages[idx])
                             .tag(idx)
-                            
                     }
                 })
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .contentShape(Rectangle())
                 .simultaneousGesture(
                     TapGesture().onEnded {
-                        withAnimation(.easeInOut(duration: 0.2)) { showChrome = true }
+                        viewModel.send(.setShowChrome(true))
                     }
                 )
             }
         }
         .ignoresSafeArea()
         .safeAreaBar(edge: .top) {
-            if showChrome {
+            if viewModel.showChrome {
                 MediaHeaderBar(
                     title: title,
                     uploadedAt: uploadedAt,
                     onBack: { dismiss() },
                     onGrid: {
                         // Navigate to the client's ChattingArchiveView if we know the owner
-                        guard excludedClientIds.count == 1, let clientId = excludedClientIds.first else { return }
+                        guard viewModel.excludedClientIds.count == 1, let clientId = viewModel.excludedClientIds.first else { return }
                         dismiss()
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                             router.push(.chatArchive(clientId))
@@ -111,7 +107,7 @@ struct MediaView: View {
                     },
                     onTitleTap: {
                         // Dismiss first to avoid pushing a new route that gets popped immediately.
-                        let currentIndex = selectedIndex
+                        let currentIndex = viewModel.selectedIndex
                         dismiss()
                         if let onTitleTap {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
@@ -121,33 +117,54 @@ struct MediaView: View {
                     }
                 )
                 .transition(.move(edge: .top).combined(with: .opacity))
-                .allowsHitTesting(!isVideoPlaying)
+                .allowsHitTesting(!viewModel.isVideoPlaying)
             }
         }
         .safeAreaBar(edge: .bottom) {
-            if showChrome {
+            if viewModel.showChrome {
                 MediaBottomBar(
-                    index: selectedIndex,
-                    total: pages.count,
-                    onShare: { handleShareTapped() },
-                    onSave: { handleSave() },
-                    onDelete: { showDeleteAlert = true }
+                    index: viewModel.selectedIndex,
+                    total: viewModel.pages.count,
+                    onShare: { viewModel.send(.tapShare) },
+                    onSave: { viewModel.send(.tapSave) },
+                    onDelete: { viewModel.send(.tapDelete) }
                 )
                 .transition(.move(edge: .bottom).combined(with: .opacity))
-                .allowsHitTesting(!isVideoPlaying)
+                .allowsHitTesting(!viewModel.isVideoPlaying)
             }
         }
-        .alert("\(deleteObjectText)을 삭제하시겠어요?", isPresented: $showDeleteAlert) {
-            Button("삭제", role: .destructive) { handleDelete() }
+        .alert(
+            "\(deleteObjectText)을 삭제하시겠어요?",
+            isPresented: Binding(
+                get: { viewModel.showDeleteAlert },
+                set: { viewModel.showDeleteAlert = $0 }
+            )
+        ) {
+            Button("삭제", role: .destructive) {
+                viewModel.send(.confirmDelete)
+                if viewModel.pages.isEmpty { dismiss() }
+            }
             Button("취소", role: .cancel) { }
         }
-        .confirmationDialog("공유", isPresented: $showShareOptions, titleVisibility: .visible) {
-            Button("묶음 전체 전달") { prepareShareAttachments(allInBundle: true) }
-            Button("이 항목만 전달") { prepareShareAttachments(allInBundle: false) }
+        .confirmationDialog(
+            "공유",
+            isPresented: Binding(
+                get: { viewModel.showShareOptions },
+                set: { viewModel.showShareOptions = $0 }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("묶음 전체 전달") { viewModel.send(.chooseShareAll) }
+            Button("이 항목만 전달") { viewModel.send(.chooseShareSingle) }
             Button("취소", role: .cancel) { }
         }
-        .sheet(isPresented: $showShareSheet) {
-            ShareView(initialAttachments: shareAttachments, excludedClientIds: excludedClientIds)
+        .sheet(
+            isPresented: Binding(
+                get: { viewModel.showShareSheet },
+                set: { viewModel.showShareSheet = $0 }
+            )
+        ) {
+            ShareView(initialAttachments: viewModel.shareAttachments, excludedClientIds: viewModel.excludedClientIds)
                 .background(Color("Background"))
                 .presentationDetents([.large])
                 .presentationDragIndicator(.hidden)
@@ -155,6 +172,9 @@ struct MediaView: View {
         .apexSwipeBackDisabled(true)
         .onAppear { ApexSwipeBackState.shared.isDisabled = true }
         .onDisappear { ApexSwipeBackState.shared.isDisabled = false }
+        .onChange(of: viewModel.pages.count) { _, newCount in
+            if newCount == 0 { dismiss() }
+        }
     }
 
     @ViewBuilder
@@ -163,68 +183,17 @@ struct MediaView: View {
         case .image(let data):
             ImagePage(imageData: data)
         case .video(let url):
-            VideoPage(url: url, showChrome: $showChrome, isPlayingExternal: $isVideoPlaying)
-        }
-    }
-}
-
-private extension MediaView {
-    func handleShareTapped() {
-        // If multiple items, offer bundle vs single; if single, go single directly
-        if pages.count > 1 {
-            showShareOptions = true
-        } else {
-            prepareShareAttachments(allInBundle: false)
-        }
-    }
-
-    func prepareShareAttachments(allInBundle: Bool) {
-        let targets: [MediaSource]
-        if allInBundle {
-            targets = pages
-        } else {
-            guard pages.indices.contains(selectedIndex) else { return }
-            targets = [pages[selectedIndex]]
-        }
-
-        shareAttachments = targets.compactMap { source in
-            switch source {
-            case .image(let data):
-                if let img = UIImage(data: data) {
-                    return ShareAttachmentItem(id: UUID(), kind: .image(img))
-                } else { return nil }
-            case .video(let url):
-                return ShareAttachmentItem(id: UUID(), kind: .video(url, thumbnail: generateThumbnail(for: url)))
-            }
-        }
-        showShareSheet = true
-        showShareOptions = false
-    }
-    func handleSave() {
-        guard pages.indices.contains(selectedIndex) else { return }
-        let item = pages[selectedIndex]
-        if let onSave { onSave(selectedIndex, item) } else { defaultSave(item) }
-    }
-
-    func handleDelete() {
-        guard pages.indices.contains(selectedIndex) else { return }
-        let item = pages[selectedIndex]
-        onDelete?(selectedIndex, item)
-        var newPages = pages
-        newPages.remove(at: selectedIndex)
-        pages = newPages
-        if selectedIndex >= pages.count { selectedIndex = max(0, pages.count - 1) }
-        if pages.isEmpty { dismiss() }
-    }
-
-    func defaultSave(_ item: MediaSource) {
-        switch item {
-        case .image(let data):
-            if let image = UIImage(data: data) {
-                UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
-            }
-        case .video(let url):
-            UISaveVideoAtPathToSavedPhotosAlbum(url.path, nil, nil, nil)
+            VideoPage(
+                url: url,
+                showChrome: Binding(
+                    get: { viewModel.showChrome },
+                    set: { viewModel.send(.setShowChrome($0)) }
+                ),
+                isPlayingExternal: Binding(
+                    get: { viewModel.isVideoPlaying },
+                    set: { viewModel.send(.setVideoPlaying($0)) }
+                )
+            )
         }
     }
 }
@@ -564,27 +533,6 @@ private struct CircularProgressButton: View {
                 .background(Color.black.opacity(0.45))
                 .clipShape(Circle())
         })
-    }
-}
-
-private func format(durationOf url: URL) -> String {
-    let asset = AVAsset(url: url)
-    let seconds = Int(CMTimeGetSeconds(asset.duration).rounded())
-    let minutes = seconds / 60
-    let remainingSeconds = seconds % 60
-    return String(format: "%02d:%02d", minutes, remainingSeconds)
-}
-
-private func generateThumbnail(for url: URL) -> UIImage? {
-    let asset = AVAsset(url: url)
-    let generator = AVAssetImageGenerator(asset: asset)
-    generator.appliesPreferredTrackTransform = true
-    generator.maximumSize = CGSize(width: 1600, height: 1600)
-    do {
-        let cgImage = try generator.copyCGImage(at: .init(seconds: 0.1, preferredTimescale: 600), actualTime: nil)
-        return UIImage(cgImage: cgImage)
-    } catch {
-        return nil
     }
 }
 
