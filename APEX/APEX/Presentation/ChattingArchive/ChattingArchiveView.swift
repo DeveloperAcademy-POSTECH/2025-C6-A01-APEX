@@ -195,7 +195,7 @@ struct ChattingArchiveView: View {
     }
 
     private var sharedLinksSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 0) {
             sectionHeader(title: "링크", iconName: "URL", iconColor: Color(hex: "BC0D59"), action: {
                 viewModel.send(.presentArchive(.links))
             })
@@ -251,7 +251,7 @@ struct ChattingArchiveView: View {
     }
 
     private var sharedAudioSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 0) {
             sectionHeader(title: "음성메모", iconName: "Waveform", iconColor: Color(hex: "E28822"), action: {
                 viewModel.send(.presentArchive(.audio))
             })
@@ -330,6 +330,7 @@ struct ChattingArchiveView: View {
                     .foregroundColor(Color("BlackLabel"))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 15)
+                    .frame(height: 48)
             }
             .buttonStyle(.plain)
             .background(Color("BackgroundSecondary"))
@@ -344,15 +345,16 @@ struct ChattingArchiveView: View {
                 Button(role: .destructive) {
                     viewModel.send(.showDeleteContactOverlay(true))
                 } label: {
-                    HStack {
+                    HStack(spacing: 4) {
                         Image(systemName: "trash.fill")
                             .font(.system(size: 16, weight: .bold))
                         Text("연락처 삭제하기")
+                            .font(.body5)
                     }
-                    .font(.body5)
                     .foregroundColor(Color("Error"))
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 15)
+                    .padding(.vertical, 12)
+                    .frame(height: 48)
                 }
                 .buttonStyle(.plain)
                 .background(Color("ErrorContainer"))
@@ -392,6 +394,7 @@ struct ChattingArchiveView: View {
             }
             .padding(.vertical, 10)
         }
+        .padding(.leading, 8)
         .padding(.trailing, 16)
         .buttonStyle(SectionHeaderPressedStyle())
     }
