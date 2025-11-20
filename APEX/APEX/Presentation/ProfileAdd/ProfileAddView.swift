@@ -147,6 +147,12 @@ struct ProfileAddView: View {
             .padding(.horizontal, 24)
         }
         .scrollEdgeEffectStyle(.soft, for: .all)
+        .scrollDismissesKeyboard(.interactively)
+        .simultaneousGesture(
+            TapGesture().onEnded {
+                UIApplication.apexDismissKeyboard()
+            }
+        )
         .sheet(item: $viewModel.presentedPhotoType) { sheetType in
             PhotoAddView(
                 type: sheetType,
