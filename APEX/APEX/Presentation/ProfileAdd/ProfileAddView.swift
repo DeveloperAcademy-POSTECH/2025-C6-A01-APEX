@@ -21,10 +21,10 @@ struct ProfileAddView: View {
             mainContent
         }
         .background(Color("Background"))
-        .onAppear { ensureFieldArrays() }
-        .onChange(of: addItemConfig.emailCount) { _ in ensureFieldArrays() }
-        .onChange(of: addItemConfig.phoneCount) { _ in ensureFieldArrays() }
-        .onChange(of: addItemConfig.urlCount) { _ in ensureFieldArrays() }
+        .onAppear { viewModel.ensureFieldArrays() }
+        .onChange(of: viewModel.addItemConfig.emailCount) { _ in viewModel.ensureFieldArrays() }
+        .onChange(of: viewModel.addItemConfig.phoneCount) { _ in viewModel.ensureFieldArrays() }
+        .onChange(of: viewModel.addItemConfig.urlCount) { _ in viewModel.ensureFieldArrays() }
     }
 
     // MARK: - Main Content
