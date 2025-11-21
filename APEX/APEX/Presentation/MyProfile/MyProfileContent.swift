@@ -33,9 +33,9 @@ struct MyProfileContactsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // 첫 표시 항목이 이메일이면 상단 구분선 숨김
-            if !(hasEmailFirst) {
-                topSeparator
-            }
+//            if !(hasEmailFirst) {
+//                topSeparator
+//            }
 
             if let email, !email.isEmpty {
                 ContactCard {
@@ -280,13 +280,16 @@ struct MyProfileStorageSection: View {
                     Text("노트 저장공간 관리")
                         .font(.body3)
                         .foregroundColor(.gray)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Spacer()
+                        
                     if !usedText.isEmpty {
                         Text(usedText)
                             .font(.body3)
                             .foregroundColor(.gray)
                     }
                 }
+                // ⭐ 패딩 제거하여 구분선 전체 길이 사용
             }
             .padding(.horizontal, 8)
             
@@ -296,7 +299,9 @@ struct MyProfileStorageSection: View {
                 Text("임시 데이터 삭제")
                     .font(.body3)
                     .foregroundColor(.gray)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                
+                Spacer()
 
                 PurgeButton(isEnabled: isPurgeEnabled, action: onPurgeTapped)
             }
@@ -311,7 +316,7 @@ struct MyProfileStorageSection: View {
     private var topSeparator: some View {
         Rectangle()
             .fill(Color("BackgroundSecondary"))
-            .frame(width: 361, height: 2)
+            .frame(height: 2)
     }
 }
 
