@@ -1,87 +1,83 @@
-# APEX
-타키, 자니, 카린, 경
+### 2025-C6-A01-APEX
 
-🚀 프로젝트 이름
-배너 이미지 또는 로고
+# 📱 Stash
 
-간단한 한 줄 소개 – 프로젝트의 핵심 가치 또는 기능
+사람별로 메모하는 나만의 비즈니스 채팅방
 
-Swift Xcode License
+---
 
-🗂 목차
-소개
-프로젝트 기간
-기술 스택
-기능
-시연
-폴더 구조
-팀 소개
-Git 컨벤션
-테스트 방법
-프로젝트 문서
-라이선스
-📱 소개
-프로젝트의 주요 목적과 사용자가 얻게 될 경험을 설명해주세요.
+## 🎆 Screenshots
+| Stash | Add Contacts | Notes | Search | Archive |
+|:--:|:--:|:--:|:--:|:--:|
+| ![Stash](<img width="2484" height="2688" alt="Frame 2503" src="https://github.com/user-attachments/assets/7406337b-1047-40e5-95a2-4ec796267f44" />
+) | ![연락처 추가 화면](<img width="1242" height="2688" alt="연락처" src="https://github.com/user-attachments/assets/b7ee6fe5-84af-43b4-b763-c3859169d126" />
+) | ![사람별로 메모 화면](<img width="1242" height="2688" alt="메모" src="https://github.com/user-attachments/assets/ac4ff214-ae2e-46be-9090-a6f540ad17ed" />
+) | ![검색 화면](<img width="1242" height="2688" alt="간편 음성메모" src="https://github.com/user-attachments/assets/b0eeedc6-24e9-4453-a321-746d4146b345" />
+) | ![사람별로 파일 아카이브 화면](<img width="1242" height="2688" alt="주요 회사 메모" src="https://github.com/user-attachments/assets/6267442b-223b-463a-b899-7d0fe8c13dfc" />
+) |
 
-🔗 앱스토어/웹 링크
 
-📆 프로젝트 기간
-전체 기간: YYYY.MM.DD - YYYY.MM.DD
-개발 기간: YYYY.MM.DD - YYYY.MM.DD
-🛠 기술 스택
-Swift / SwiftUI / UIKit / Firebase 등
-아키텍처: MVVM / MVC / Clean Architecture 등
-기타 도구: Figma, Notion, GitHub Projects 등
-🌟 주요 기능
-✅ 기능 1
-✅ 기능 2
-✅ 기능 3
-필요시 이미지, GIF, 혹은 링크 삽입
+---
 
-🖼 화면 구성 및 시연
-기능	설명	이미지
-예시1	기능 요약	gif
-예시2	기능 요약	gif
-🧱 폴더 구조
-📦ProjectName
-┣ 📂Feature
-┃ ┣ 📂SceneA
-┃ ┗ 📂SceneB
-┣ 📂Core
-┣ 📂UI
-┣ 📂Test
-┗ 📂Resources
-🧑‍💻 팀 소개
-이름	역할	GitHub
-홍길동	iOS Developer	@hong
-김개발	PM	@devkim
-🔗 팀 블로그 / 미디엄 링크
+## 📌 Features
 
-🔖 브랜치 전략
-(예시)
+- ✅ Feature 1: 사람별로 기록하는 간편한 채팅방 메모
+- ✅ Feature 2: 간편한 음성메모와 스크립트 정리
+- ✅ Feature 3: 주요 회사와 고객별로 정리하는 연락처
 
-main: 배포 가능한 안정 버전
-develop: 통합 개발 브랜치
-feature/*: 기능 개발 브랜치
-bugfix/*: 버그 수정 브랜치
-hotfix/*: 긴급 수정 브랜치
-🌀 커밋 메시지 컨벤션
-(예시)
-Gitmoji + Conventional Commits
+---
 
-예시
-✨ feat: 로그인 화면 추가
-🐛 fix: 홈 진입 시 크래시 수정
-♻️ refactor: 데이터 모델 구조 정리
-✅ 테스트 방법
-이 저장소를 클론합니다.
-git clone https://github.com/yourteam/project.git
-Xcode로 .xcodeproj 또는 .xcworkspace 열기
-시뮬레이터 환경 설정: iPhone 15 / iOS 17
-Cmd + R로 실행 / Cmd + U로 테스트 실행
-📎 프로젝트 문서
-기획 히스토리
-디자인 히스토리
-기술 문서 (아키텍처 등)
-📝 License
-This project is licensed under the CHOOSE A LICENSE. and update this line
+## ✨ Skills & Tech Stack
+
+![Swift](https://img.shields.io/badge/Swift-F05138?style=for-the-badge&logo=swift&logoColor=white)
+![SwiftUI](https://img.shields.io/badge/SwiftUI-007AFF?style=for-the-badge&logo=swift&logoColor=white)
+![MVVM](https://img.shields.io/badge/MVVM-blue?style=for-the-badge)
+![Clean Architecture](https://img.shields.io/badge/Clean%20Architecture-DDDDDD?style=for-the-badge)
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![OpenAI](https://img.shields.io/badge/OpenAI-412991?style=for-the-badge&logo=openai&logoColor=white)
+
+
+---
+
+## 🫂 Authors
+
+| 이름 | GitHub | 역할 |
+|------|--------|------|
+| @Gyeong | [github.com/heejinnn](https://github.com/heejinnn) | ios 앱 개발(SwiftUI), 아키텍쳐, 로직 설계 |
+| @Taki5cm | [github.com/Taki5cm](https://github.com/Taki5cm) | 기획, iOS 앱 개발(SwiftUI) |
+| @Karyn | [github.com/Segyun](https://github.com/Segyun) | 디자인(UX/UI),UX Researcher |
+| @cchangss | [github.com/Mina-weaver](https://github.com/Mina-weaver) | 기획, UX Researcher |
+
+---
+
+## 🪢 Branch Convention
+
+- `main`: 배포 가능한 **안정 버전**
+- `develop`: 기능 통합 **개발 브랜치**
+- `feat/[#이슈번호]-기능명`: 기능 개발 브랜치
+  - 예: `feat/#24-EditLogin`
+- `fix/[#이슈번호]-수정내용`: 버그 수정 브랜치
+  - 예: `:fix/#17-FixLoginCrash`
+
+---
+
+## 📦 Commit Convention
+
+| 태그 | 설명 |
+|------|------|
+| `feat:` | 기능 추가 |
+| `refactor:` | 리팩토링 (기능 변화 X) |
+| `fix:` | 버그 수정 |
+| `design:` | UI/스타일 변경 등 |
+| `test:` | 테스트 코드 작성 |
+---
+
+## 🚀 Pull Request Convention
+
+| 이모지 | 태그 | 설명 |
+|--------|------|------|
+| ✨ | `Feat` | 새로운 기능 추가 |
+| 🐛 | `Fix` | 버그 수정 |
+| ♻️ | `Refactor` | 코드 구조 개선 |
+| 🧪 | `Test` | 테스트 코드 작성 |
