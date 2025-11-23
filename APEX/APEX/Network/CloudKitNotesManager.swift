@@ -140,7 +140,7 @@ final class CloudKitNotesManager {
             guard let self else { return }
             if case .success(let saved) = result {
                 self.setNoteRecordID(saved.recordID, for: note.id)
-                self.createAssetsIfNeeded(for: note, noteRecordID: saved.recordID)
+                self.createAssetsIfNeeded(for: note, noteRecordID: saved.recordID, clientId: clientId)
             }
         }
     }
@@ -165,10 +165,33 @@ final class CloudKitNotesManager {
     }
 
     // MARK: - Assets
-    private func createAssetsIfNeeded(for note: Note, noteRecordID: CKRecord.ID) {
+    private func createAssetsIfNeeded(for note: Note, noteRecordID: CKRecord.ID, clientId: UUID) {
         guard let bundle = note.bundle else { return }
+        var remaining = 0
+        var pendingDeletionURLs: [URL] = []
+        func onOneSaved() {
+            remaining -= 1
+            if remaining == 0 {
+                // After all assets saved, refresh from CloudKit and apply to ChatStore
+                self.fetchNotes(for: clientId) { result in
+                    if case .success(let fetched) = result {
+                        DispatchQueue.main.async {
+                            ChatStore.shared.setNotes(fetched, for: clientId)
+                            // Defer local file deletion slightly to avoid UI flicker while notes refresh
+                            let urlsToDelete = pendingDeletionURLs
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                                for url in urlsToDelete {
+                                    self.deleteLocalIfInAppGroup(url)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
         switch bundle {
         case .media(let images, let videos):
+            remaining += images.count + videos.count
             for (idx, img) in images.enumerated() {
                 if let ui = UIImage(data: img.data),
                    let asset = CloudKitManager.shared.makeAsset(from: ui) {
@@ -178,7 +201,11 @@ final class CloudKitNotesManager {
                     fields["orderIndex"] = NSNumber(value: img.orderIndex ?? idx)
                     fields["imageKey"] = (self.makeImageKey(from: img.data) as NSString)
                     fields["noteRef"] = CKRecord.Reference(recordID: noteRecordID, action: .none)
-                    CloudKitManager.shared.saveRecord(type: "NoteAsset", fields: fields, completion: nil)
+                    CloudKitManager.shared.saveRecord(type: "NoteAsset", fields: fields) { _ in
+                        onOneSaved()
+                    }
+                } else {
+                    onOneSaved()
                 }
             }
             for (idx, vid) in videos.enumerated() {
@@ -188,9 +215,13 @@ final class CloudKitNotesManager {
                 if let asset = assetFromFileURL(vid.url) { fields["asset"] = asset }
                 fields["filename"] = (vid.url.lastPathComponent as NSString)
                 fields["noteRef"] = CKRecord.Reference(recordID: noteRecordID, action: .none)
-                CloudKitManager.shared.saveRecord(type: "NoteAsset", fields: fields, completion: nil)
+                CloudKitManager.shared.saveRecord(type: "NoteAsset", fields: fields) { _ in
+                    pendingDeletionURLs.append(vid.url)
+                    onOneSaved()
+                }
             }
         case .files(let files):
+            remaining += files.count
             for f in files {
                 var fields: [String: CKRecordValueProtocol] = [:]
                 fields["kind"] = "file" as NSString
@@ -198,9 +229,13 @@ final class CloudKitNotesManager {
                 if let ut = f.contentType { fields["contentType"] = (ut.identifier as NSString) }
                 fields["filename"] = (f.url.lastPathComponent as NSString)
                 fields["noteRef"] = CKRecord.Reference(recordID: noteRecordID, action: .none)
-                CloudKitManager.shared.saveRecord(type: "NoteAsset", fields: fields, completion: nil)
+                CloudKitManager.shared.saveRecord(type: "NoteAsset", fields: fields) { _ in
+                    pendingDeletionURLs.append(f.url)
+                    onOneSaved()
+                }
             }
         case .audio(let audios):
+            remaining += audios.count
             for a in audios {
                 var fields: [String: CKRecordValueProtocol] = [:]
                 fields["kind"] = "audio" as NSString
@@ -208,7 +243,10 @@ final class CloudKitNotesManager {
                 if let dur = a.duration { fields["duration"] = NSNumber(value: dur) }
                 fields["filename"] = (a.url.lastPathComponent as NSString)
                 fields["noteRef"] = CKRecord.Reference(recordID: noteRecordID, action: .none)
-                CloudKitManager.shared.saveRecord(type: "NoteAsset", fields: fields, completion: nil)
+                CloudKitManager.shared.saveRecord(type: "NoteAsset", fields: fields) { _ in
+                    pendingDeletionURLs.append(a.url)
+                    onOneSaved()
+                }
             }
         }
     }
@@ -398,6 +436,20 @@ final class CloudKitNotesManager {
         var map = loadNoteMap()
         map.removeValue(forKey: noteId.uuidString)
         saveNoteMap(map)
+    }
+    
+    // Remove local App Group copies after successful CloudKit upload to free device storage.
+    private func deleteLocalIfInAppGroup(_ url: URL) {
+        guard url.isFileURL else { return }
+        guard let base = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.apex.StashShareExtension") else { return }
+        let prefixes = [
+            base.appendingPathComponent("SharedVideos", isDirectory: true).path,
+            base.appendingPathComponent("SharedFiles", isDirectory: true).path,
+            base.appendingPathComponent("SharedAudios", isDirectory: true).path
+        ]
+        if prefixes.contains(where: { url.path.hasPrefix($0) }) {
+            try? FileManager.default.removeItem(at: url)
+        }
     }
     
     // MARK: - Keys
