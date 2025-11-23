@@ -45,7 +45,12 @@ struct NotesManagementListSection: View {
                     note: note,
                     isSelected: selectedNoteIds.contains(note.id),
                     isSelectionMode: isSelectionMode,
-                    onToggleSelection: { toggleSelection(for: note.id) },
+                    onToggleSelection: { 
+                        if !isSelectionMode {
+                            isSelectionMode = true
+                        }
+                        toggleSelection(for: note.id) 
+                    },
                     onTapRow: {
                         if !isSelectionMode {
                             isSelectionMode = true

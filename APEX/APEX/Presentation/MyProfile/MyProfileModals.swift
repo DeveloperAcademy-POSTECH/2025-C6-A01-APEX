@@ -315,14 +315,14 @@ struct MyProfileEditSheet: View {
                 AddItemButton {
                     isAddItemPresented = true
                 }
-                .padding(.bottom, showDeleteButton ? 12 : 16)
+                .padding(.bottom, showDeleteButton ? 8 : 12)
                 
                 // 연락처 삭제하기 버튼 (ProfileDetailView에서만)
                 if showDeleteButton {
                     DeleteContactButton {
                         showDeleteConfirmation()
                     }
-                    .padding(.bottom, 16)
+                    .padding(.bottom, 12)
                 }
             }
             .padding(.horizontal, 24)
@@ -678,7 +678,7 @@ private struct DeleteContactButton: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 4) {
-                Image(systemName: "minus.circle.fill")
+                Image(systemName: "trash.fill")
                     .foregroundColor(Color.red)
                 Text("연락처 삭제하기")
                     .font(.body2)

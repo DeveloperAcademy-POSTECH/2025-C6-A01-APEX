@@ -23,9 +23,10 @@ struct DataManagementView: View {
 
     var body: some View {
         ZStack {
-            // Main Content (DMContactsView equivalent)
+            // Main Content
             ScrollView {
-                VStack(spacing: 16) {
+                VStack(spacing: 0) {
+                    // 상단 설정 섹션들
                     VStack(spacing: 0) {
                         DMToggleSection(
                             title: "iCloud 자동 동기화",
@@ -42,23 +43,25 @@ struct DataManagementView: View {
                             onRefresh: { viewModel.send(.refresh) }
                         )
                     }
-                    .padding(.bottom, 16)
+                    
+                    Spacer().frame(height: 32)  // 상단 섹션과 구분선 사이 32pt
 
                     Rectangle()
                         .fill(Color("BackgroundSecondary"))
-                        .frame(width: 361, height: 2)
+                        .frame(height: 2)
 
-                    DMMediaDataSection(
-                        totalSizeText: viewModel.totalSizeText,
-                        contacts: viewModel.contacts,
-                        onDeleteAllTap: { viewModel.send(.requestDeleteAll) },
-                        onContactDeleteTap: { contact in
-                            viewModel.send(.requestDeleteContact(contact.id))
-                        }
-                    )
+                    VStack(alignment: .leading, spacing: 0) {
+                        DMMediaDataSection(
+                            totalSizeText: viewModel.totalSizeText,
+                            contacts: viewModel.contacts,
+                            onDeleteAllTap: { viewModel.requestDeleteAll() },
+                            onContactDeleteTap: { contact in
+                                viewModel.requestDeleteContact(contact.id)
+                            }
+                        )
+                    }
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 16)
+                .padding(.all, 16)  // 전체 컨텐츠 패딩 16pt
             }
             .background(Color("Background"))
             .safeAreaInset(edge: .top) {

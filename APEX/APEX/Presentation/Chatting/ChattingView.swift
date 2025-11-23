@@ -789,8 +789,8 @@ struct ChattingView: View {
                 triggerDateBounce()
                 NotificationCenter.default.post(name: .apexNavigateToDate, object: nil, userInfo: ["date": selected])
             })
-            .presentationDetents([.height(420)])
-            .presentationDragIndicator(.visible)
+            .presentationDetents([.height(369)])
+            .presentationDragIndicator(.hidden)
         }
         // Hidden NavigationLinks removed; Router handles navigation
     }

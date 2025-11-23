@@ -57,30 +57,45 @@ struct MyProfileView: View {
                 .padding(.top, 32)
 
                 // 저장공간 섹션
-                MyProfileStorageSection(
-                    usedText: viewModel.usedSizeText,
-                    isPurgeEnabled: viewModel.isPurgeEnabledState,
-                    onManageTapped: { router.push(.dataManagement) },
-                    onPurgeTapped: { viewModel.send(.tapPurge) }
-                )
+                VStack(spacing: 0) {
+                    MyProfileSectionSeparator()
+                        .padding(.top, 32)
+                    
+                    MyProfileStorageSection(
+                        usedText: viewModel.usedSizeText,
+                        isPurgeEnabled: viewModel.isPurgeEnabledState,
+                        onManageTapped: { router.push(.dataManagement) },
+                        onPurgeTapped: { viewModel.send(.tapPurge) }
+                    )
+                    .padding(.vertical, 10)
+                }
                 .padding(.horizontal, 16)
-                .padding(.top, 32)
 
                 // 앱 정보 섹션
-                MyProfileAppInfoSection(
-                    versionText: Bundle.main.apexVersionString(),
-                    onTermsTapped: { }
-                )
+                VStack(spacing: 0) {
+                    MyProfileSectionSeparator()
+                        .padding(.top, 32)
+                    
+                    MyProfileAppInfoSection(
+                        versionText: Bundle.main.apexVersionString(),
+                        onTermsTapped: { /* TODO: 약관 화면/URL */ }
+                    )
+                    .padding(.vertical, 10)
+                }
                 .padding(.horizontal, 16)
-                .padding(.top, 32)
 
                 // 위험 구역 섹션
-                MyProfileDangerZoneSection(
-                    onLogout: { },
-                    onDeleteAccount: { router.push(.unsubscribe) }
-                )
+                VStack(spacing: 0) {
+                    MyProfileSectionSeparator()
+                        .padding(.top, 32)
+                    
+                    MyProfileDangerZoneSection(
+                        onLogout: { /* TODO */ },
+                        onDeleteAccount: { router.push(.unsubscribe) }
+                    )
+                    .padding(.vertical, 10)
+                }
                 .padding(.horizontal, 16)
-                .padding(.top, 32)
                 .padding(.bottom, 16)  // 마지막 여백
             }
         }
