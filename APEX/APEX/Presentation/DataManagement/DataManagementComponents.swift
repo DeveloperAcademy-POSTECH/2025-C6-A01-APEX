@@ -62,6 +62,7 @@ struct DMTopBar: View {
 
     private enum Metrics {
         static let height: CGFloat = 44
+        static let vPadding: CGFloat = 8      // 상하 패딩 추가
         static let hPadding: CGFloat = 12
         static let tappable: CGFloat = 44
         static let iconSize: CGFloat = 16
@@ -88,6 +89,7 @@ struct DMTopBar: View {
             }
             .frame(height: Metrics.height)
             .padding(.horizontal, Metrics.hPadding)
+            .padding(.vertical, Metrics.vPadding)  // 상하 패딩 8pt 추가
             .background(Color("Background"))
 
             // Centered title
@@ -97,6 +99,7 @@ struct DMTopBar: View {
                 .lineLimit(1)
                 .frame(height: Metrics.height)
                 .padding(.horizontal, Metrics.hPadding)
+                .padding(.vertical, Metrics.vPadding)  // 타이틀도 동일한 패딩 적용
                 .allowsHitTesting(false)
                 
         }
@@ -215,41 +218,48 @@ struct DMMediaDataSection: View {
     var onContactDeleteTap: (DMContactUsage) -> Void
 
     private enum Metrics {
-        static let titlePadding: CGFloat = 8
-        static let descriptionPadding: CGFloat = 8
-        static let buttonPadding: CGFloat = 8
-        static let contactListPadding: CGFloat = 8
-        static let sectionSpacing: CGFloat = 12
-        static let buttonHeight: CGFloat = 44
-        static let buttonCorner: CGFloat = 10
-        static let contactRowHeight: CGFloat = 64
+        static let titleHeight: CGFloat = 33
+        static let titleToDescriptionSpacing: CGFloat = 4
+        static let descriptionToButtonSpacing: CGFloat = 16  // 본문과 버튼 사이 16pt (8+8)
+        static let buttonToContactSpacing: CGFloat = 16
+        static let buttonHeight: CGFloat = 56
+        static let buttonCorner: CGFloat = 15  // corner radius 15pt로 변경
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Metrics.sectionSpacing) {
+        VStack(alignment: .leading, spacing: 0) {
+            Spacer().frame(height: 8)  // 타이틀 위쪽 패딩 8pt
+            
             // Title
             Text(title)
                 .font(.body1)
-                .foregroundColor(.black)
-                .padding(.horizontal, Metrics.titlePadding)
+                .foregroundColor(Color("BlackLabel"))
+                .frame(height: Metrics.titleHeight, alignment: .center)
+                .padding(.horizontal, 8)  // 타이틀 좌우 패딩 8pt
+            
+            Spacer().frame(height: Metrics.titleToDescriptionSpacing)
             
             // Description
             Text(description)
                 .font(.caption2)
-                .foregroundColor(.gray)
-                .padding(.horizontal, Metrics.descriptionPadding)
+                .foregroundColor(Color("GrayLabel"))
+                .padding(.horizontal, 8)  // 설명 좌우 패딩 8pt
+            
+            Spacer().frame(height: Metrics.descriptionToButtonSpacing)
             
             // Delete All Button
             Button(action: onDeleteAllTap) {
                 Text("전체 미디어 데이터 삭제 (\(totalSizeText))")
                     .font(.body2)
-                    .foregroundColor(.black)
+                    .foregroundColor(Color("BlackLabel"))
                     .frame(maxWidth: .infinity)
                     .frame(height: Metrics.buttonHeight)
                     .contentShape(RoundedRectangle(cornerRadius: Metrics.buttonCorner))
             }
             .buttonStyle(BackgroundHoverButtonStyle(cornerRadius: Metrics.buttonCorner))
-            .padding(.horizontal, Metrics.buttonPadding)
+            .padding(.horizontal, 8)  // 버튼 좌우 패딩 8pt
+            
+            Spacer().frame(height: Metrics.buttonToContactSpacing)
             
             // Contact List (통합됨)
             VStack(spacing: 0) {
@@ -259,7 +269,7 @@ struct DMMediaDataSection: View {
                     }
                 }
             }
-            .padding(.horizontal, Metrics.contactListPadding)
+            .padding(.horizontal, 8)  // 연락처 리스트 좌우 패딩 8pt
         }
     }
 }
@@ -349,34 +359,49 @@ struct DMContactRow: View {
 
     private enum Metrics {
         static let rowHeight: CGFloat = 64
-        static let hPadding: CGFloat = 8
-        static let vPadding: CGFloat = 8
-        static let sizeTextColor = Color.gray
+        static let hPadding: CGFloat = 8  // 좌우 패딩 8pt
+        static let vPadding: CGFloat = 8  // 상하 패딩 8pt 
+        static let avatarSize: CGFloat = 48  // ContactsView와 동일한 크기
+        static let profileToNameSpacing: CGFloat = 12
+        static let sizeTextColor = Color("GrayLabel")
     }
 
     var body: some View {
         Button(action: onDeleteTap) {
-            HStack(spacing: 12) {
-                Profile(
-                    image: contact.image, 
-                    initials: contact.initials, 
-                    size: .extraSmall,
-                    fontSize: dynamicFontSize(for: contact.initials), // 동적 폰트 크기 적용
-                    backgroundColor: Color("PrimaryContainer"),
-                    textColor: .white,
-                    fontWeight: .semibold
-                )
+            HStack(spacing: Metrics.profileToNameSpacing) {
+                // ContactsView 스타일의 avatar
+                Group {
+                    if let uiImage = contact.image {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: Metrics.avatarSize, height: Metrics.avatarSize)
+                    } else {
+                        ZStack {
+                            Circle()
+                                .fill(Color("PrimaryContainer"))
+                            Text(contact.initials)
+                                .font(.system(size: dynamicFontSize(for: contact.initials), weight: .semibold))
+                                .foregroundColor(.white)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.5)
+                        }
+                        .frame(width: Metrics.avatarSize, height: Metrics.avatarSize)
+                    }
+                }
+                .clipShape(Circle())
+                
                 Text(contact.name)
                     .font(.body2)
-                    .foregroundColor(.primary)
+                    .foregroundColor(Color("BlackLabel"))
                     .lineLimit(1)
                 Spacer()
                 Text(contact.sizeText)
                     .font(.body6)
                     .foregroundColor(Metrics.sizeTextColor)
             }
-            .padding(.horizontal, Metrics.hPadding)
-            .padding(.vertical, Metrics.vPadding)
+            .padding(.horizontal, Metrics.hPadding)  // 좌우 패딩 8pt
+            .padding(.vertical, Metrics.vPadding)    // 상하 패딩 8pt
             .frame(height: Metrics.rowHeight)
             .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
@@ -384,15 +409,15 @@ struct DMContactRow: View {
         .buttonStyle(ContactRowHoverStyle())
     }
     
-    // 이니셜 길이에 따른 동적 폰트 크기 계산
+    // 이니셜 길이에 따른 동적 폰트 크기 계산 (ContactsView와 동일)
     private func dynamicFontSize(for initials: String) -> CGFloat {
         let baseSize: CGFloat = 30.72 // 48 * 0.64
         if initials.count <= 1 {
-            return baseSize // 한 글자: 기본 크기
+            return baseSize
         } else if initials.count == 2 {
-            return baseSize * 0.85 // 두 글자: 15% 축소
+            return baseSize * 0.85
         } else {
-            return baseSize * 0.7 // 세 글자 이상: 30% 축소
+            return baseSize * 0.7
         }
     }
 }

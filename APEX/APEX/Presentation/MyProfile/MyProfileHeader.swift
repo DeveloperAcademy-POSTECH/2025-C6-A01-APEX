@@ -165,16 +165,17 @@ public struct MyProfileHeaderView: View {
                     .foregroundColor(.black)
                     .lineLimit(1)
                 
-                Spacer().frame(height: 4)
-                
-                Text(subtitle)
-                    .font(.body5)
-                    .foregroundColor(.gray)
-                    .lineLimit(1)
+                if !subtitle.isEmpty {
+                    Spacer().frame(height: 4)
+                    
+                    Text(subtitle)
+                        .font(.body5)
+                        .foregroundColor(.gray)
+                        .lineLimit(1)
+                }
             }
             .padding(.horizontal, 16)  // 이름 섹션에만 16px 좌우 패딩
             .padding(.top, 4)      // 상단 4px 패딩 추가
-            .padding(.bottom, 8)   // 하단 8px 패딩만 유지
         }
         .padding(.top, 16)  // 네비게이션 바와의 간격 16px를 내부로 이동
         .onChange(of: pages.count) { _ in
