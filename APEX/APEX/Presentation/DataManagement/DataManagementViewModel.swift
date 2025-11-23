@@ -128,17 +128,6 @@ private extension DataManagementViewModel {
         }
     }
 
-    func requestDeleteAll() {
-        dialogKind = .deleteAll(totalText: totalSizeText)
-        showingDialog = true
-    }
-
-    func requestDeleteContact(_ id: UUID) {
-        guard let target = contacts.first(where: { $0.id == id }) else { return }
-        dialogKind = .deleteContact(name: target.name, sizeText: target.sizeText, id: id)
-        showingDialog = true
-    }
-
     func cancelDialog() {
         showingDialog = false
         dialogKind = nil
@@ -168,6 +157,20 @@ private extension DataManagementViewModel {
             }
             await MainActor.run { self.cancelDialog() }
         }
+    }
+}
+
+// MARK: - Public (View-triggered) actions
+extension DataManagementViewModel {
+    func requestDeleteAll() {
+        dialogKind = .deleteAll(totalText: totalSizeText)
+        showingDialog = true
+    }
+
+    func requestDeleteContact(_ id: UUID) {
+        guard let target = contacts.first(where: { $0.id == id }) else { return }
+        dialogKind = .deleteContact(name: target.name, sizeText: target.sizeText, id: id)
+        showingDialog = true
     }
 }
 
