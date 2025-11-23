@@ -42,6 +42,7 @@ final class CloudKitNotesManager {
                 var notes: [Note] = []
                 let group = DispatchGroup()
                 var buildErrors: [Error] = []
+                let lock = NSLock()
                 for rec in records {
                     group.enter()
                     let uploadedAt = (rec["uploadedAt"] as? Date) ?? Date()
@@ -53,9 +54,13 @@ final class CloudKitNotesManager {
                     CloudKitManager.shared.query(type: "NoteAsset", predicate: apred) { ar in
                         switch ar {
                         case .failure(let e):
+                            lock.lock()
                             buildErrors.append(e)
+                            lock.unlock()
                             let n = Note(uploadedAt: uploadedAt, text: text, bundle: nil)
+                            lock.lock()
                             notes.append(n)
+                            lock.unlock()
                             group.leave()
                         case .success(let assetRecs):
                             var images: [ImageAttachment] = []
@@ -109,7 +114,9 @@ final class CloudKitNotesManager {
                                 bundle = .audio(audios)
                             }
                             let n = Note(id: noteId, uploadedAt: uploadedAt, text: text, bundle: bundle)
+                            lock.lock()
                             notes.append(n)
+                            lock.unlock()
                             group.leave()
                         }
                     }

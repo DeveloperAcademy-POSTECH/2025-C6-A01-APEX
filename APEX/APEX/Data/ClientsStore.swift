@@ -99,6 +99,7 @@ final class ClientsStore: ObservableObject {
                     self.syncAllNotesToChatStore()
                 }
                 if SyncSettings.isAutoOn {
+                    self.pushUnsyncedNotesToCloudKit()
                     self.pullAllClientNotesFromCloudKit()
                 }
             }
@@ -704,21 +705,40 @@ final class ClientsStore: ObservableObject {
             CloudKitNotesManager.shared.fetchNotes(for: client.id) { result in
                 if case .success(let fetched) = result {
                     DispatchQueue.main.async {
-                        // Preserve local STT if Cloud text is empty
+                        // Merge cloud with local: preserve local STT and keep local-only notes until pushed
                         let local = ChatStore.shared.notes(for: client.id)
-                        var merged = fetched
-                        for idx in merged.indices {
-                            if let lidx = local.firstIndex(where: { $0.id == merged[idx].id }) {
-                                let localText = local[lidx].text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                                let cloudText = merged[idx].text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                                if !localText.isEmpty && cloudText.isEmpty {
-                                    merged[idx].text = local[lidx].text
+                        var byId: [UUID: Note] = [:]
+                        for n in fetched { byId[n.id] = n }
+                        for n in fetched {
+                            if let lidx = local.firstIndex(where: { $0.id == n.id }) {
+                                let lt = local[lidx].text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                                let ct = n.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                                if !lt.isEmpty && ct.isEmpty {
+                                    var u = n; u.text = local[lidx].text; byId[n.id] = u
                                 }
                             }
                         }
-                        let sorted = merged.sorted { $0.uploadedAt < $1.uploadedAt }
-                        ChatStore.shared.setNotes(sorted, for: client.id)
+                        for ln in local where byId[ln.id] == nil { byId[ln.id] = ln }
+                        let merged = Array(byId.values).sorted { $0.uploadedAt < $1.uploadedAt }
+                        ChatStore.shared.setNotes(merged, for: client.id)
                     }
+                }
+            }
+        }
+    }
+
+    // Push notes without CloudKit mapping (e.g., created by Share Extension)
+    private func pushUnsyncedNotesToCloudKit() {
+        let snapshot = clients
+        for client in snapshot {
+            let storeNotes = ChatStore.shared.notes(for: client.id)
+            var seen = Set<UUID>()
+            var merged: [Note] = []
+            for noteItem in storeNotes where seen.insert(noteItem.id).inserted { merged.append(noteItem) }
+            for noteItem in client.notes where seen.insert(noteItem.id).inserted { merged.append(noteItem) }
+            for note in merged {
+                if !CloudKitNotesManager.shared.hasRecord(for: note.id) {
+                    CloudKitNotesManager.shared.save(note: note, for: client.id)
                 }
             }
         }
