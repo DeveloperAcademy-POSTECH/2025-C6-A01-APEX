@@ -617,7 +617,7 @@ struct ChattingView: View {
                          }
                         }, stagedAttachments: $stagedAttachments, onBarOffsetChanged: { offset in
                             bottomBarOffsetY = offset
-                        })
+                        }, ownerClientId: clientId)
                     }
                 }
                 .offset(y: bottomBarOffsetY)

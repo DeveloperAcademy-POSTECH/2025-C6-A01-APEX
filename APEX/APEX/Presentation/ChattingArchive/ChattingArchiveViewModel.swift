@@ -144,6 +144,7 @@ private extension ChattingArchiveViewModel {
                       let clientId = self.client?.id else { return }
                 var notes = ChatStore.shared.notes(for: clientId)
                 var changed = false
+                var changedNoteIds: Set<UUID> = []
                 for idx in notes.indices {
                     if case var .audio(audios) = notes[idx].bundle {
                         var updated = false
@@ -154,12 +155,20 @@ private extension ChattingArchiveViewModel {
                         if updated {
                             notes[idx].bundle = .audio(audios)
                             changed = true
+                            changedNoteIds.insert(notes[idx].id)
                         }
                     }
                 }
                 if changed {
                     ChatStore.shared.setNotes(notes, for: clientId)
                     self.reloadMediaPreview()
+                    if SyncSettings.isAutoOn {
+                        for id in changedNoteIds {
+                            if let index = notes.firstIndex(where: { $0.id == id }) {
+                                CloudKitNotesManager.shared.rewriteAssets(noteId: id, bundle: notes[index].bundle)
+                            }
+                        }
+                    }
                 }
             }
             .store(in: &cancellables)
@@ -171,6 +180,8 @@ private extension ChattingArchiveViewModel {
                       let clientId = self.client?.id else { return }
                 var notes = ChatStore.shared.notes(for: clientId)
                 var changed = false
+                var changedNoteIds: Set<UUID> = []
+                var removedNoteIds: Set<UUID> = []
                 for idx in notes.indices {
                     if case var .audio(audios) = notes[idx].bundle {
                         let before = audios.count
@@ -178,6 +189,12 @@ private extension ChattingArchiveViewModel {
                         if audios.count != before {
                             notes[idx].bundle = audios.isEmpty ? nil : .audio(audios)
                             changed = true
+                            let noteId = notes[idx].id
+                            if audios.isEmpty, notes[idx].text == nil {
+                                removedNoteIds.insert(noteId)
+                            } else {
+                                changedNoteIds.insert(noteId)
+                            }
                         }
                     }
                 }
@@ -185,6 +202,16 @@ private extension ChattingArchiveViewModel {
                     notes.removeAll { $0.text == nil && $0.bundle == nil }
                     ChatStore.shared.setNotes(notes, for: clientId)
                     self.reloadMediaPreview()
+                    if SyncSettings.isAutoOn {
+                        for id in changedNoteIds {
+                            if let index = notes.firstIndex(where: { $0.id == id }) {
+                                CloudKitNotesManager.shared.rewriteAssets(noteId: id, bundle: notes[index].bundle)
+                            }
+                        }
+                        for id in removedNoteIds {
+                            CloudKitNotesManager.shared.delete(noteId: id)
+                        }
+                    }
                 }
             }
             .store(in: &cancellables)
@@ -359,6 +386,14 @@ private extension ChattingArchiveViewModel {
             notes[noteIndex].bundle = .media(images: images, videos: videos)
         }
         ChatStore.shared.setNotes(notes, for: clientId)
+        // CloudKit: mirror deletion/update when auto-sync is on
+        if SyncSettings.isAutoOn {
+            if let idx = notes.firstIndex(where: { $0.id == parsed.noteId }) {
+                CloudKitNotesManager.shared.rewriteAssets(noteId: parsed.noteId, bundle: notes[idx].bundle)
+            } else {
+                CloudKitNotesManager.shared.delete(noteId: parsed.noteId)
+            }
+        }
     }
     
     func parseFlattenedMediaId(_ id: String) -> (noteId: UUID, isImage: Bool, localIndex: Int)? {
@@ -419,6 +454,7 @@ private extension ChattingArchiveViewModel {
         guard let clientId = client?.id else { return }
         var notes = ChatStore.shared.notes(for: clientId)
         var changed = false
+        var changedNoteIds: [UUID] = []
         for idx in notes.indices {
             guard let bundle = notes[idx].bundle else { continue }
             switch bundle {
@@ -426,20 +462,28 @@ private extension ChattingArchiveViewModel {
                 for videoAttachment in videos { deleteFileIfExists(at: videoAttachment.url) }
                 notes[idx].bundle = nil
                 changed = true
+                changedNoteIds.append(notes[idx].id)
             case .files(let files):
                 for fileAttachment in files { deleteFileIfExists(at: fileAttachment.url) }
                 notes[idx].bundle = nil
                 changed = true
+                changedNoteIds.append(notes[idx].id)
             case .audio(let audios):
                 for audioAttachment in audios { deleteFileIfExists(at: audioAttachment.url) }
                 notes[idx].bundle = nil
                 changed = true
+                changedNoteIds.append(notes[idx].id)
             }
         }
         if changed {
             notes.removeAll { $0.text == nil && $0.bundle == nil }
             ChatStore.shared.setNotes(notes, for: clientId)
             reloadMediaPreview()
+            if SyncSettings.isAutoOn {
+                for id in changedNoteIds {
+                    CloudKitNotesManager.shared.rewriteAssets(noteId: id, bundle: nil)
+                }
+            }
         }
     }
     

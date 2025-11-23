@@ -163,6 +163,11 @@ private extension ShareViewModel {
                 updated.append(note)
             }
             ChatStore.shared.setNotes(updated, for: id)
+            if SyncSettings.isAutoOn {
+                for note in notesToSend {
+                    CloudKitNotesManager.shared.save(note: note, for: id)
+                }
+            }
         }
         
         inputText = ""

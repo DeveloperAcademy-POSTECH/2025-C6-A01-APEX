@@ -38,8 +38,15 @@ enum AttachmentBundle {
 }
 
 struct Note: Identifiable {
-    let id = UUID()
+    var id: UUID
     var uploadedAt: Date
     var text: String?
     var bundle: AttachmentBundle?
+    
+    init(id: UUID = UUID(), uploadedAt: Date, text: String?, bundle: AttachmentBundle?) {
+        self.id = id
+        self.uploadedAt = uploadedAt
+        self.text = text
+        self.bundle = bundle
+    }
 }

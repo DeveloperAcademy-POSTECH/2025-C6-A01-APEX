@@ -174,7 +174,7 @@ extension PNote {
         } else {
             runtimeBundle = nil
         }
-        return Note(uploadedAt: uploadedAt, text: text, bundle: runtimeBundle)
+        return Note(id: id, uploadedAt: uploadedAt, text: text, bundle: runtimeBundle)
     }
 }
 

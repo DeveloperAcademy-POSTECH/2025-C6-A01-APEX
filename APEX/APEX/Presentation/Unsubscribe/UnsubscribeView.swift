@@ -10,8 +10,7 @@ import SwiftUI
 struct UnsubscribeView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var router: NavigationRouter
-    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
-    @State private var agreed = false
+    @StateObject private var viewModel = UnsubscribeViewModel()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -21,29 +20,36 @@ struct UnsubscribeView: View {
                 VStack(alignment: .center, spacing: 32) { // 컴포넌트 사이 패딩 32
                     // 1. 상단 타이틀 문구
                     titleSection
-                       
-                    
                     // 커스텀 디바이더
                     customDivider
-                    
                     // 2. 텍스트 박스 (안내 문구)
                     informationTextBox
-                      
                         .padding(.top, -22) // 32pt에서 18pt로 조정 (32-18=14)
-                    
                     // 3. 동의 체크박스
                     agreementCheckbox
-                  
-                    
                     // 4. 탈퇴하기 버튼
                     unsubscribeButton
-
                 }
                 .padding(.horizontal, 16) // 좌우만 16pt 패딩
-                .padding(.bottom, 16)    // 하단만 16pt 패딩
+                .padding(.bottom, 16) // 하단만 16pt 패딩
             }
         }
+        .onChange(of: viewModel.shouldDismiss) { _, newValue in
+            if newValue { dismiss() }
+        }
         .background(Color("Background"))
+        .overlay(alignment: .center) {
+            if viewModel.isProcessing {
+                ZStack {
+                    Color.black.opacity(0.1).ignoresSafeArea()
+                    ProgressView("로딩 중…")
+                        .padding(12)
+                        .background(Color(.systemBackground))
+                        .cornerRadius(8)
+                }
+            }
+        }
+        .allowsHitTesting(!viewModel.isProcessing)
     }
     
     // MARK: - Components
@@ -74,7 +80,10 @@ struct UnsubscribeView: View {
     // 2. 텍스트 박스 (안내 문구) - 단순화
     private var informationTextBox: some View {
         VStack {
-            Text("1. 탈퇴하시면 저장하신 모든 정보는 삭제되어 복구할 수 없습니다.\n2. 혹시 서비스 이용 과정에서 불편한 점이 있으셨다면 [junheedl8420@gmail.com]으로 문의해 주세요.")
+            VStack(alignment: .leading, spacing: 4) {
+                Text("1. 탈퇴하시면 저장하신 모든 정보는 삭제되어 복구할 수 없습니다.")
+                Text("2. 혹시 서비스 이용 과정에서 불편한 점이 있으셨다면 [junheedl8420@gmail.com]으로 문의해 주세요.")
+            }
                 .font(.body3)
                 .foregroundColor(Color("GrayLabel"))
                 .multilineTextAlignment(.leading)
@@ -87,16 +96,16 @@ struct UnsubscribeView: View {
     // 3. 동의 체크박스
     private var agreementCheckbox: some View {
         Button {
-            agreed.toggle()
+            viewModel.send(.toggleAgree)
         } label: {
             HStack(spacing: 16) { // 체크와 텍스트 사이 패딩 16
                 ZStack {
                     Circle()
                         .stroke(Color("BackgroundDisabled"), lineWidth: 1) // 선 색상과 두께 1
-                        .fill(agreed ? Color.blue : Color.clear)
+                        .fill(viewModel.agreed ? Color.blue : Color.clear)
                         .frame(width: 24, height: 24) // 프레임 크기 24x24
                     
-                    if agreed {
+                    if viewModel.agreed {
                         Image(systemName: "checkmark")
                             .foregroundColor(.white)
                             .font(.system(size: 12, weight: .semibold))
@@ -117,8 +126,8 @@ struct UnsubscribeView: View {
     
     // 4. 탈퇴하기 버튼
     private var unsubscribeButton: some View {
-        APEXButton("탈퇴하기", isEnabled: agreed) {
-            performUnsubscribe()
+        APEXButton("탈퇴하기", isEnabled: viewModel.agreed && !viewModel.isProcessing) {
+            viewModel.send(.tapUnsubscribe)
         }
         .apexButtonTheme(
             .init(
@@ -140,7 +149,9 @@ struct UnsubscribeView: View {
             // 버튼들 레이아웃 - 각 버튼에 개별 패딩 적용
             HStack(spacing: 0) {
                 // 뒤로 버튼 - SF Pro Medium, 17pt, 44×44px
-                Button(action: { router.pop() }) {
+                Button(action: {
+                    router.pop()
+                }, label: {
                     ZStack {
                         Circle()
                             .fill(Color.white)
@@ -153,7 +164,7 @@ struct UnsubscribeView: View {
                     .frame(width: 44, height: 44)
                     .contentShape(Circle())
                     .accessibilityLabel("뒤로")
-                }
+                })
                 .buttonStyle(.plain)
                 .padding(.leading, 16) // 왼쪽 16px 패딩
                 
@@ -168,7 +179,7 @@ struct UnsubscribeView: View {
         }
         .frame(maxWidth: .infinity, alignment: .center)
         .padding(.horizontal, 0) // 좌우 패딩 제거
-        .padding(.vertical, 8)   // 상하 패딩만 유지  
+        .padding(.vertical, 8)   // 상하 패딩만 유지
         .background(.white)
     }
 }
@@ -177,22 +188,4 @@ struct UnsubscribeView: View {
     UnsubscribeView()
 }
 
-// MARK: - Actions
-private extension UnsubscribeView {
-    func performUnsubscribe() {
-        guard agreed else { return }
-        // 1) Clear persisted data
-        LocalStore.shared.clearClients()
-        ChatStore.shared.clear()
-        ClientsStore.shared.resetToInitial()
-        // Optionally clear app-specific preferences
-        UserDefaults.standard.removeObject(forKey: "apex.notes.enabledCompanies")
-        UserDefaults.standard.removeObject(forKey: "apex.notes.companyOrder")
-        // 2) Reset onboarding state
-        hasCompletedOnboarding = false
-        // 3) Request app to present onboarding immediately
-        NotificationCenter.default.post(name: .apexRequestOnboarding, object: nil)
-        // 4) Dismiss current view
-        dismiss()
-    }
-}
+// (Actions moved into UnsubscribeViewModel)
