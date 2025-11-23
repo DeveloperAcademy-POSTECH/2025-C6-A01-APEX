@@ -233,8 +233,16 @@ final class NotesViewModel: ViewModelable {
     }
     
     private func deleteClient(_ client: Client) {
-        // Only clear notes (keep contact)
+        // Delete all notes for this client
+        let notesToDelete = ChatStore.shared.notes(for: client.id)
+        // Clear locally first (keep contact)
         ChatStore.shared.setNotes([], for: client.id)
+        // Reflect deletion to CloudKit
+        if SyncSettings.isAutoOn {
+            for note in notesToDelete {
+                CloudKitNotesManager.shared.delete(noteId: note.id)
+            }
+        }
         
         if case .company(let name) = selectedFilter,
            !companyNamesWithNotes.contains(name) {

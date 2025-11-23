@@ -172,13 +172,22 @@ private extension RecordViewModel {
     func saveAudio() {
         guard let fromURL = workingURL ?? originalURL else { return }
         let sanitized = filenameText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !sanitized.isEmpty else { return }
+        // Persist edited STT to the corresponding chat note regardless of filename change
+        if sanitized.isEmpty {
+            // No rename attempt when filename empty, but still persist conversation text
+            persistConversationToChat(oldURL: fromURL, newURL: nil)
+            return
+        }
         
         let currentBase = fromURL.deletingPathExtension().lastPathComponent
         let ext = fromURL.pathExtension.isEmpty ? "m4a" : fromURL.pathExtension
         let baseDir = fromURL.deletingLastPathComponent()
         
-        if sanitized == currentBase { return }
+        if sanitized == currentBase {
+            // Filename unchanged; still persist conversation text back to chat
+            persistConversationToChat(oldURL: fromURL, newURL: nil)
+            return
+        }
         
         var target = baseDir.appendingPathComponent(sanitized).appendingPathExtension(ext)
         var counter = 2
@@ -200,8 +209,12 @@ private extension RecordViewModel {
                 object: nil,
                 userInfo: ["oldURL": fromURL, "newURL": target]
             )
+            // After a successful rename, also persist edited STT and sync the audio URL inside the note
+            persistConversationToChat(oldURL: fromURL, newURL: target)
         } catch {
             // keep old name if move failed
+            // Even if rename failed, still persist conversation text using original URL
+            persistConversationToChat(oldURL: fromURL, newURL: nil)
         }
     }
     
@@ -295,6 +308,65 @@ private extension RecordViewModel {
                     }
                 }
             }
+        }
+    }
+}
+
+// MARK: - Sync edited STT back to Chat
+private extension RecordViewModel {
+    func persistConversationToChat(oldURL: URL, newURL: URL?) {
+        // Push the edited conversation back into the chat note that owns this audio
+        // Match by filename to be resilient to directory differences. Prefer matching oldURL (pre-rename),
+        // and fall back to newURL when provided.
+        let candidates: [String] = {
+            var arr: [String] = [oldURL.lastPathComponent]
+            if let newURL { arr.append(newURL.lastPathComponent) }
+            return arr
+        }()
+        // Find the owning client and note by scanning current clients' notes
+        var targetClientId: UUID?
+        var targetNoteId: UUID?
+        for client in ClientsStore.shared.clients {
+            for note in client.notes {
+                if case let .audio(audios) = note.bundle {
+                    if audios.contains(where: { audio in
+                        let name = audio.url.lastPathComponent
+                        return candidates.contains(where: { $0 == name })
+                    }) {
+                        targetClientId = client.id
+                        targetNoteId = note.id
+                        break
+                    }
+                }
+            }
+            if targetClientId != nil { break }
+        }
+        guard let clientId = targetClientId, let noteId = targetNoteId else { return }
+        
+        // Update ChatStore (source of truth for open chats)
+        var notes = ChatStore.shared.notes(for: clientId)
+        guard let index = notes.firstIndex(where: { $0.id == noteId }) else { return }
+        
+        // Apply edited text (allow empty to clear STT)
+        notes[index].text = conversation
+        
+        // If the file was renamed, also update the audio URL inside the note so persistence stays consistent
+        if let newURL {
+            if case var .audio(audios) = notes[index].bundle {
+                for i in audios.indices {
+                    if audios[i].url.lastPathComponent == oldURL.lastPathComponent {
+                        audios[i] = AudioAttachment(url: newURL, duration: audios[i].duration)
+                    }
+                }
+                notes[index].bundle = .audio(audios)
+            }
+        }
+        
+        ChatStore.shared.setNotes(notes, for: clientId)
+        
+        // Propagate to CloudKit if available
+        if SyncSettings.isAutoOn {
+            CloudKitNotesManager.shared.updateText(noteId: noteId, newText: conversation)
         }
     }
 }

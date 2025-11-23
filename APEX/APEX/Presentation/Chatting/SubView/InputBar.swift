@@ -60,28 +60,37 @@ private struct PickedVideo: Transferable {
 
 // MARK: - InputBar logic (moved out for lint compliance)
 private extension InputBar {
-    func persistFileToAppCache(originalURL: URL) -> URL {
+    enum PersistCategory { case video, file, audio }
+    // Per-client isolation is applied for audio category to avoid global suffix accumulation
+    func persistToAppGroup(originalURL: URL, category: PersistCategory, ownerClientId: UUID? = nil) -> URL {
         let fm = FileManager.default
-        let cacheDir = (try? fm.url(for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true))
-            ?? fm.temporaryDirectory
-        let dir = cacheDir.appendingPathComponent("APEXUploads", isDirectory: true)
+        guard let base = fm.containerURL(forSecurityApplicationGroupIdentifier: "group.apex.StashShareExtension") else {
+            return originalURL
+        }
+        let subdirName: String = {
+            switch category {
+            case .video: return "SharedVideos"
+            case .file:  return "SharedFiles"
+            case .audio: return "SharedAudios"
+            }
+        }()
+        var dir = base.appendingPathComponent(subdirName, isDirectory: true)
+        if category == .audio, let ownerClientId {
+            dir = dir.appendingPathComponent(ownerClientId.uuidString, isDirectory: true)
+        }
         try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
         let basename = originalURL.deletingPathExtension().lastPathComponent
-        let ext = originalURL.pathExtension
-        var target = dir.appendingPathComponent(basename).appendingPathExtension(ext.isEmpty ? "bin" : ext)
-        // Ensure unique file name
-        var suffix = 1
+        let ext = originalURL.pathExtension.isEmpty ? "bin" : originalURL.pathExtension
+        var target = dir.appendingPathComponent(basename).appendingPathExtension(ext)
+        var suffix = 2
         while fm.fileExists(atPath: target.path) {
-            let candidateName = "\(basename)-\(suffix)"
-            target = dir.appendingPathComponent(candidateName).appendingPathExtension(ext.isEmpty ? "bin" : ext)
+            target = dir.appendingPathComponent("\(basename) \(suffix)").appendingPathExtension(ext)
             suffix += 1
         }
-        // If original is in our cache already, return as-is
         if originalURL.path.hasPrefix(dir.path) {
             return originalURL
         }
         do {
-            // Prefer copy; if fails, try data roundtrip
             try fm.copyItem(at: originalURL, to: target)
             return target
         } catch {
@@ -89,7 +98,6 @@ private extension InputBar {
                 try? data.write(to: target, options: .atomic)
                 return target
             }
-            // Fallback: return original URL if copy failed
             return originalURL
         }
     }
@@ -198,12 +206,14 @@ private extension InputBar {
                 }
             case .video(let urlOpt, _):
                 if let url = urlOpt {
-                    videos.append(VideoAttachment(url: url, progress: 0, orderIndex: orderCounter))
+                    let persisted = persistToAppGroup(originalURL: url, category: .video)
+                    videos.append(VideoAttachment(url: persisted, progress: 0, orderIndex: orderCounter))
                     orderCounter += 1
                 }
             case .file(let url):
                 let type = UTType(filenameExtension: url.pathExtension)
-                files.append(FileAttachment(url: url, contentType: type, progress: 0))
+                let persisted = persistToAppGroup(originalURL: url, category: .file)
+                files.append(FileAttachment(url: persisted, contentType: type, progress: 0))
             case .text:
                 // Text is handled via memo; ignore here
                 break
@@ -251,7 +261,8 @@ private extension InputBar {
 
             // 1) Try robust video import using custom Transferable (copies into tmp)
             if let pickedVideo = try? await item.loadTransferable(type: PickedVideo.self) {
-                videos.append(VideoAttachment(url: pickedVideo.url, progress: 0, orderIndex: selectionIndex))
+                let persisted = persistToAppGroup(originalURL: pickedVideo.url, category: .video)
+                videos.append(VideoAttachment(url: persisted, progress: 0, orderIndex: selectionIndex))
                 handled = true
             }
 
@@ -271,7 +282,8 @@ private extension InputBar {
                         .appendingPathExtension("mov")
                     do {
                         try data.write(to: tmp, options: .atomic)
-                        videos.append(VideoAttachment(url: tmp, progress: 0, orderIndex: selectionIndex))
+                        let persisted = persistToAppGroup(originalURL: tmp, category: .video)
+                        videos.append(VideoAttachment(url: persisted, progress: 0, orderIndex: selectionIndex))
                         handled = true
                     } catch {
                         // fall through
@@ -299,7 +311,8 @@ private extension InputBar {
                     do {
                         try? FileManager.default.removeItem(at: tmp)
                         try FileManager.default.copyItem(at: url, to: tmp)
-                        videos.append(VideoAttachment(url: tmp, progress: 0, orderIndex: selectionIndex))
+                        let persisted = persistToAppGroup(originalURL: tmp, category: .video)
+                        videos.append(VideoAttachment(url: persisted, progress: 0, orderIndex: selectionIndex))
                         handled = true
                     } catch {
                         // fall through
@@ -531,18 +544,22 @@ struct InputBar: View {
     var onSheetVisibilityChanged: (Bool) -> Void = { _ in }
     @Binding var stagedAttachments: [ShareAttachmentItem]
     var onBarOffsetChanged: (CGFloat) -> Void = { _ in }
+    // Context: current chat owner (for per-client audio filename isolation)
+    let ownerClientId: UUID?
 
     // Custom initializer to allow trailing closure usage and extra callbacks
     init(
         _ onSend: @escaping (Note) -> Void = { _ in },
         onSheetVisibilityChanged: @escaping (Bool) -> Void = { _ in },
         stagedAttachments: Binding<[ShareAttachmentItem]> = .constant([]),
-        onBarOffsetChanged: @escaping (CGFloat) -> Void = { _ in }
+        onBarOffsetChanged: @escaping (CGFloat) -> Void = { _ in },
+        ownerClientId: UUID? = nil
     ) {
         self.onSend = onSend
         self.onSheetVisibilityChanged = onSheetVisibilityChanged
         self._stagedAttachments = stagedAttachments
         self.onBarOffsetChanged = onBarOffsetChanged
+        self.ownerClientId = ownerClientId
     }
     // Toast state
     @State private var showToast: Bool = false
@@ -754,7 +771,7 @@ struct InputBar: View {
                     orderCounter += 1
                 }
                 if let url = videoURL {
-                    let persisted = persistFileToAppCache(originalURL: url)
+                    let persisted = persistToAppGroup(originalURL: url, category: .video)
                     videos.append(VideoAttachment(url: persisted, progress: 0, orderIndex: orderCounter))
                     orderCounter += 1
                 }
@@ -786,7 +803,7 @@ struct InputBar: View {
                 let shouldRestoreFocus = isEditorFocused
                 // Map picked URLs to FileAttachment and send
                 let files: [FileAttachment] = urls.compactMap { original in
-                    let persisted = persistFileToAppCache(originalURL: original)
+                    let persisted = persistToAppGroup(originalURL: original, category: .file)
                     let type = (try? persisted.resourceValues(forKeys: [.contentTypeKey]).contentType)
                         ?? (try? original.resourceValues(forKeys: [.contentTypeKey]).contentType)
                     return FileAttachment(url: persisted, contentType: type, progress: 0)
@@ -1105,7 +1122,8 @@ private extension InputBar {
         isRecording = false
 
         guard let url = recordingURL else { return }
-        let audio = AudioAttachment(url: url, duration: recordingDuration)
+        let persisted = persistToAppGroup(originalURL: url, category: .audio, ownerClientId: ownerClientId)
+        let audio = AudioAttachment(url: persisted, duration: recordingDuration)
         let note = Note(uploadedAt: Date(), text: nil, bundle: .audio([audio]))
         onSend(note)
         recordingURL = nil

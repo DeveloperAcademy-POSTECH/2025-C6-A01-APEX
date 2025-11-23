@@ -8,146 +8,16 @@
 import SwiftUI
 import Combine
 
-// MARK: - Dialog Kind (internal로 공개: ViewModel에서 사용 가능)
-enum DMDialogKind: Equatable {
-    case deleteAll(totalText: String)
-    case deleteContact(name: String, sizeText: String, id: UUID)
-
-    var title: String {
-        switch self {
-        case .deleteAll: return "모든 미디어 데이터를 삭제하겠습니까?"
-        case .deleteContact: return "해당 연락처 노트의\n미디어 데이터를 모두 삭제하겠습니까?"
-        }
-    }
-
-    var body: String {
-        switch self {
-        case .deleteAll:
-            return "모든 미디어 데이터를 삭제합니다.\ni-Cloud에 백업되지 않은 데이터는\n복원 할 수 없습니다."
-        case .deleteContact:
-            return "노트를 제외한 모든 미디어 데이터\n(사진, 동영상, 음성, 파일)이 삭제됩니다.\n이 작업은 되돌릴 수 없습니다."
-        }
-    }
-}
-
-// MARK: - ViewModel
-
-@MainActor
-final class DataManagementViewModel: ObservableObject {
-    // Injected services
-    private let sync: StorageSyncService
-    private let usage: DataUsageService
-
-    // UI states
-    @Published var isAutoSyncOn: Bool = false
-    @Published var lastSyncText: String = "—"
-    @Published var totalSizeText: String = "—"
-    @Published var contacts: [DMContactUsage] = []
-    @Published var isRefreshing: Bool = false
-
-    // Dialog
-    @Published var showingDialog: Bool = false
-    @Published var dialogKind: DMDialogKind? = nil
-
-    init(sync: StorageSyncService, usage: DataUsageService) {
-        self.sync = sync
-        self.usage = usage
-    }
-
-    func load() async {
-        do {
-            async let auto = try sync.isAutoSyncOn()
-            async let last = try sync.lastSyncDate()
-            async let total = try usage.totalMediaSizeText()
-            async let list = try usage.contactUsages()
-
-            let (isOn, lastDate, totalText, contacts) = try await (auto, last, total, list)
-            self.isAutoSyncOn = isOn
-            self.lastSyncText = lastDate.map { $0.formatted(date: .numeric, time: .shortened) } ?? "—"
-            self.totalSizeText = totalText
-            self.contacts = contacts
-        } catch {
-            // 필요시 토스트/로깅
-        }
-    }
-
-    func toggleAutoSync(_ newValue: Bool) {
-        isAutoSyncOn = newValue
-        Task {
-            do { try await sync.setAutoSyncOn(newValue) }
-            catch {
-                await MainActor.run { self.isAutoSyncOn = !newValue }
-            }
-        }
-    }
-
-    func refreshSync() {
-        guard !isRefreshing else { return }
-        isRefreshing = true
-        Task {
-            defer { Task { @MainActor in self.isRefreshing = false } }
-            do {
-                let date = try await sync.refreshNow()
-                await MainActor.run {
-                    self.lastSyncText = date.formatted(date: .numeric, time: .shortened)
-                }
-            } catch { }
-        }
-    }
-
-    func requestDeleteAll() {
-        dialogKind = .deleteAll(totalText: totalSizeText)
-        showingDialog = true
-    }
-
-    func requestDeleteContact(_ id: UUID) {
-        guard let target = contacts.first(where: { $0.id == id }) else { return }
-        dialogKind = .deleteContact(name: target.name, sizeText: target.sizeText, id: id)
-        showingDialog = true
-    }
-
-    func cancelDialog() {
-        showingDialog = false
-        dialogKind = nil
-    }
-
-    func confirmDelete() {
-        guard let kind = dialogKind else { return }
-        Task {
-            switch kind {
-            case .deleteAll:
-                do {
-                    try await usage.deleteAllMedia()
-                    async let total = try usage.totalMediaSizeText()
-                    async let list = try usage.contactUsages()
-                    let (totalText, contacts) = try await (total, list)
-                    await MainActor.run {
-                        self.totalSizeText = totalText
-                        self.contacts = contacts
-                    }
-                } catch { }
-            case .deleteContact(_, _, let id):
-                do {
-                    try await usage.deleteMedia(for: id)
-                    let list = try await usage.contactUsages()
-                    await MainActor.run { self.contacts = list }
-                } catch { }
-            }
-            await MainActor.run { self.cancelDialog() }
-        }
-    }
-}
-
 // MARK: - View (조립만)
 
 struct DataManagementView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var router: NavigationRouter
-    @StateObject private var vm = DataManagementViewModel(
-        sync: MockStorageSyncService(),
+    @StateObject private var viewModel = DataManagementViewModel(
+        sync: RealStorageSyncService(),
         usage: RealDataUsageService()
     )
-    
+
     // 로컬 상태로 체크박스 관리 (NotesView 방식으로 통일)
     @State private var isDeleteConfirmed: Bool = false
 
@@ -160,16 +30,16 @@ struct DataManagementView: View {
                         DMToggleSection(
                             title: "iCloud 자동 동기화",
                             helper: "노트에 저장한 미디어는 iCloud에 자동으로 백업하고 기기에서는 삭제하여 스토리지 여유를 가질 수 있어요.",
-                            isOn: $vm.isAutoSyncOn,
-                            onToggle: { vm.toggleAutoSync($0) }
+                            isOn: $viewModel.isAutoSyncOn,
+                            onToggle: { viewModel.send(.setAutoSync($0)) }
                         )
 
                         DMRefreshSection(
                             title: "iCloud 동기화 새로고침",
                             helperPrefix: "노트에 저장한 미디어를 iCloud에 즉시 동기화 합니다.",
-                            lastSyncText: vm.lastSyncText,
-                            isRefreshing: vm.isRefreshing,
-                            onRefresh: { vm.refreshSync() }
+                            lastSyncText: viewModel.lastSyncText,
+                            isRefreshing: viewModel.isRefreshing,
+                            onRefresh: { viewModel.send(.refresh) }
                         )
                     }
                     .padding(.bottom, 16)
@@ -179,11 +49,11 @@ struct DataManagementView: View {
                         .frame(width: 361, height: 2)
 
                     DMMediaDataSection(
-                        totalSizeText: vm.totalSizeText,
-                        contacts: vm.contacts,
-                        onDeleteAllTap: { vm.requestDeleteAll() },
+                        totalSizeText: viewModel.totalSizeText,
+                        contacts: viewModel.contacts,
+                        onDeleteAllTap: { viewModel.send(.requestDeleteAll) },
                         onContactDeleteTap: { contact in
-                            vm.requestDeleteContact(contact.id)
+                            viewModel.send(.requestDeleteContact(contact.id))
                         }
                     )
                 }
@@ -196,24 +66,24 @@ struct DataManagementView: View {
             }
 
             DMConfirmDialog(
-                isVisible: $vm.showingDialog,
+                isVisible: $viewModel.showingDialog,
                 isChecked: $isDeleteConfirmed,
-                title: vm.dialogKind?.title ?? "",
-                bodyText: vm.dialogKind?.body ?? "",
+                title: viewModel.dialogKind?.title ?? "",
+                bodyText: viewModel.dialogKind?.body ?? "",
                 confirmTitle: "삭제",
                 cancelTitle: "취소",
-                onConfirm: { 
+                onConfirm: {
                     guard isDeleteConfirmed else { return }
-                    vm.confirmDelete()
+                    viewModel.send(.confirmDelete)
                     isDeleteConfirmed = false
                 },
-                onCancel: { 
-                    vm.cancelDialog()
+                onCancel: {
+                    viewModel.send(.cancelDialog)
                     isDeleteConfirmed = false
                 }
             )
         }
-        .task { await vm.load() }
+        .task { viewModel.send(.onAppear) }
         .background(Color("Background"))
     }
 }
