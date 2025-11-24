@@ -42,9 +42,6 @@ struct ContactsView: View {
                     navigateToProfileDetail(newClient)
                 }
             })
-            .presentationDragIndicator(.hidden)
-            .presentationBackground(.clear)
-            .padding(.top, 10)
         }
         .apexToast(
             isPresented: $viewModel.showToast,

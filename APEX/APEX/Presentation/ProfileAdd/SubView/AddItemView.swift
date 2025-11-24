@@ -121,6 +121,7 @@ struct AddItemView: View {
                     dismiss()
                 }
             )
+            .padding(.top, 10)
         }
         .background(Color("Background"))
     }

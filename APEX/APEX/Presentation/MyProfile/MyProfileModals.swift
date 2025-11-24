@@ -339,11 +339,9 @@ struct MyProfileEditSheet: View {
                 initialFront: cardFrontUIImage,
                 initialBack: cardBackUIImage
             )
-            .padding(.top, 30)
         }
         .sheet(isPresented: $isAddItemPresented) {
             AddItemView(config: $addItemConfig)
-                .padding(.top, 30)
         }
         .safeAreaBar(edge: .top) {
             APEXSheetTopBar(

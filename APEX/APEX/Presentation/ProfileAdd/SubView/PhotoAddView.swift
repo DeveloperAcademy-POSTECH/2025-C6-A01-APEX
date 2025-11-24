@@ -223,6 +223,7 @@ struct PhotoAddView: View {
                     }
                 )
             }
+            .padding(.top, 10)
         }
         .photosPicker(isPresented: $showLibraryPicker, selection: $librarySelection, matching: .images)
         .onChange(of: librarySelection) { newItem in
