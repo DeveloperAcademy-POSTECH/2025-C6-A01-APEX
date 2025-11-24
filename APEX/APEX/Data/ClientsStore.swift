@@ -372,7 +372,11 @@ final class ClientsStore: ObservableObject {
             case .failure:
                 DispatchQueue.main.async { completion?() }
             case .success(let records):
-                guard let rec = records.first else { return }
+                guard let rec = records.first else {
+                    // No AppUser yet (fresh install). Proceed without blocking.
+                    DispatchQueue.main.async { completion?() }
+                    break
+                }
                 let surname = rec["surname"] as? String ?? ""
                 let name = rec["name"] as? String ?? ""
                 let position = rec["position"] as? String
