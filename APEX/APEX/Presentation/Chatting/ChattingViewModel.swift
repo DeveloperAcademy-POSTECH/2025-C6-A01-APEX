@@ -182,6 +182,7 @@ private extension ChattingViewModel {
             if SyncSettings.isAutoOn {
                 ClientsStore.shared.beginCloudSync()
                 CloudKitNotesManager.shared.fetchNotes(for: clientId) { [weak self] result in
+                    defer { ClientsStore.shared.endCloudSync() }
                     guard let self else { return }
                     if case .success(let fetched) = result {
                         DispatchQueue.main.async {
@@ -202,7 +203,6 @@ private extension ChattingViewModel {
                             ChatStore.shared.setNotes(sorted, for: self.clientId)
                         }
                     }
-                    ClientsStore.shared.endCloudSync()
                 }
             }
         } else {
@@ -622,6 +622,7 @@ private extension ChattingViewModel {
                 guard SyncSettings.isAutoOn else { return }
                 ClientsStore.shared.beginCloudSync()
                 CloudKitNotesManager.shared.fetchNotes(for: self.clientId) { result in
+                    defer { ClientsStore.shared.endCloudSync() }
                     if case .success(let fetched) = result {
                         DispatchQueue.main.async {
                             // Merge: keep existing STT text if fetched is empty
@@ -641,7 +642,6 @@ private extension ChattingViewModel {
                             ChatStore.shared.setNotes(sorted, for: self.clientId)
                         }
                     }
-                    ClientsStore.shared.endCloudSync()
                 }
             }
             .store(in: &cancellables)
