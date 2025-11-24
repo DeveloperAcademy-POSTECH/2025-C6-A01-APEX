@@ -13,6 +13,43 @@ final class CloudKitManager {
     static let shared = CloudKitManager()
     private init() {}
 
+    // MARK: - Retry Policy
+    private let maxRetryAttempts = 3
+    private let baseRetryDelay: TimeInterval = 1.0
+    
+    private func retryDelay(for error: CKError, attempt: Int) -> TimeInterval? {
+        if let after = error.userInfo[CKErrorRetryAfterKey] as? TimeInterval {
+            return after
+        }
+        switch error.code {
+        case .networkUnavailable, .networkFailure, .serviceUnavailable, .requestRateLimited, .zoneBusy, .resultsTruncated, .serverRejectedRequest:
+            // Exponential backoff
+            return min(8.0, baseRetryDelay * pow(2.0, Double(attempt - 1)))
+        default:
+            return nil
+        }
+    }
+    
+    private func isRetryable(_ error: CKError) -> Bool {
+        switch error.code {
+        case .networkUnavailable, .networkFailure, .serviceUnavailable, .requestRateLimited, .zoneBusy, .resultsTruncated, .serverRejectedRequest, .limitExceeded:
+            return true
+        default:
+            return false
+        }
+    }
+    
+    // Central configuration for all operations
+    private func configure(_ operation: CKOperation) {
+        operation.qualityOfService = .userInitiated
+        if let cfg = operation.configuration {
+            cfg.allowsCellularAccess = true
+            cfg.timeoutIntervalForRequest = 30
+            cfg.timeoutIntervalForResource = 300
+            operation.configuration = cfg
+        }
+    }
+
     // MARK: - Container / Database
     // Use the default container declared in entitlements (iCloud.$(PRODUCT_BUNDLE_IDENTIFIER))
     // to avoid mismatches with hard-coded identifiers across schemes/configs.
@@ -30,11 +67,12 @@ final class CloudKitManager {
             let info = CKSubscription.NotificationInfo()
             info.shouldSendContentAvailable = true
             sub.notificationInfo = info
-            let op = CKModifySubscriptionsOperation(subscriptionsToSave: [sub], subscriptionIDsToDelete: [])
-            op.modifySubscriptionsCompletionBlock = { _, _, error in
+            let modifyOperation = CKModifySubscriptionsOperation(subscriptionsToSave: [sub], subscriptionIDsToDelete: [])
+            modifyOperation.modifySubscriptionsCompletionBlock = { _, _, error in
                 if let error { print("[CloudKit] ensureDatabaseSubscription error: \(error)") }
             }
-            self.privateDB.add(op)
+            self.configure(modifyOperation)
+            self.privateDB.add(modifyOperation)
         }
     }
 
@@ -61,27 +99,46 @@ final class CloudKitManager {
     }
 
     func fetchDatabaseChanges(completion: @escaping (UIBackgroundFetchResult) -> Void) {
-        let op = CKFetchDatabaseChangesOperation(previousServerChangeToken: privateDBChangeToken)
-        var hasChanges = false
-        op.recordZoneWithIDChangedBlock = { _ in hasChanges = true }
-        op.changeTokenUpdatedBlock = { [weak self] token in self?.privateDBChangeToken = token }
-        op.fetchDatabaseChangesCompletionBlock = { [weak self] token, moreComing, error in
-            if let error {
-                print("[CloudKit] fetchDatabaseChanges error: \(error)")
-                completion(.failed)
-                return
+        func run(attempt: Int) {
+            let fetchOperation = CKFetchDatabaseChangesOperation(previousServerChangeToken: privateDBChangeToken)
+            var hasChanges = false
+            fetchOperation.recordZoneWithIDChangedBlock = { _ in hasChanges = true }
+            fetchOperation.changeTokenUpdatedBlock = { [weak self] token in
+                self?.privateDBChangeToken = token
             }
-            if let token { self?.privateDBChangeToken = token }
-            if hasChanges || moreComing {
-                DispatchQueue.main.async {
-                    NotificationCenter.default.post(name: .cloudKitDatabaseDidChange, object: nil)
+            fetchOperation.fetchDatabaseChangesCompletionBlock = { [weak self] token, moreComing, error in
+                if let error {
+                    if let ck = error as? CKError {
+                        let shouldRetry = (attempt < (self?.maxRetryAttempts ?? 0)) && (self?.isRetryable(ck) == true)
+                        let delay = self?.retryDelay(for: ck, attempt: attempt + 1)
+                        if shouldRetry, let delay {
+                            DispatchQueue.global().asyncAfter(deadline: .now() + delay) {
+                                run(attempt: attempt + 1)
+                            }
+                        } else {
+                            print("[CloudKit] fetchDatabaseChanges error: \(error)")
+                            completion(.failed)
+                        }
+                    } else {
+                        print("[CloudKit] fetchDatabaseChanges non-CKError: \(error)")
+                        completion(.failed)
+                    }
+                    return
                 }
-                completion(.newData)
-            } else {
-                completion(.noData)
+                if let token { self?.privateDBChangeToken = token }
+                if hasChanges || moreComing {
+                    DispatchQueue.main.async {
+                        NotificationCenter.default.post(name: .cloudKitDatabaseDidChange, object: nil)
+                    }
+                    completion(.newData)
+                } else {
+                    completion(.noData)
+                }
             }
+            configure(fetchOperation)
+            privateDB.add(fetchOperation)
         }
-        privateDB.add(op)
+        run(attempt: 1)
     }
 
     // MARK: - Assets
@@ -99,35 +156,84 @@ final class CloudKitManager {
 
     // MARK: - CRUD helpers
     func saveRecord(type: String, recordID: CKRecord.ID? = nil, fields: [String: CKRecordValueProtocol], completion: ((Result<CKRecord, Error>) -> Void)? = nil) {
-        let record = recordID.map { CKRecord(recordType: type, recordID: $0) } ?? CKRecord(recordType: type)
-        fields.forEach { record[$0.key] = $0.value }
-        privateDB.save(record) { rec, err in
-            if let err { completion?(.failure(err)) }
-            else if let rec { completion?(.success(rec)) }
+        func run(attempt: Int) {
+            let record = recordID.map { CKRecord(recordType: type, recordID: $0) } ?? CKRecord(recordType: type)
+            fields.forEach { record[$0.key] = $0.value }
+            privateDB.save(record) { rec, err in
+                if let err {
+                    if let ck = err as? CKError, attempt < self.maxRetryAttempts, self.isRetryable(ck), let delay = self.retryDelay(for: ck, attempt: attempt + 1) {
+                        DispatchQueue.global().asyncAfter(deadline: .now() + delay) { run(attempt: attempt + 1) }
+                    } else {
+                        completion?(.failure(err))
+                    }
+                } else if let rec {
+                    completion?(.success(rec))
+                }
+            }
         }
+        run(attempt: 1)
     }
 
     func query(type: String, predicate: NSPredicate = NSPredicate(value: true), sortDescriptors: [NSSortDescriptor]? = nil, resultsLimit: Int = CKQueryOperation.maximumResults, completion: @escaping (Result<[CKRecord], Error>) -> Void) {
-        let q = CKQuery(recordType: type, predicate: predicate)
-        q.sortDescriptors = sortDescriptors
-        let op = CKQueryOperation(query: q)
-        op.resultsLimit = resultsLimit
-        var results: [CKRecord] = []
-        op.recordMatchedBlock = { _, result in if case .success(let r) = result { results.append(r) } }
-        op.queryResultBlock = { result in
-            switch result {
-            case .success: completion(.success(results))
-            case .failure(let e): completion(.failure(e))
+        var collected: [CKRecord] = []
+        
+        func run(cursor: CKQueryOperation.Cursor?, attempt: Int) {
+            let queryOperation: CKQueryOperation
+            if let cursor {
+                queryOperation = CKQueryOperation(cursor: cursor)
+            } else {
+                let query = CKQuery(recordType: type, predicate: predicate)
+                query.sortDescriptors = sortDescriptors
+                queryOperation = CKQueryOperation(query: query)
+                queryOperation.resultsLimit = resultsLimit
             }
+            queryOperation.recordMatchedBlock = { _, result in
+                if case .success(let matchedRecord) = result {
+                    collected.append(matchedRecord)
+                }
+            }
+            queryOperation.queryResultBlock = { result in
+                switch result {
+                case .success(let nextCursor):
+                    if let next = nextCursor {
+                        run(cursor: next, attempt: 1)
+                    } else {
+                        completion(.success(collected))
+                    }
+                case .failure(let error):
+                    if let ck = error as? CKError,
+                       attempt < self.maxRetryAttempts,
+                       self.isRetryable(ck),
+                       let delay = self.retryDelay(for: ck, attempt: attempt + 1) {
+                        DispatchQueue.global().asyncAfter(deadline: .now() + delay) {
+                            run(cursor: cursor, attempt: attempt + 1)
+                        }
+                    } else {
+                        completion(.failure(error))
+                    }
+                }
+            }
+            configure(queryOperation)
+            privateDB.add(queryOperation)
         }
-        privateDB.add(op)
+        run(cursor: nil, attempt: 1)
     }
 
     func deleteRecord(recordID: CKRecord.ID, completion: ((Result<CKRecord.ID, Error>) -> Void)? = nil) {
-        privateDB.delete(withRecordID: recordID) { id, err in
-            if let err { completion?(.failure(err)) }
-            else if let id { completion?(.success(id)) }
+        func run(attempt: Int) {
+            privateDB.delete(withRecordID: recordID) { id, err in
+                if let err {
+                    if let ck = err as? CKError, attempt < self.maxRetryAttempts, self.isRetryable(ck), let delay = self.retryDelay(for: ck, attempt: attempt + 1) {
+                        DispatchQueue.global().asyncAfter(deadline: .now() + delay) { run(attempt: attempt + 1) }
+                    } else {
+                        completion?(.failure(err))
+                    }
+                } else if let id {
+                    completion?(.success(id))
+                }
+            }
         }
+        run(attempt: 1)
     }
 
     /// Safely update an existing record by fetching it first, applying fields and clearing specified keys.
@@ -135,19 +241,36 @@ final class CloudKitManager {
                       fields: [String: CKRecordValueProtocol],
                       clearKeys: [String] = [],
                       completion: ((Result<CKRecord, Error>) -> Void)? = nil) {
-        privateDB.fetch(withRecordID: recordID) { [weak self] rec, err in
-            guard let self else { return }
-            if let err { completion?(.failure(err)); return }
-            guard let rec else {
-                completion?(.failure(NSError(domain: "CloudKit", code: -1, userInfo: [NSLocalizedDescriptionKey: "Record not found"]))); return
-            }
-            fields.forEach { rec[$0.key] = $0.value }
-            clearKeys.forEach { rec[$0] = nil }
-            self.privateDB.save(rec) { saved, err in
-                if let err { completion?(.failure(err)) }
-                else if let saved { completion?(.success(saved)) }
+        func fetchThenSave(attempt: Int) {
+            privateDB.fetch(withRecordID: recordID) { [weak self] rec, err in
+                guard let self else { return }
+                if let err {
+                    if let ck = err as? CKError, attempt < self.maxRetryAttempts, self.isRetryable(ck), let delay = self.retryDelay(for: ck, attempt: attempt + 1) {
+                        DispatchQueue.global().asyncAfter(deadline: .now() + delay) { fetchThenSave(attempt: attempt + 1) }
+                    } else {
+                        completion?(.failure(err))
+                    }
+                    return
+                }
+                guard let rec else {
+                    completion?(.failure(NSError(domain: "CloudKit", code: -1, userInfo: [NSLocalizedDescriptionKey: "Record not found"]))); return
+                }
+                fields.forEach { rec[$0.key] = $0.value }
+                clearKeys.forEach { rec[$0] = nil }
+                self.privateDB.save(rec) { saved, err in
+                    if let err {
+                        if let ck = err as? CKError, attempt < self.maxRetryAttempts, self.isRetryable(ck), let delay = self.retryDelay(for: ck, attempt: attempt + 1) {
+                            DispatchQueue.global().asyncAfter(deadline: .now() + delay) { fetchThenSave(attempt: attempt + 1) }
+                        } else {
+                            completion?(.failure(err))
+                        }
+                    } else if let saved {
+                        completion?(.success(saved))
+                    }
+                }
             }
         }
+        fetchThenSave(attempt: 1)
     }
 }
 

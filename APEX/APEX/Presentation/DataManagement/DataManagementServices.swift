@@ -104,6 +104,11 @@ final class RealStorageSyncService: StorageSyncService {
         }
         // Pull latest notes from CloudKit and reflect into app immediately (even when auto-sync is off)
         // We update ChatStore only; ClientsStore will mirror via its NotificationCenter subscriber.
+        if !clients.isEmpty {
+            DispatchQueue.main.async {
+                ClientsStore.shared.beginCloudSync(clients.count)
+            }
+        }
         for client in clients {
             CloudKitNotesManager.shared.fetchNotes(for: client.id) { result in
                 if case .success(let fetched) = result {
@@ -122,6 +127,9 @@ final class RealStorageSyncService: StorageSyncService {
                         }
                         ChatStore.shared.setNotes(merged, for: client.id)
                     }
+                }
+                DispatchQueue.main.async {
+                    ClientsStore.shared.endCloudSync()
                 }
             }
         }

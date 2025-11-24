@@ -19,6 +19,20 @@ final class ClientsStore: ObservableObject {
     private var cancellables: Set<AnyCancellable> = []
 
     @Published var clients: [Client]
+    // Global CloudKit loading indicator state
+    @Published var isCloudSyncInProgress: Bool = false
+    private var activeSyncOperations: Int = 0
+    private func addSyncOperations(_ count: Int = 1) {
+        activeSyncOperations += max(0, count)
+        isCloudSyncInProgress = activeSyncOperations > 0
+    }
+    private func completeOneSyncOperation() {
+        if activeSyncOperations > 0 { activeSyncOperations -= 1 }
+        isCloudSyncInProgress = activeSyncOperations > 0
+    }
+    // Public helpers for other modules to toggle global loading UI
+    func beginCloudSync(_ count: Int = 1) { addSyncOperations(count) }
+    func endCloudSync() { completeOneSyncOperation() }
 
     private init() {
         if let fromAppGroup = localStore.loadClientsFromAppGroup() {
@@ -206,6 +220,7 @@ final class ClientsStore: ObservableObject {
         if UserDefaults.standard.bool(forKey: "apex.isGuestMode") {
             return
         }
+        addSyncOperations()
         let sort = NSSortDescriptor(key: "surname", ascending: true)
         CloudKitManager.shared.query(type: "Client", predicate: NSPredicate(value: true), sortDescriptors: [sort]) { [weak self] result in
             guard let self else { return }
@@ -346,12 +361,14 @@ final class ClientsStore: ObservableObject {
                     }
                 }
             }
+            self.completeOneSyncOperation()
         }
     }
 
     /// Pull current user's profile from Users record type and merge into index 0.
     private func pullUserFromCloudKit() {
         if UserDefaults.standard.bool(forKey: "apex.isGuestMode") { return }
+        addSyncOperations()
         CloudKitManager.shared.query(type: "AppUser") { [weak self] result in
             guard let self else { return }
             switch result {
@@ -428,6 +445,7 @@ final class ClientsStore: ObservableObject {
                     self.setUserRecordID(rec.recordID)
                 }
             }
+            self.completeOneSyncOperation()
         }
     }
 
@@ -701,6 +719,8 @@ final class ClientsStore: ObservableObject {
     private func pullAllClientNotesFromCloudKit() {
         if UserDefaults.standard.bool(forKey: "apex.isGuestMode") { return }
         let snapshot = clients
+        if snapshot.isEmpty { return }
+        addSyncOperations(snapshot.count)
         for client in snapshot {
             CloudKitNotesManager.shared.fetchNotes(for: client.id) { result in
                 if case .success(let fetched) = result {
@@ -723,6 +743,7 @@ final class ClientsStore: ObservableObject {
                         ChatStore.shared.setNotes(merged, for: client.id)
                     }
                 }
+                self.completeOneSyncOperation()
             }
         }
     }

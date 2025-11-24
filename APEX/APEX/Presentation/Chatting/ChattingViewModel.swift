@@ -180,6 +180,7 @@ private extension ChattingViewModel {
             ChatStore.shared.setNotes(seeded, for: clientId)
             // If nothing local, attempt a lightweight CloudKit pull to repopulate chat on cold start
             if SyncSettings.isAutoOn {
+                ClientsStore.shared.beginCloudSync()
                 CloudKitNotesManager.shared.fetchNotes(for: clientId) { [weak self] result in
                     guard let self else { return }
                     if case .success(let fetched) = result {
@@ -201,6 +202,7 @@ private extension ChattingViewModel {
                             ChatStore.shared.setNotes(sorted, for: self.clientId)
                         }
                     }
+                    ClientsStore.shared.endCloudSync()
                 }
             }
         } else {
@@ -618,6 +620,7 @@ private extension ChattingViewModel {
             .sink { [weak self] _ in
                 guard let self else { return }
                 guard SyncSettings.isAutoOn else { return }
+                ClientsStore.shared.beginCloudSync()
                 CloudKitNotesManager.shared.fetchNotes(for: self.clientId) { result in
                     if case .success(let fetched) = result {
                         DispatchQueue.main.async {
@@ -638,6 +641,7 @@ private extension ChattingViewModel {
                             ChatStore.shared.setNotes(sorted, for: self.clientId)
                         }
                     }
+                    ClientsStore.shared.endCloudSync()
                 }
             }
             .store(in: &cancellables)
