@@ -84,6 +84,9 @@ struct ContactsView: View {
                 onTapRow: { navigateToProfileDetail($0) },
                 showsSeparatorBelowHeader: true
             )
+            .onAppear {
+                print("🐛 ContactsView Favorites - count: \(viewModel.favorites.count), expanded: \(viewModel.isFavoritesExpanded)")
+            }
 
             // MARK: - All / Ungrouped (기존 디자인)
             ContactsListSection(
@@ -100,13 +103,13 @@ struct ContactsView: View {
             )
         }
         .listStyle(.plain)
+        .listRowSpacing(0)
+        .environment(\.defaultMinListRowHeight, 1)
         .transaction { txn in
             txn.animation = nil // 재정렬 시 삭제/삽입 애니메이션 억제 → 깜빡임 제거
         }
         .animation(.none, value: viewModel.showDeleteDialog) // 모달 상태 변경 시 애니메이션 억제
         .animation(.none, value: viewModel.clientToDelete?.id) // 삭제 대상 변경 시 애니메이션 억제
-        .listRowSpacing(0)
-        .environment(\.defaultMinListRowHeight, 1)
         .scrollContentBackground(.hidden)
         .background(Color("Background"))
         .safeAreaBar(edge: .top) {
@@ -290,7 +293,6 @@ private extension View {
 
 #Preview { ContactsView() }
 
-// MARK: - Delete Confirmation Components
 // MARK: - DeleteConfirmCard
 
 private struct ContactsDeleteConfirmCard: View {

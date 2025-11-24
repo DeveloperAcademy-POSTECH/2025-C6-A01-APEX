@@ -81,10 +81,13 @@ struct ContactsListSection: View {
                 }
             }
             
-            // 4) Favorites 전용: 구분선을 토글 상태와 관계없이 favorites가 있으면 항상 표시
-            if showsSeparatorBelowHeader, !clients.isEmpty {
+            // 4) Favorites 전용: 구분선을 토글 상태와 관계없이 항상 표시
+            if showsSeparatorBelowHeader {
                 gapRow                  // 구분선 위쪽 간격 8
                 separatorBarRow         // 색 있는 구분선(높이 2)
+                    .onAppear {
+                        print("🐛 Separator appearing for \(title) - clients count: \(clients.count)")
+                    }
                 gapRow                  // 구분선 아래쪽 간격 8
             }
         }
@@ -133,6 +136,9 @@ struct ContactsListSection: View {
             .fill(Color("BackgroundSecondary"))
             .frame(height: Metrics.separatorHeight)
             .applyListRowCleaning()
+            .onAppear {
+                print("🐛 separatorBarRow rendered with height: \(Metrics.separatorHeight)")
+            }
     }
 }
 
