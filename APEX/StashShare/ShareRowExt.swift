@@ -31,7 +31,7 @@ struct ShareRowExt: View {
             
             VStack(alignment: .leading, spacing: Metrics.nameSubtitleSpacing) {
                 HStack(spacing: 1) {
-                    Text("\(client.name) \(client.surname)")
+                    Text(client.autoFormattedName)
                         .font(.body2)
                         .foregroundColor(.primary)
                         .lineLimit(1)
@@ -66,7 +66,7 @@ struct ShareRowExt: View {
         .padding(.vertical, 0)
         .contentShape(Rectangle())
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(client.name) \(client.surname), \(subtitle)")
+        .accessibilityLabel("\(client.autoFormattedName), \(subtitle)")
     }
     
     private var subtitle: String {

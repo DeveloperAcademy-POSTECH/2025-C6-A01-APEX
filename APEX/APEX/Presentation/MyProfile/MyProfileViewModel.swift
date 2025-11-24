@@ -179,9 +179,24 @@ extension MyProfileViewModel {
 // MARK: - Private Helpers
 private extension MyProfileViewModel {
     func performLogout() {
-        // TODO: 실제 로그아웃 로직 구현
-        // 예: 로그인 상태 초기화, 토큰 삭제, 네비게이션 등
-        print("로그아웃 수행")
+        // 1) Clear local persisted clients and in-memory state
+        LocalStore.shared.clearClients()
+        ClientsStore.shared.resetToInitial()
+        
+        // 2) Clear cached Apple full name so next sign-in won't reuse previous name
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: "apple.fullName.given")
+        defaults.removeObject(forKey: "apple.fullName.family")
+        
+        // 3) Clear local CloudKit mirrors/mappings to avoid binding to previous account artifacts
+        defaults.removeObject(forKey: "cloudkit.mapping.clientIdToRecordName")
+        defaults.removeObject(forKey: "cloudkit.mapping.userRecordName")
+        defaults.removeObject(forKey: "cloudkit.mapping.noteIdToRecordName")
+        defaults.removeObject(forKey: "cloudkit.token.private")
+        defaults.synchronize()
+        
+        // 4) Route to onboarding to select guest or sign-in again
+        NotificationCenter.default.post(name: .apexRequestOnboarding, object: nil)
     }
     
     func refreshPurgeEnabled() {

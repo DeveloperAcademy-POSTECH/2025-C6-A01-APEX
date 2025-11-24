@@ -133,4 +133,62 @@ enum NotesTextFormatterExt {
     }
 }
 
+// MARK: - Name Formatting (mirror main app NameFormatter for PClient)
+private enum NameFormatterExt {
+    enum NameDisplayFormat {
+        case korean
+        case western
+        case koreanWithSpace
+        case westernWithSpace
+    }
+    
+    static func format(name: String, surname: String, format: NameDisplayFormat = .korean) -> String {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedSurname = surname.trimmingCharacters(in: .whitespacesAndNewlines)
+        let parts = [trimmedName, trimmedSurname].filter { !$0.isEmpty }
+        guard !parts.isEmpty else { return "" }
+        if parts.count == 1 { return parts[0] }
+        switch format {
+        case .korean:
+            return "\(trimmedSurname)\(trimmedName)"
+        case .western:
+            return "\(trimmedName) \(trimmedSurname)"
+        case .koreanWithSpace:
+            return "\(trimmedSurname) \(trimmedName)"
+        case .westernWithSpace:
+            return "\(trimmedName) \(trimmedSurname)"
+        }
+    }
+    
+    static func isKoreanBased(_ text: String) -> Bool {
+        guard let first = text.first else { return false }
+        let range = "\u{AC00}"..."\u{D7A3}"
+        return range.contains(String(first))
+    }
+    
+    static func determineFormat(name: String, surname: String) -> NameDisplayFormat {
+        let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let s = surname.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !n.isEmpty || !s.isEmpty else { return .korean }
+        let nKo = !n.isEmpty ? isKoreanBased(n) : false
+        let sKo = !s.isEmpty ? isKoreanBased(s) : false
+        if n.isEmpty { return sKo ? .korean : .western }
+        if s.isEmpty { return nKo ? .korean : .western }
+        if nKo && sKo { return .korean }
+        if !nKo && !sKo { return .western }
+        return .koreanWithSpace
+    }
+    
+    static func autoFormat(name: String, surname: String) -> String {
+        let fmt = determineFormat(name: name, surname: surname)
+        return format(name: name, surname: surname, format: fmt)
+    }
+}
+
+extension PClient {
+    var autoFormattedName: String {
+        NameFormatterExt.autoFormat(name: name, surname: surname)
+    }
+}
+
 
