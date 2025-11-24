@@ -45,7 +45,7 @@ struct ContactsSectionHeader: View {
                 .onChanged { _ in pressed = true }
                 .onEnded { _ in pressed = false }
         )
-        .foregroundStyle(.gray) // 시스템 gray
+        .foregroundStyle(.black) // 시스템 gray
         .accessibilityAddTraits(.isHeader)
         .accessibilityLabel(accessibilityTitle)
         .accessibilityHint(accessibilityHint)

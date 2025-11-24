@@ -26,10 +26,8 @@ struct ContactsListSection: View {
             // 1) 섹션 헤더
             headerRow
 
-            // 2) 헤더 아래 고정 간격 8 (All 섹션은 제외)
-            if title != "All" {
-                gapRow
-            }
+            // 2) 헤더 아래 고정 간격 제거 - All과 Favorites 모두 동일하게 처리
+            // 패딩 없이 바로 콘텐츠 시작
 
             // 3) 펼침 상태일 때 내용
             if isExpanded {
@@ -106,8 +104,8 @@ struct ContactsListSection: View {
 
     private func groupHeaderRow(title: String) -> some View {
         Text(title)
-            .font(.body2)
-            .foregroundColor(Color.secondary)  // 시스템 기본 보조 색상으로 변경
+            .font(.body1)                       // All과 같은 폰트로 변경
+            .foregroundColor(.gray)             // Gray 색상으로 변경
             .frame(height: Metrics.groupTitleHeight)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, Metrics.horizontalPadding)
