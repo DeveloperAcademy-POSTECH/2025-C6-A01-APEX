@@ -268,7 +268,9 @@ struct ChatMediaPickerSheet: View {
             let tmp = apexTmpDir
                 .appendingPathComponent(UUID().uuidString)
                 .appendingPathExtension("mov")
-            PHAssetResourceManager.default().writeData(for: resource, toFile: tmp, options: nil) { error in
+            let opts = PHAssetResourceRequestOptions()
+            opts.isNetworkAccessAllowed = true
+            PHAssetResourceManager.default().writeData(for: resource, toFile: tmp, options: opts) { error in
                 DispatchQueue.main.async {
                     completion(error == nil ? tmp : nil)
                 }
