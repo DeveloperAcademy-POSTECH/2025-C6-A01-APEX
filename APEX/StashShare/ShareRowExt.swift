@@ -74,7 +74,7 @@ struct ShareRowExt: View {
         case .contacts:
             return client.position ?? ""
         case .recents:
-            return latestMemoText(from: client.notes) ?? ""
+            return NotesTextFormatterExt.latestSummary(from: client.notes) ?? ""
         }
     }
     
@@ -101,18 +101,4 @@ struct ShareRowExt: View {
         )
     }
 }
-
-private func latestMemoText(from notes: [PNote]) -> String? {
-    guard let latest = notes.max(by: { $0.uploadedAt < $1.uploadedAt }) else { return nil }
-    if let text = latest.text?
-        .split(whereSeparator: \.isNewline)
-        .first
-        .map(String.init)?
-        .trimmingCharacters(in: .whitespacesAndNewlines),
-       !text.isEmpty {
-        return text
-    }
-    return nil
-}
-
 

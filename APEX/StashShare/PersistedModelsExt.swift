@@ -34,14 +34,12 @@ enum PAttachmentBundle: Codable {
     case media(images: [PImageAttachment], videos: [PVideoAttachment])
     case files([PFileAttachment])
     case audio([PAudioAttachment])
-    
     private enum CodingKeys: String, CodingKey {
         case type, images, videos, files, audios
     }
     private enum Kind: String, Codable {
         case media, files, audio
     }
-    
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let kind = try container.decode(Kind.self, forKey: .type)
@@ -58,7 +56,6 @@ enum PAttachmentBundle: Codable {
             self = .audio(audios)
         }
     }
-    
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
@@ -100,6 +97,40 @@ struct PClient: Codable, Identifiable {
     var favorite: Bool
     var pin: Bool
     var notes: [PNote]
+}
+
+// MARK: - Text Formatting (mirror NotesRow behavior in main app)
+enum NotesTextFormatterExt {
+    static func latestSummary(from notes: [PNote]) -> String? {
+        guard let latest = notes.max(by: { $0.uploadedAt < $1.uploadedAt }) else { return nil }
+
+        if let text = latest.text?
+            .split(whereSeparator: \.isNewline)
+            .first
+            .map(String.init)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           !text.isEmpty {
+            return text
+        }
+
+        let id = videoIdPlaceholder()
+        switch latest.bundle {
+        case .media(let images, let videos):
+            if !videos.isEmpty { return "Video [\(id)]" }
+            if !images.isEmpty { return "Photo [\(id)]" }
+            return nil
+        case .files(let files):
+            return files.isEmpty ? nil : "File [\(id)]"
+        case .audio(let audios):
+            return audios.isEmpty ? nil : "Audio [\(id)]"
+        case .none:
+            return nil
+        }
+    }
+
+    private static func videoIdPlaceholder() -> String {
+        "94128942198382"
+    }
 }
 
 
