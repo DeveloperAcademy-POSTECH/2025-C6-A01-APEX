@@ -129,7 +129,7 @@ final class ClientsStore: ObservableObject {
                 }
                 if SyncSettings.isAutoOn {
                     self.pushUnsyncedNotesToCloudKit()
-                    self.pullAllClientNotesFromCloudKit()
+                    self.refreshAllCloudKitDataSequentially()
                 }
             }
             .store(in: &cancellables)
@@ -139,19 +139,13 @@ final class ClientsStore: ObservableObject {
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 guard SyncSettings.isAutoOn else { return }
-                self?.pullClientsFromCloudKit()
-                self?.pullUserFromCloudKit()
-                self?.pullAllClientNotesFromCloudKit()
+                self?.refreshAllCloudKitDataSequentially()
             }
             .store(in: &cancellables)
 
         // Attempt a lightweight initial pull so UI can reflect server state quickly.
         if SyncSettings.isAutoOn {
-            DispatchQueue.main.async {
-                self.pullClientsFromCloudKit()
-                self.pullUserFromCloudKit()
-                self.pullAllClientNotesFromCloudKit()
-            }
+            DispatchQueue.main.async { self.refreshAllCloudKitDataSequentially() }
         }
     }
 
@@ -239,9 +233,10 @@ final class ClientsStore: ObservableObject {
 
     // MARK: - CloudKit lightweight sync (Clients only)
     /// Pull clients from CloudKit and replace in-memory list except index 0 ("my profile") which is preserved.
-    private func pullClientsFromCloudKit() {
+    private func pullClientsFromCloudKit(completion: (() -> Void)? = nil) {
         // Respect guest mode: skip CloudKit access
         if UserDefaults.standard.bool(forKey: "apex.isGuestMode") {
+            completion?()
             return
         }
         addSyncOperations()
@@ -251,6 +246,7 @@ final class ClientsStore: ObservableObject {
             switch result {
             case .failure(let error):
                 print("[ClientsStore] CloudKit pull failed: \(error)")
+                DispatchQueue.main.async { completion?() }
             case .success(let records):
                 // Build (Client, RecordID) pairs so we can store mapping for update/delete later.
                 // Preserve stable client IDs by reusing existing ID mapped to the record or matching by identity
@@ -393,16 +389,20 @@ final class ClientsStore: ObservableObject {
     }
 
     /// Pull current user's profile from Users record type and merge into index 0.
-    private func pullUserFromCloudKit() {
-        if UserDefaults.standard.bool(forKey: "apex.isGuestMode") { return }
+    private func pullUserFromCloudKit(completion: (() -> Void)? = nil) {
+        if UserDefaults.standard.bool(forKey: "apex.isGuestMode") { completion?(); return }
         addSyncOperations()
         CloudKitManager.shared.query(type: "AppUser") { [weak self] result in
             guard let self else { return }
             switch result {
             case .failure:
-                break
+                DispatchQueue.main.async { completion?() }
             case .success(let records):
-                guard let rec = records.first else { return }
+                guard let rec = records.first else {
+                    // No AppUser yet (fresh install). Proceed without blocking.
+                    DispatchQueue.main.async { completion?() }
+                    break
+                }
                 let surname = rec["surname"] as? String ?? ""
                 let name = rec["name"] as? String ?? ""
                 let position = rec["position"] as? String
@@ -470,6 +470,7 @@ final class ClientsStore: ObservableObject {
                     self.clients[0] = me
                     // store mapping for user
                     self.setUserRecordID(rec.recordID)
+                    completion?()
                 }
             }
             self.completeOneSyncOperation()
@@ -771,6 +772,15 @@ final class ClientsStore: ObservableObject {
                     }
                 }
                 self.completeOneSyncOperation()
+            }
+        }
+    }
+
+    // MARK: - Orchestrated sequential refresh to avoid racing mappings vs notes
+    private func refreshAllCloudKitDataSequentially() {
+        pullClientsFromCloudKit { [weak self] in
+            self?.pullUserFromCloudKit { [weak self] in
+                self?.pullAllClientNotesFromCloudKit()
             }
         }
     }
