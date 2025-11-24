@@ -123,6 +123,39 @@ extension ProfileDetailViewModel {
     func deleteClient() {
         ClientsStore.shared.remove(clientId)
     }
+    
+    func updateMemo(_ memo: String?) {
+        // 실시간으로 메모 업데이트
+        guard let existing = ClientsStore.shared.clients.first(where: { $0.id == clientId }) else { return }
+        let updatedClient = Client(
+            id: existing.id,
+            profile: existing.profile,
+            nameCardFront: existing.nameCardFront,
+            nameCardBack: existing.nameCardBack,
+            surname: existing.surname,
+            name: existing.name,
+            position: existing.position,
+            company: existing.company,
+            department: existing.department,
+            email: existing.email,
+            phoneNumber: existing.phoneNumber,
+            linkedinURL: existing.linkedinURL,
+            memo: memo,
+            action: existing.action,
+            favorite: existing.favorite,
+            pin: existing.pin,
+            notes: existing.notes,
+            industry: existing.industry,
+            address: existing.address,
+            faxNumber: existing.faxNumber,
+            revenue: existing.revenue,
+            employees: existing.employees,
+            additionalEmails: existing.additionalEmails,
+            additionalPhones: existing.additionalPhones,
+            additionalURLs: existing.additionalURLs
+        )
+        ClientsStore.shared.update(updatedClient)
+    }
 }
 
 // MARK: - Types

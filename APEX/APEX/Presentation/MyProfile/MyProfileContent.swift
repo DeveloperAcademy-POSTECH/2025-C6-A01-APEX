@@ -160,23 +160,29 @@ struct MyProfileContactsSection: View {
         valueTint: Color,
         @ViewBuilder menu: @escaping () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 0) {  // spacing 0으로 변경
             Text(label)
                 .font(.body6)
-                .foregroundColor(.gray)
-
+                .foregroundColor(Color("GrayLabel"))
+                .frame(height: 18)  // 이메일 라벨 높이 18pt
+            
+            Spacer().frame(height: 2)  // 이메일과 이메일정보 사이 2pt
+            
             // 시스템 Menu 사용하되 호버 상태 유지
             ContactMenuWithHover(
                 value: value,
                 valueTint: valueTint,
                 menu: menu
             )
+            .frame(height: 24)  // 이메일 정보 높이 24pt
             .accessibilityLabel("\(label), \(value)")
             .accessibilityHint("메뉴 보기")
+        
         }
+        .padding(.vertical, 10)  // 상하 10pt씩 패딩
     }
-
 }
+
 
 // MARK: - Contact Menu with Clean Style (호버 효과 제거)
 
@@ -191,7 +197,6 @@ private struct ContactMenuWithHover<MenuContent: View>: View {
         } label: {
             ContactValueLabel(text: value, tint: valueTint)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: 40, alignment: .center)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain) // 기본 버튼 효과 제거

@@ -124,7 +124,7 @@ struct ProfileAddView: View {
                 }
                 
                 if isFieldEnabled(.memo) {
-                    APEXTextField(style: .editor, label: "메모", placeholder: "주요 대화", text: $viewModel.memo, maxLength: 100)
+                    ProfileEditMemoSection(memo: $viewModel.memo)
                         .padding(.bottom, 48)
                 }
                 

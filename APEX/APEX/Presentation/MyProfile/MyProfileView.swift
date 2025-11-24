@@ -24,10 +24,15 @@ struct MyProfileView: View {
             LazyVStack(spacing: 0, pinnedViews: []) {
                 // 헤더 섹션 (패딩 없음 - 전체 화면 너비 사용)
                 MyProfileHeaderView(
-                    client: viewModel.adaptedClient,
+                    client: ClientsStore.convertToClient(client),
                     page: $viewModel.currentPageIndex,
                     onCardTapped: { viewModel.send(.showCardViewer(true)) }
                 )
+                .onAppear {
+                    print("🐛 MyProfileView - original client: surname='\(client.surname)', name='\(client.name)'")
+                    print("🐛 MyProfileView - direct convert: surname='\(ClientsStore.convertToClient(client).surname)', name='\(ClientsStore.convertToClient(client).name)'")
+                    print("🐛 MyProfileView - adapted client: surname='\(viewModel.adaptedClient.surname)', name='\(viewModel.adaptedClient.name)'")
+                }
                 
                 // 프라이머리 액션
                 MyProfilePrimaryActionView(title: "메모하기") {
@@ -42,7 +47,7 @@ struct MyProfileView: View {
                         )
                     )
                     .padding(.horizontal, 16)
-                    .padding(.top, 16)
+                    .padding(.top, 12)
 
                 // 연락처 섹션
                 MyProfileContactsSection(
@@ -55,6 +60,7 @@ struct MyProfileView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)
                 .padding(.top, 32)
+                
 
                 // 저장공간 섹션
                 VStack(spacing: 0) {
@@ -74,7 +80,7 @@ struct MyProfileView: View {
                 // 앱 정보 섹션
                 VStack(spacing: 0) {
                     MyProfileSectionSeparator()
-                        .padding(.top, 32)
+                        .padding(.top, 22)
                     
                     MyProfileAppInfoSection(
                         versionText: Bundle.main.apexVersionString(),
@@ -87,7 +93,7 @@ struct MyProfileView: View {
                 // 위험 구역 섹션
                 VStack(spacing: 0) {
                     MyProfileSectionSeparator()
-                        .padding(.top, 32)
+                        .padding(.top, 22)
                     
                     MyProfileDangerZoneSection(
                         onLogout: { viewModel.send(.tapLogout) },
@@ -102,7 +108,7 @@ struct MyProfileView: View {
         .background(Color("Background"))
         .safeAreaBar(edge: .top) {
             MyProfileNavigationBar(
-                title: "\(client.surname)\(client.name)",
+                title: client.company.isEmpty ? "\(client.surname)\(client.name)" : client.company,
                 onBack: { router.pop() },
                 onEdit: { viewModel.send(.presentEdit(true)) }
             )

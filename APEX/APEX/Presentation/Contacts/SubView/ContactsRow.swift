@@ -36,12 +36,12 @@ struct ContactsRow: View {
                 VStack(alignment: .leading, spacing: Metrics.nameSubtitleSpacing) {
                     Text(client.autoFormattedName)
                         .font(.body2)
-                        .foregroundColor(.primary)
+                        .foregroundColor(Color("BlackLabel"))
                         .lineLimit(1)
 
                     Text(subtitle)
-                        .font(.body6)
-                        .foregroundColor(.gray)
+                        .font(.body5)
+                        .foregroundColor(Color("GrayLabel"))
                         .lineLimit(1)
                 }
                 .frame(height: Metrics.textBoxHeight)

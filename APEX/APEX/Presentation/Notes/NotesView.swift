@@ -22,7 +22,7 @@ struct NotesView: View {
             }
             .apexToast(
                 isPresented: $viewModel.showToast,
-                image: Image(systemName: "pin"),
+                image: Image(systemName: viewModel.toastText.contains("해제") ? "pin.slash.fill" : "pin.fill"),
                 text: viewModel.toastText,
                 buttonTitle: "되돌리기",
                 duration: 1.6,

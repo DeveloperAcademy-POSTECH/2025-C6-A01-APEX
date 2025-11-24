@@ -159,14 +159,18 @@ public struct MyProfileHeaderView: View {
             .opacity(items.count > 1 ? 1.0 : 0.0)
             
             VStack(alignment: .center, spacing: 0) {
-                Text(client.autoFormattedName)
+                Text("\(client.surname)\(client.name)")
                     .font(.title2)
                     .multilineTextAlignment(.center)
                     .foregroundColor(.black)
                     .lineLimit(1)
+                    .onAppear {
+                        print("🐛 MyProfileHeader - surname: '\(client.surname)', name: '\(client.name)'")
+                        print("🐛 MyProfileHeader - company: '\(client.company)', position: '\(client.position ?? "nil")'")
+                    }
                 
                 if !subtitle.isEmpty {
-                    Spacer().frame(height: 4)
+                    Spacer().frame(height: 3)
                     
                     Text(subtitle)
                         .font(.body5)

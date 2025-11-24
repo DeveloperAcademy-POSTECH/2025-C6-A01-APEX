@@ -116,6 +116,12 @@ struct MyProfileEditSheet: View {
     var onSave: (DummyClient) -> Void
     var onDelete: (() -> Void)? = nil  // 삭제 콜백 추가
     var showDeleteButton: Bool = false  // 삭제 버튼 표시 여부
+    
+    // 내 프로필 여부 확인
+    private var isMyProfile: Bool {
+        let myId = ClientsStore.shared.clients.first?.id
+        return client.id == myId
+    }
 
     init(client: DummyClient, onCancel: @escaping () -> Void, onSave: @escaping (DummyClient) -> Void, onDelete: (() -> Void)? = nil, showDeleteButton: Bool = false) {
         self.client = client
@@ -307,9 +313,11 @@ struct MyProfileEditSheet: View {
                     Spacer(minLength: 0).frame(height: 16)
                 }
                 
-                // 메모 필드
-                APEXTextField(style: .editor, label: "메모", placeholder: "주요 대화", text: $memo, maxLength: 100)
-                    .padding(.bottom, 48)
+                // 메모 필드 (ProfileDetailView에서만 - 다른 사람 프로필 편집시)
+                if showDeleteButton {
+                    ProfileEditMemoSection(memo: $memo)
+                        .padding(.bottom, 48)
+                }
                 
                 // 항목 수정하기 버튼
                 AddItemButton {
@@ -409,7 +417,7 @@ struct MyProfileEditSheet: View {
                         email: savedEmail,
                         phoneNumber: savedPhone,
                         linkedinURL: savedLinkedIn,
-                        memo: memo.isEmpty ? nil : memo,
+                        memo: showDeleteButton ? (memo.isEmpty ? nil : memo) : client.memo,
                         action: client.action,
                         favorite: client.favorite,
                         pin: client.pin,
