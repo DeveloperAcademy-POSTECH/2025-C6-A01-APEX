@@ -214,7 +214,16 @@ public struct MyProfileHeaderView: View {
                         .stroke(Color.clear, lineWidth: 0)  // 투명 스트로크로 기본 테두리 제거
                 )
         case .avatar(let initials):
-            Profile(image: nil, initials: initials, size: .large)
+            let trimmed = initials.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty {
+                Image("ProfileL")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 232, height: 232)
+                    .clipShape(Circle())
+            } else {
+                Profile(image: nil, initials: trimmed, size: .large)
+            }
         }
     }
 }

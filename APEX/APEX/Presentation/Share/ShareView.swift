@@ -316,7 +316,7 @@ struct ShareView: View {
                 .buttonStyle(.plain)
             }
 
-            Text("\(client.name)\n\(client.surname)")
+            Text(client.autoFormattedName)
                 .font(.caption2)
                 .foregroundColor(.primary)
                 .lineLimit(2)
