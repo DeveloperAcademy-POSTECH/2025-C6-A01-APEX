@@ -166,11 +166,9 @@ struct ProfileAddView: View {
                 initialFront: viewModel.cardFrontUIImage,
                 initialBack: viewModel.cardBackUIImage
             )
-            .padding(.top, 30)
         }
         .sheet(isPresented: $viewModel.isAddItemPresented) {
             AddItemView(config: $viewModel.addItemConfig)
-                .padding(.top, 30)
         }
         .safeAreaBar(edge: .top) {
             APEXSheetTopBar(
@@ -183,6 +181,7 @@ struct ProfileAddView: View {
             }, onClose: {
                 dismiss()
             })
+            .padding(.top, 10)
         }
         .onAppear { viewModel.send(.onAppear) }
         .onChange(of: viewModel.addItemConfig.emailCount) { _ in viewModel.ensureFieldArrays() }
