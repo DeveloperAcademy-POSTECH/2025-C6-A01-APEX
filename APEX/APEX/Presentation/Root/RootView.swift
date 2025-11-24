@@ -11,6 +11,7 @@ struct RootView: View {
     enum Tabs { case contacts, notes, search }
     
     @EnvironmentObject private var router: NavigationRouter
+    @ObservedObject private var sync = ClientsStore.shared
     @State private var selection: Tabs = .contacts
     @State private var lastNonSearchSelection: Tabs = .contacts
     
@@ -46,6 +47,24 @@ struct RootView: View {
             }
         }
         .apexSwipeBack()
+        .overlay(alignment: .center) {
+            if sync.isCloudSyncInProgress {
+                ZStack {
+                    Color.black.opacity(0.2)
+                        .ignoresSafeArea()
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                        .tint(Color("Primary"))
+                        .scaleEffect(1.2)
+                        .padding(24)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14)
+                                .fill(Color(.systemBackground))
+                                .shadow(color: Color.black.opacity(0.15), radius: 12, x: 0, y: 4)
+                        )
+                }
+            }
+        }
     }
 }
 
