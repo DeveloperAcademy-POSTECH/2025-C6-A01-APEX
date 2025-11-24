@@ -47,7 +47,7 @@ struct MyProfileView: View {
                         )
                     )
                     .padding(.horizontal, 16)
-                    .padding(.top, 16)
+                    .padding(.top, 12)
 
                 // 연락처 섹션
                 MyProfileContactsSection(
@@ -60,6 +60,7 @@ struct MyProfileView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)
                 .padding(.top, 32)
+                
 
                 // 저장공간 섹션
                 VStack(spacing: 0) {
@@ -79,7 +80,7 @@ struct MyProfileView: View {
                 // 앱 정보 섹션
                 VStack(spacing: 0) {
                     MyProfileSectionSeparator()
-                        .padding(.top, 32)
+                        .padding(.top, 22)
                     
                     MyProfileAppInfoSection(
                         versionText: Bundle.main.apexVersionString(),
@@ -92,7 +93,7 @@ struct MyProfileView: View {
                 // 위험 구역 섹션
                 VStack(spacing: 0) {
                     MyProfileSectionSeparator()
-                        .padding(.top, 32)
+                        .padding(.top, 22)
                     
                     MyProfileDangerZoneSection(
                         onLogout: { viewModel.send(.tapLogout) },

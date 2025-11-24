@@ -32,6 +32,8 @@ struct ContactsSectionHeader: View {
                     .frame(width: Metrics.tappableSize, height: Metrics.tappableSize)
                     .contentShape(Rectangle())
                     .accessibilityHidden(true)
+                //색상
+                    .foregroundStyle(Color("GrayLabel"))
             }
             .padding(.horizontal, Metrics.horizontalPadding) // 좌우 16
             .frame(height: 36) // 헤더 높이 36
@@ -45,7 +47,9 @@ struct ContactsSectionHeader: View {
                 .onChanged { _ in pressed = true }
                 .onEnded { _ in pressed = false }
         )
-        .foregroundStyle(.black) // 시스템 gray
+        //색상
+        .foregroundStyle(Color("BlackLabel"))
+        
         .accessibilityAddTraits(.isHeader)
         .accessibilityLabel(accessibilityTitle)
         .accessibilityHint(accessibilityHint)
@@ -64,8 +68,10 @@ struct ContactsSectionHeader: View {
 
     private var countView: some View {
         Text("\(count)")
-            .font(.body1)
+            .font(.body2)
             .accessibilityLabel("\(count) items")
+        //색상
+            .foregroundStyle(Color("BlackLabel"))
     }
 
     // MARK: - Actions

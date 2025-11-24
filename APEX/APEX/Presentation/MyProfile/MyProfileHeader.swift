@@ -170,7 +170,7 @@ public struct MyProfileHeaderView: View {
                     }
                 
                 if !subtitle.isEmpty {
-                    Spacer().frame(height: 4)
+                    Spacer().frame(height: 3)
                     
                     Text(subtitle)
                         .font(.body5)
