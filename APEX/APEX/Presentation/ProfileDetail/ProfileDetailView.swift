@@ -97,7 +97,7 @@ struct ProfileDetailView: View {
         .listRowSpacing(0)  // Row 간격 제거
         .safeAreaBar(edge: .top) {
             MyProfileNavigationBar(
-                title: client.autoFormattedName,
+                title: client.company.isEmpty ? "\(client.surname)\(client.name)" : client.company,
                 onBack: { router.pop() },
                 onEdit: { viewModel.send(.presentEdit(true)) }
             )
