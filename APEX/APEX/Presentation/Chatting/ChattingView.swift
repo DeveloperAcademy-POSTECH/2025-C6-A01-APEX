@@ -557,7 +557,6 @@ struct ChattingView: View {
                 }
                 .frame(height: 52)
                 .padding(.horizontal, 12)
-                .background(Color("Background"))
             } else if viewModel.isDeleteSelecting {
                 APEXSheetTopBar(
                     title: "삭제",

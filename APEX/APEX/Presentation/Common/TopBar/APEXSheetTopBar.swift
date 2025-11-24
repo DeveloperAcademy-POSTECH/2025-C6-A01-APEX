@@ -48,35 +48,33 @@ struct APEXSheetTopBar: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            ZStack(alignment: .center) {
-                // Left/right lane (left: close, right: confirm)
-                HStack(spacing: 0) {
-                    leftButton
-                    Spacer(minLength: 0)
-                    if showsRightButton {
-                        rightButton
-                    }
+        ZStack(alignment: .center) {
+            // Left/right lane (left: close, right: confirm)
+            HStack(spacing: 0) {
+                leftButton
+                Spacer(minLength: 0)
+                if showsRightButton {
+                    rightButton
                 }
-                .frame(height: height)
-                .padding(.horizontal, 16)
-
-            // Center title overlay with optional subtitle
-                VStack(spacing: 2) {
-                    Text(title)
-                        .font(.title5)
-                        .foregroundColor(foreground)
-                        .lineLimit(1)
-                    if let subtitle {
-                        Text(subtitle)
-                            .font(.caption2)
-                            .foregroundColor(subtitleColor)
-                            .lineLimit(1)
-                    }
-                }
-                .frame(height: height)
-                .allowsHitTesting(false)
             }
+            .frame(height: height)
+            .padding(.horizontal, 16)
+
+        // Center title overlay with optional subtitle
+            VStack(spacing: 2) {
+                Text(title)
+                    .font(.title5)
+                    .foregroundColor(foreground)
+                    .lineLimit(1)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.caption2)
+                        .foregroundColor(subtitleColor)
+                        .lineLimit(1)
+                }
+            }
+            .frame(height: height)
+            .allowsHitTesting(false)
         }
         .padding(.vertical, 8)   // 상하 8px 패딩 추가
     }
@@ -110,13 +108,13 @@ struct APEXSheetTopBar: View {
                     Text(rightTitle)
                         .font(.body5)
                 }
-                .frame(height: 44)
+                .padding(.vertical, 10)
                 .padding(.horizontal, 6)
             } else {
                 Text(rightTitle)
                     .font(.title6)
                     .foregroundColor(isEnabled ? .black : Color("BackgroundDisabled"))
-                    .frame(width: 52, height: 44)
+                    .padding(10)
             }
         }
         .buttonStyle(.plain)
