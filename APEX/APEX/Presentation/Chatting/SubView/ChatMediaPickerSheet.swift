@@ -155,7 +155,7 @@ struct ChatMediaPickerSheet: View {
                         .glassEffect()
                 }
                 .buttonStyle(.plain)
-                .disabled(selectedIds.isEmpty)
+                .disabled(selectedIds.isEmpty || hasPendingVideos)
                 .padding(16)
             }
         }
@@ -187,6 +187,13 @@ struct ChatMediaPickerSheet: View {
     private var showLargeHeader: Bool {
         if let override = isFullyExpandedOverride { return override }
         return detentSelection == .large
+    }
+
+    private var hasPendingVideos: Bool {
+        selectedAttachmentItems.contains {
+            if case .video(let url, _) = $0.kind { return url == nil }
+            return false
+        }
     }
 
     private func toggleSelection(for asset: PHAsset) {
