@@ -14,8 +14,9 @@ final class CloudKitManager {
     private init() {}
 
     // MARK: - Container / Database
-    private let containerIdentifier = "iCloud.com.apex.gogo"
-    var container: CKContainer { CKContainer(identifier: containerIdentifier) }
+    // Use the default container declared in entitlements (iCloud.$(PRODUCT_BUNDLE_IDENTIFIER))
+    // to avoid mismatches with hard-coded identifiers across schemes/configs.
+    var container: CKContainer { CKContainer.default() }
     var privateDB: CKDatabase { container.privateCloudDatabase }
 
     // MARK: - Database Subscription
