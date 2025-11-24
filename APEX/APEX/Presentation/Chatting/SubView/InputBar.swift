@@ -496,6 +496,10 @@ struct InputBar: View {
     @ViewBuilder
     private func rightActionButton() -> some View {
         if !stagedAttachments.isEmpty {
+            let hasPendingVideos = stagedAttachments.contains {
+                if case .video(let urlOpt, _) = $0.kind { return urlOpt == nil }
+                return false
+            }
             Button { sendSelectedAttachmentsAndText() } label: {
                 Image(systemName: "arrow.up")
                     .font(.system(size: 20, weight: .medium))
@@ -508,6 +512,7 @@ struct InputBar: View {
             .buttonStyle(FloatingCirclePrimaryButtonStyle())
             .accessibilityLabel(Text("업로드"))
             .transition(.scale.combined(with: .opacity))
+            .disabled(hasPendingVideos)
         } else if memo.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             Button {
                 if isRecording { stopRecordingAndSend() } else { startRecording() }
