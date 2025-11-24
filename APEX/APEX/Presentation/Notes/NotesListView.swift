@@ -205,11 +205,11 @@ private struct EmptyNotesState: View {
         VStack(spacing: 8) {
             Text("표시할 노트가 없습니다")
                 .font(.body2)
-                .foregroundColor(Color("Gray"))
+                .foregroundColor(Color("GrayLabel"))
             Text("다른 그룹을 선택하거나 새 노트를 추가해 보세요.")
                 .font(.body6)
-                .foregroundColor(Color("Gray"))
-                .foregroundColor(Color("Gray"))
+                .foregroundColor(Color("GrayLabel"))
+                .foregroundColor(Color("GrayLabel"))
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 16)
@@ -224,7 +224,8 @@ enum NotesTextFormatter {
         let formatter = DateFormatter()
         // 시스템 설정에 따라 12/24시간 자동 결정하되, 12시간제일 때 공백 추가
         if DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: Locale.current)?.contains("a") == true {
-            // 12시간제: 공백 있는 패턴 사용
+            // 12시간제: AM/PM 고정 표기 (영문) 위해 en_US_POSIX 사용
+            formatter.locale = Locale(identifier: "en_US_POSIX")
             formatter.dateFormat = "h:mm a"
         } else {
             // 24시간제: AM/PM 없는 패턴 사용

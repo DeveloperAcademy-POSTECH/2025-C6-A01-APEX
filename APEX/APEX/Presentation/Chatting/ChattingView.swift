@@ -57,6 +57,12 @@ struct ChattingView: View {
     @State private var dateHighlightOffsetY: CGFloat = 0
     private struct EditingPayload: Identifiable { let id = UUID(); let noteId: UUID; var text: String }
     @State private var editing: EditingPayload?
+    // Ensure initial bottom scroll even with delayed layout/data updates
+    @State private var initialBottomScrollAttemptsRemaining: Int = 3
+    // Pin the scroll position to bottom without animation during first load (e.g., CloudKit warm-up)
+    @State private var isBootstrappingToBottom: Bool = true
+    // Store viewport height separately to avoid multiple preference updates per frame
+    @State private var storedViewportHeight: CGFloat = 0
     // Selection delete confirmation
     @State private var showSelectionDeleteAlert: Bool = false
     private struct ShareSeed: Identifiable {
@@ -95,17 +101,6 @@ struct ChattingView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .trailing, spacing: 6) {
-                        // Top sentinel to measure content's top Y
-                        Color.clear
-                            .frame(height: 1) // ensure geometry updates while scrolling
-                            .background(
-                                GeometryReader { geo in
-                                    Color.clear.preference(
-                                        key: ScrollMetricsKey.self,
-                                        value: ScrollMetrics(topY: geo.frame(in: .named("chatScroll")).minY, bottomY: nil, viewportHeight: nil)
-                                    )
-                                }
-                            )
                         ForEach(Array(viewModel.notes.enumerated()), id: \.element.id) { idx, note in
                             if idx == 0 || !Calendar.current.isDate(note.uploadedAt, inSameDayAs: viewModel.notes[idx - 1].uploadedAt) {
                                 dateHeaderView(note.uploadedAt)
@@ -225,16 +220,19 @@ struct ChattingView: View {
                         }
                         Color.clear
                             .id(bottomSentinelId)
-                            .background(
-                                GeometryReader { geo in
-                                    Color.clear.preference(
-                                        key: ScrollMetricsKey.self,
-                                        value: ScrollMetrics(topY: nil, bottomY: geo.frame(in: .named("chatScroll")).maxY, viewportHeight: nil)
-                                    )
-                                }
-                            )
                     }
                     .padding(.horizontal, 12)
+                    .background(
+                        GeometryReader { geo in
+                            let frame = geo.frame(in: .named("chatScroll"))
+                            let top = frame.minY
+                            let bottom = frame.maxY
+                            Color.clear.preference(
+                                key: ScrollMetricsKey.self,
+                                value: ScrollMetrics(topY: top, bottomY: bottom, viewportHeight: nil)
+                            )
+                        }
+                    )
                 }
                 .textSelection(.disabled)
                 .padding(.bottom, bottomInsetHeight + max(0, -bottomBarOffsetY))
@@ -244,10 +242,7 @@ struct ChattingView: View {
                 .ignoresSafeArea(.keyboard) // Prevent double lift: we manually pad for the input bar
                 .background(
                     GeometryReader { geo in
-                        Color.clear.preference(
-                            key: ScrollMetricsKey.self,
-                            value: ScrollMetrics(topY: nil, bottomY: nil, viewportHeight: geo.size.height)
-                        )
+                        Color.clear.preference(key: ViewportHeightKey.self, value: geo.size.height)
                     }
                 )
                 .onTapGesture {
@@ -260,6 +255,11 @@ struct ChattingView: View {
                 }
                 .onAppear {
                     DispatchQueue.main.async {
+                        // Pin bottom during bootstrapping window to avoid visible jumps
+                        isBootstrappingToBottom = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                            isBootstrappingToBottom = false
+                        }
                         // Capture pending initial target (if any) from router once
                         if initialTargetNoteId == nil, let pending = router.pendingScrollToNoteId {
                             initialTargetNoteId = pending
@@ -276,7 +276,12 @@ struct ChattingView: View {
                             }
                             didApplyInitialTargetScroll = true
                         } else if !suppressAutoScroll {
-                            proxy.scrollTo(bottomSentinelId, anchor: .bottom)
+                            var transaction = Transaction()
+                            transaction.disablesAnimations = true
+                            withTransaction(transaction) {
+                                proxy.scrollTo(bottomSentinelId, anchor: .bottom)
+                            }
+                            ensureInitialScrollToBottom(proxy)
                         }
                         viewModel.send(.kickOffPendingUploadsIfNeeded)
                     }
@@ -284,9 +289,33 @@ struct ChattingView: View {
                 .onChange(of: viewModel.notes.count) { _ in
                     DispatchQueue.main.async {
                         guard !suppressAutoScroll else { return }
-                        withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(bottomSentinelId, anchor: .bottom) }
+                        if isBootstrappingToBottom {
+                            var transaction = Transaction()
+                            transaction.disablesAnimations = true
+                            withTransaction(transaction) {
+                                proxy.scrollTo(bottomSentinelId, anchor: .bottom)
+                            }
+                        } else {
+                            withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(bottomSentinelId, anchor: .bottom) }
+                        }
                         // 확실히 맨 아래로 이동했을 때 버튼 숨김 (metrics 업데이트 전 선반영)
                         self.showScrollToBottom = false
+                    }
+                }
+                // If CloudKit mutates notes without changing count (e.g., text/attachments), still keep to bottom on initial load
+                .onChange(of: viewModel.notes.last?.id) { _ in
+                    DispatchQueue.main.async {
+                        guard !suppressAutoScroll else { return }
+                        guard !showScrollToBottom else { return }
+                        if isBootstrappingToBottom {
+                            var transaction = Transaction()
+                            transaction.disablesAnimations = true
+                            withTransaction(transaction) {
+                                proxy.scrollTo(bottomSentinelId, anchor: .bottom)
+                            }
+                        } else {
+                            withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(bottomSentinelId, anchor: .bottom) }
+                        }
                     }
                 }
                 .onChange(of: bottomBarOffsetY) { _ in
@@ -414,20 +443,17 @@ struct ChattingView: View {
                 }
         )
         .onPreferenceChange(DateHeaderPositionsKey.self) { positions in
-            if !didReceiveInitialPositions {
-                didReceiveInitialPositions = true
-                return
-            }
             updateScrollDateIndicator(with: positions)
         }
         .onPreferenceChange(ScrollMetricsKey.self) { metrics in
             // Compute thumb-aligned vertical offset for the indicator
-            guard let topY = metrics.topY, let bottomY = metrics.bottomY, let viewport = metrics.viewportHeight else { return }
+            guard let topY = metrics.topY, let bottomY = metrics.bottomY else { return }
+            let viewport = storedViewportHeight
+            guard viewport > 0 else { return }
             let contentHeight = bottomY - topY
             guard contentHeight > 0 else { return }
             let newCanScroll = (contentHeight - viewport) > 1
             if canScroll != newCanScroll { canScroll = newCanScroll }
-            if !newCanScroll { isShowingDateIndicator = false }
 
             // Offset/progress within scrollable range
             let maxOffset = max(contentHeight - viewport, 1)
@@ -438,18 +464,29 @@ struct ChattingView: View {
             let overscrollTop = topY > 0
             let overscrollBottom = bottomY < viewport
             let verticalPadding: CGFloat = 8
-            let available = max(viewport - verticalPadding * 2, 0)
+            let trackHeight = max(viewport - verticalPadding * 2, 0)
             let clampedProgress: CGFloat = overscrollTop ? 0 : (overscrollBottom ? 1 : progress)
-            if chipHeight > 0 {
-                let desiredTop = verticalPadding + available * clampedProgress - chipHeight / 2
-                let minTop = verticalPadding
-                let maxTop = verticalPadding + max(available - chipHeight, 0)
-                indicatorOffsetY = min(max(desiredTop, minTop), maxTop)
-            } else {
-                indicatorOffsetY = verticalPadding + available * clampedProgress
-            }
+
+            // Estimate the scrollbar thumb height (proportional to viewport/content), with a reasonable minimum
+            let estimatedThumbHeight = max(24, trackHeight * (viewport / max(contentHeight, 1)))
+
+            // Align chip center with the thumb center:
+            // thumbCenter = verticalPadding + clampedProgress * (trackHeight - estimatedThumbHeight) + estimatedThumbHeight/2
+            // chipTop = thumbCenter - chipHeight/2
+            let chipH = max(chipHeight, 0)
+            let thumbTravel = max(trackHeight - estimatedThumbHeight, 0)
+            let thumbCenter = verticalPadding + clampedProgress * thumbTravel + estimatedThumbHeight / 2
+            let desiredTop = thumbCenter - chipH / 2
+
+            let minTop = verticalPadding
+            let maxTop = verticalPadding + max(trackHeight - chipH, 0)
+            indicatorOffsetY = min(max(desiredTop, minTop), maxTop)
 
             // Show while scrolling; auto-hide after idle
+            if visibleDateForIndicator == nil {
+                // Fallback: when headers are not yet realized, seed with a known date
+                visibleDateForIndicator = viewModel.notes.last?.uploadedAt ?? viewModel.notes.first?.uploadedAt
+            }
             if visibleDateForIndicator != nil {
                 isShowingDateIndicator = true
                 hideIndicatorWork?.cancel()
@@ -459,18 +496,17 @@ struct ChattingView: View {
             }
 
             // Update visibility for scroll-to-bottom chevron based on content length and distance from bottom
-            let minContentMultiple: CGFloat = 1.5    // Only if content height > 1.5x viewport
             let minDistanceToShow: CGFloat = 200     // Show when at least 200pt above bottom
-
-            let contentIsLong = contentHeight > viewport * minContentMultiple
             let distanceFromBottom = maxOffset - offset   // Remaining scrollable distance to bottom (pt)
             let sufficientlyAboveBottom = distanceFromBottom > minDistanceToShow
             let atBottom = overscrollBottom || distanceFromBottom <= 4
-
-            showScrollToBottom = (canScroll && contentIsLong && sufficientlyAboveBottom && !isEditorCurrentlyFocused) && !atBottom
+            showScrollToBottom = (canScroll && sufficientlyAboveBottom) && !atBottom
         }
         .onPreferenceChange(ChipHeightKey.self) { newHeight in
             if newHeight > 0 { chipHeight = newHeight }
+        }
+        .onPreferenceChange(ViewportHeightKey.self) { newHeight in
+            if newHeight > 0 { storedViewportHeight = newHeight }
         }
         .onChange(of: viewModel.isSearchActive) { _, active in
             if active {
@@ -898,14 +934,11 @@ private extension ChattingView {
     }
 
     func updateScrollDateIndicator(with positions: [Date: CGFloat]) {
-        guard canScroll else {
-            isShowingDateIndicator = false
-            return
-        }
+        // Compute and store the visible date regardless of current canScroll,
+        // because ScrollMetrics (that sets canScroll) may arrive after header positions.
         guard !positions.isEmpty else {
-            visibleDateForIndicator = nil
-            isShowingDateIndicator = false
-            hideIndicatorWork?.cancel(); hideIndicatorWork = nil
+            // Keep the last visible date when headers are temporarily not realized (e.g., LazyVStack virtualization).
+            // Do not forcibly clear, so the indicator can still show the last known date while scrolling.
             return
         }
 
@@ -929,10 +962,10 @@ private extension ChattingView {
     
     func dateHeaderId(_ date: Date) -> String {
         let comps = Calendar.current.dateComponents([.year, .month, .day], from: date)
-        let y = comps.year ?? 0
-        let m = (comps.month ?? 0)
-        let d = (comps.day ?? 0)
-        return String(format: "date-%04d%02d%02d", y, m, d)
+        let year = comps.year ?? 0
+        let month = (comps.month ?? 0)
+        let day = (comps.day ?? 0)
+        return String(format: "date-%04d%02d%02d", year, month, day)
     }
 
     func isSameCalendarDay(_ lhs: Date, _ rhs: Date?) -> Bool {
@@ -959,6 +992,19 @@ private extension ChattingView {
                 dateHighlightOffsetY = 0
             }
         }
+    }
+
+    // Retry a few times to ensure we land at bottom after first appear/layout/data updates
+    func ensureInitialScrollToBottom(_ proxy: ScrollViewProxy) {
+        guard initialBottomScrollAttemptsRemaining > 0 else { return }
+        initialBottomScrollAttemptsRemaining -= 1
+        let attemptScroll = {
+            guard !suppressAutoScroll else { return }
+            guard !showScrollToBottom else { return }
+            withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(bottomSentinelId, anchor: .bottom) }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: attemptScroll)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.20, execute: attemptScroll)
     }
 }
 
@@ -1044,6 +1090,14 @@ private struct BottomInsetHeightKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
+    }
+}
+
+private struct ViewportHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        let next = nextValue()
+        if next > 0 { value = next }
     }
 }
 #endif

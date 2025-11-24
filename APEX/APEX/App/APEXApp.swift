@@ -45,6 +45,10 @@ struct APEXApp: App {
                         // After onboarding completion, if not guest, start CloudKit + push setup now.
                         if !isGuestMode {
                             appDelegate.startCloudKitAndPushSetupIfNeeded()
+                            // Force an immediate CloudKit refresh so UI repopulates after login
+                            DispatchQueue.main.async {
+                                ClientsStore.shared.forceCloudKitRefresh()
+                            }
                         }
                         if !didMigrateToAppGroup {
                             migrateDocumentsToAppGroupIfNeeded()

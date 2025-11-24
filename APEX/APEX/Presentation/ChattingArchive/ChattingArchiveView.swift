@@ -290,7 +290,7 @@ struct ChattingArchiveView: View {
             HStack(spacing: 0) {
                 Button(action: { router.pop() }) {
                     Image(systemName: "chevron.left")
-                        .font(.title4)
+                        .font(.system(size: 20, weight: .medium, design: .default))
                         .foregroundColor(.black)
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
