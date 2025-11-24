@@ -15,6 +15,12 @@ struct ProfileDetailView: View {
     @StateObject private var viewModel: ProfileDetailViewModel
     @State private var shouldEndMemoEditing = false
     // Removed local NavigationLink push states and moved UI state to ViewModel
+    
+    // 내 프로필 여부 확인
+    private var isMyProfile: Bool {
+        let myId = ClientsStore.shared.clients.first?.id
+        return clientId == myId
+    }
 
     init(clientId: UUID, client: Binding<DummyClient>) {
         self.clientId = clientId
@@ -81,23 +87,25 @@ struct ProfileDetailView: View {
             .buttonStyle(.plain)  // List Row의 기본 터치 효과 비활성화
             .onTapGesture { }  // 빈 탭 제스처로 List Row 선택 방지
 
-            // 메모 섹션
-            Section {
-                ProfileDetailMemoSection(
-                    memo: Binding(
-                        get: { client.memo ?? "" },
-                        set: { newValue in 
-                            client.memo = newValue.isEmpty ? nil : newValue
-                            // 실시간 저장을 위해 ViewModel에 업데이트 알림
-                            viewModel.updateMemo(newValue.isEmpty ? nil : newValue)
-                        }
-                    ),
-                    shouldEndEditing: shouldEndMemoEditing
-                )
+            // 메모 섹션 (내 프로필이 아닌 경우에만 표시)
+            if !isMyProfile {
+                Section {
+                    ProfileDetailMemoSection(
+                        memo: Binding(
+                            get: { client.memo ?? "" },
+                            set: { newValue in 
+                                client.memo = newValue.isEmpty ? nil : newValue
+                                // 실시간 저장을 위해 ViewModel에 업데이트 알림
+                                viewModel.updateMemo(newValue.isEmpty ? nil : newValue)
+                            }
+                        ),
+                        shouldEndEditing: shouldEndMemoEditing
+                    )
+                }
+                .listRowInsets(EdgeInsets(top: 24, leading: 16, bottom: 16, trailing: 16))  // 24-메모-4-컨텐츠-16, 16-8-컨텐츠-8-16 구조
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
             }
-            .listRowInsets(EdgeInsets(top: 24, leading: 16, bottom: 16, trailing: 16))  // 24-메모-4-컨텐츠-16, 16-8-컨텐츠-8-16 구조
-            .listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)

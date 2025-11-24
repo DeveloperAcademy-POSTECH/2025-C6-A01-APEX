@@ -47,6 +47,72 @@ struct ProfileDetailMemoSection: View {
     }
 }
 
+// MARK: - Profile Edit Memo Section (for Edit Sheet)
+
+struct ProfileEditMemoSection: View {
+    @Binding var memo: String
+    let placeholder: String
+    let maxLength: Int?
+    @FocusState private var isFocused: Bool
+    
+    init(memo: Binding<String>, placeholder: String = "주요 대화", maxLength: Int? = 100) {
+        self._memo = memo
+        self.placeholder = placeholder
+        self.maxLength = maxLength
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            // 메모 라벨 (편집시트용: 좌우 패딩 제거)
+            Text("메모")
+                .font(.body5)
+                .foregroundColor(.gray)
+            
+            // 편집 가능한 메모 박스 + 플레이스홀더
+            ZStack(alignment: .topLeading) {
+                // TextEditor
+                TextEditor(text: $memo)
+                    .font(.body2)
+                    .foregroundColor(.black)
+                    .scrollContentBackground(.hidden)
+                    .background(Color.clear)
+                    .focused($isFocused)
+                    .frame(maxWidth: .infinity, minHeight: 144, alignment: .topLeading)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                
+                // 플레이스홀더 텍스트
+                if memo.isEmpty && !isFocused {
+                    Text(placeholder)
+                        .font(.body2)
+                        .foregroundColor(.gray.opacity(0.6))
+                        .padding(.horizontal, 16)  // 10 + 6 for TextEditor alignment
+                        .padding(.vertical, 16)   // 8 + 8 for proper alignment
+                        .allowsHitTesting(false)
+                }
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 4)
+                    .inset(by: 0.5)
+                    .stroke(Color("BackgroundDisabled"), lineWidth: 1)
+            }
+            // 편집시트용: 좌우 패딩 제거
+            
+            // 글자 수 표시
+            if let maxLength = maxLength {
+                HStack {
+                    Spacer()
+                    Text("\(memo.count) / \(maxLength)")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+                .padding(.top, 4)
+                // 편집시트용: 좌우 패딩 제거
+            }
+        }
+    }
+}
+
 // MARK: - Previews
 
 #Preview("Empty Memo") {
