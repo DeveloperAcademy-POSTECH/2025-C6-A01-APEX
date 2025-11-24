@@ -24,7 +24,7 @@ struct ShareRow: View {
         static let trailingSpacerMin: CGFloat = 8
         static let checkboxSize: CGFloat = 22
         static let iconFontSize: CGFloat = 10
-    }
+    } // computed subtitle
 
     var body: some View {
         HStack(alignment: .center, spacing: Metrics.hStackSpacing) {
@@ -75,7 +75,7 @@ struct ShareRow: View {
         case .contacts:
             return client.position ?? ""
         case .recents:
-            return latestMemoText(from: client.notes) ?? ""
+            return NotesTextFormatter.latestSummary(from: client.notes) ?? ""
         }
     }
 
@@ -107,20 +107,6 @@ struct ShareRow: View {
 }
 
 // makeInitials moved to common component: Profile.makeInitials
-
-#warning("최신 메모 텍스트를 부제목으로 표시 (텍스트 없는 경우 빈 문자열)")
-private func latestMemoText(from notes: [Note]) -> String? {
-    guard let latest = notes.max(by: { $0.uploadedAt < $1.uploadedAt }) else { return nil }
-    if let text = latest.text?
-        .split(whereSeparator: \.isNewline)
-        .first
-        .map(String.init)?
-        .trimmingCharacters(in: .whitespacesAndNewlines),
-       !text.isEmpty {
-        return text
-    }
-    return nil
-}
 
 #Preview {
     VStack(spacing: 12) {

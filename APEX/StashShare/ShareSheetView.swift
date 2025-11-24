@@ -235,7 +235,7 @@ struct ShareSheetView: View {
     private var recentsSorted: [PClient] {
         clients.sorted {
             let l = $0.notes.max(by: { $0.uploadedAt < $1.uploadedAt })?.uploadedAt ?? .distantPast
-            let r = $1.notes.max(by: { $1.uploadedAt < $0.uploadedAt })?.uploadedAt ?? .distantPast
+            let r = $1.notes.max(by: { $0.uploadedAt < $1.uploadedAt })?.uploadedAt ?? .distantPast
             return l > r
         }
     }
