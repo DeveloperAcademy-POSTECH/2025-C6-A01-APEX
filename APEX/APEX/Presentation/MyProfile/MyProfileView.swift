@@ -90,7 +90,7 @@ struct MyProfileView: View {
                         .padding(.top, 32)
                     
                     MyProfileDangerZoneSection(
-                        onLogout: { /* TODO */ },
+                        onLogout: { viewModel.send(.tapLogout) },
                         onDeleteAccount: { router.push(.unsubscribe) }
                     )
                     .padding(.vertical, 10)
@@ -148,6 +148,17 @@ struct MyProfileView: View {
             }
         } message: {
             Text("케시에 임시 저장된 기타 데이터를 삭제하고 정리합니다. 노트 내 텍스트, 사진, 동영상, 음성메시지 파일은 그대로 유지됩니다")
+        }
+        .alert("로그아웃 하시겠습니까?", isPresented: $viewModel.showLogoutConfirm){
+        Button("취소", role: .cancel) { }
+            Button("로그아웃")
+            {
+                viewModel.send(.confirmLogout)
+            }
+            .keyboardShortcut(.defaultAction)
+        }
+        message: {
+            Text("게스트 계정은 로그아웃 시 모든 데이터가 삭제됩니다.")
         }
     }
 }
