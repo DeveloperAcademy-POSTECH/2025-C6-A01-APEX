@@ -13,6 +13,7 @@ struct ProfileDetailView: View {
     let clientId: UUID
     @Binding var client: DummyClient
     @StateObject private var viewModel: ProfileDetailViewModel
+    @State private var shouldEndMemoEditing = false
     // Removed local NavigationLink push states and moved UI state to ViewModel
 
     init(clientId: UUID, client: Binding<DummyClient>) {
@@ -83,10 +84,18 @@ struct ProfileDetailView: View {
             // 메모 섹션
             Section {
                 ProfileDetailMemoSection(
-                    memo: client.memo ?? ""
+                    memo: Binding(
+                        get: { client.memo ?? "" },
+                        set: { newValue in 
+                            client.memo = newValue.isEmpty ? nil : newValue
+                            // 실시간 저장을 위해 ViewModel에 업데이트 알림
+                            viewModel.updateMemo(newValue.isEmpty ? nil : newValue)
+                        }
+                    ),
+                    shouldEndEditing: shouldEndMemoEditing
                 )
             }
-            .listRowInsets(EdgeInsets(top: 32, leading: 16, bottom: 16, trailing: 16))  // 마지막이라 bottom 16
+            .listRowInsets(EdgeInsets(top: 24, leading: 16, bottom: 16, trailing: 16))  // 24-메모-4-컨텐츠-16, 16-8-컨텐츠-8-16 구조
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
         }
@@ -95,6 +104,11 @@ struct ProfileDetailView: View {
         .background(Color("Background"))
         .environment(\.defaultMinListRowHeight, 0)  // 최소 높이 제거
         .listRowSpacing(0)  // Row 간격 제거
+        .contentShape(Rectangle())
+        .onTapGesture {
+            // 메모 외부 영역을 터치하면 편집 완료
+            shouldEndMemoEditing.toggle()
+        }
         .safeAreaBar(edge: .top) {
             MyProfileNavigationBar(
                 title: client.company.isEmpty ? "\(client.surname)\(client.name)" : client.company,

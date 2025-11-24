@@ -10,45 +10,38 @@ import SwiftUI
 // MARK: - Profile Detail Memo Section
 
 struct ProfileDetailMemoSection: View {
-    let memo: String
-    
-    private var isEmpty: Bool {
-        memo.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
+    @Binding var memo: String
+    @FocusState private var isFocused: Bool
+    let shouldEndEditing: Bool
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // 메모 라벨 (외부)
+        VStack(alignment: .leading, spacing: 4) {  // 메모-컨텐츠 간격 4로 조정
+            // 메모 라벨
             Text("메모")
                 .font(.body5)
                 .foregroundColor(.gray)
+                .padding(.horizontal, 8)  // 라벨에 좌우 8 패딩 추가
             
-            // 메모 박스 (클릭 불가)
-            VStack(alignment: .leading, spacing: 0) {
-                if isEmpty {
-                    Text("주요 대화")
-                        .font(.body2)
-                        .foregroundColor(Color("BackgroundDisabled"))
-                        .frame(maxWidth: .infinity, alignment: .topLeading)
-                        .multilineTextAlignment(.leading)
-                } else {
-                    Text(memo)
-                        .font(.body2)
-                        .foregroundColor(.black)
-                        .frame(maxWidth: .infinity, alignment: .topLeading)
-                        .multilineTextAlignment(.leading)
-                        .lineLimit(nil)
-                        .fixedSize(horizontal: false, vertical: true)
+            // 편집 가능한 메모 박스
+            TextEditor(text: $memo)
+                .font(.body2)
+                .foregroundColor(.black)
+                .scrollContentBackground(.hidden)  // 기본 배경 제거
+                .background(Color.clear)
+                .frame(maxWidth: .infinity, minHeight: 144, alignment: .topLeading)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .focused($isFocused)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 4)
+                        .inset(by: 0.5)
+                        .stroke(Color("BackgroundDisabled"), lineWidth: 1)
                 }
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .frame(maxWidth: .infinity, minHeight: 144, alignment: .topLeading)
-            .overlay {
-                RoundedRectangle(cornerRadius: 4)
-                    .inset(by: 0.5)
-                    .stroke(Color("BackgroundDisabled"), lineWidth: 1)
-                
+                .padding(.horizontal, 8)  // 박스에 좌우 8 패딩 추가
+        }
+        .onChange(of: shouldEndEditing) { _, newValue in
+            if newValue {
+                isFocused = false
             }
         }
     }
@@ -57,17 +50,15 @@ struct ProfileDetailMemoSection: View {
 // MARK: - Previews
 
 #Preview("Empty Memo") {
-    ProfileDetailMemoSection(
-        memo: ""
-    )
-    .padding()
-    .background(Color("Background"))
+    @Previewable @State var memo = ""
+    ProfileDetailMemoSection(memo: $memo, shouldEndEditing: false)
+        .padding()
+        .background(Color("Background"))
 }
 
 #Preview("Filled Memo") {
-    ProfileDetailMemoSection(
-        memo: "이 사람은 마케팅 팀의 팀장이며, 새로운 프로젝트에 대해 논의했습니다. 다음 미팅은 다음 주 화요일로 예정되어 있습니다."
-    )
-    .padding()
-    .background(Color("Background"))
+    @Previewable @State var memo = "이 사람은 마케팅 팀의 팀장이며, 새로운 프로젝트에 대해 논의했습니다. 다음 미팅은 다음 주 화요일로 예정되어 있습니다."
+    ProfileDetailMemoSection(memo: $memo, shouldEndEditing: false)
+        .padding()
+        .background(Color("Background"))
 }
