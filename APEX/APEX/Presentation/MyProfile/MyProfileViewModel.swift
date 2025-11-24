@@ -21,6 +21,8 @@ final class MyProfileViewModel: ViewModelable {
         case tapPurge
         case confirmPurge
         case setAlert(String?)
+        case tapLogout
+        case confirmLogout
     }
     
     // MARK: - Inputs
@@ -34,6 +36,7 @@ final class MyProfileViewModel: ViewModelable {
     @Published var usedSizeText: String = "—"
     @Published var isPurgeEnabledState: Bool = false
     @Published var showPurgeConfirm: Bool = false
+    @Published var showLogoutConfirm: Bool = false
     
     // MARK: - Init
     init(client: Binding<DummyClient>) {
@@ -67,6 +70,10 @@ final class MyProfileViewModel: ViewModelable {
             purgeTemporaryData()
         case .setAlert(let msg):
             alertMessage = msg
+        case .tapLogout:
+            showLogoutConfirm = true
+        case .confirmLogout:
+            performLogout()
         }
     }
 }
@@ -171,6 +178,12 @@ extension MyProfileViewModel {
 
 // MARK: - Private Helpers
 private extension MyProfileViewModel {
+    func performLogout() {
+        // TODO: 실제 로그아웃 로직 구현
+        // 예: 로그인 상태 초기화, 토큰 삭제, 네비게이션 등
+        print("로그아웃 수행")
+    }
+    
     func refreshPurgeEnabled() {
         isPurgeEnabledState = hasTemporaryData()
     }
