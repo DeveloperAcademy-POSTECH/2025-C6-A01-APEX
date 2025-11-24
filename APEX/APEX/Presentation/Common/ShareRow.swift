@@ -32,7 +32,7 @@ struct ShareRow: View {
 
             VStack(alignment: .leading, spacing: Metrics.nameSubtitleSpacing) {
                 HStack(spacing: 1) {
-                    Text("\(client.name) \(client.surname)")
+                    Text(client.autoFormattedName)
                         .font(.body2)
                         .foregroundColor(.primary)
                         .lineLimit(1)
@@ -67,7 +67,7 @@ struct ShareRow: View {
         .padding(.vertical, 8)
         .contentShape(Rectangle())
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(client.name) \(client.surname), \(subtitle)")
+        .accessibilityLabel("\(client.autoFormattedName), \(subtitle)")
     }
 
     private var subtitle: String {
@@ -77,7 +77,6 @@ struct ShareRow: View {
         case .recents:
             return latestMemoText(from: client.notes) ?? ""
         }
-        
     }
 
     private var nameBadgeIconName: String? {
