@@ -47,8 +47,12 @@ final class CloudKitNotesManager {
                     group.enter()
                     let uploadedAt = (rec["uploadedAt"] as? Date) ?? Date()
                     let text = rec["text"] as? String
-                    let noteId = UUID()
-                    self.setNoteRecordID(rec.recordID, for: noteId)
+                    // Reuse existing noteId mapping if available; otherwise create and store
+                    let noteId: UUID = self.noteId(for: rec.recordID) ?? {
+                        let newId = UUID()
+                        self.setNoteRecordID(rec.recordID, for: newId)
+                        return newId
+                    }()
                     // Fetch assets for this note
                     let apred = NSPredicate(format: "noteRef == %@", rec.recordID)
                     CloudKitManager.shared.query(type: "NoteAsset", predicate: apred) { ar in
@@ -433,6 +437,15 @@ final class CloudKitNotesManager {
         let map = loadNoteMap()
         guard let name = map[noteId.uuidString] else { return nil }
         return CKRecord.ID(recordName: name)
+    }
+    /// Reverse lookup: find existing noteId for a given CloudKit recordID if mapped
+    private func noteId(for recordID: CKRecord.ID) -> UUID? {
+        let map = loadNoteMap() // [noteIdString: recordName]
+        let recordName = recordID.recordName
+        if let pair = map.first(where: { $0.value == recordName }) {
+            return UUID(uuidString: pair.key)
+        }
+        return nil
     }
     private func setNoteRecordID(_ id: CKRecord.ID, for noteId: UUID) {
         var map = loadNoteMap()
