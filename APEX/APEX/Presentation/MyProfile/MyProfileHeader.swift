@@ -178,6 +178,20 @@ public struct MyProfileHeaderView: View {
             .padding(.top, 4)      // 상단 4px 패딩 추가
         }
         .padding(.top, 16)  // 네비게이션 바와의 간격 16px를 내부로 이동
+        // 헤더 영역에서의 좌우 스와이프 중에는 글로벌 스와이프-백(pop) 비활성화
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 1)
+                .onChanged { _ in
+                    ApexSwipeBackState.shared.isDisabled = true
+                }
+                .onEnded { _ in
+                    ApexSwipeBackState.shared.isDisabled = false
+                }
+        )
+        .onDisappear {
+            // 안전장치: 화면 이탈 시 항상 원복
+            ApexSwipeBackState.shared.isDisabled = false
+        }
         .onChange(of: pages.count) { _ in
             page = min(page, max(pages.count - 1, 0))
         }
