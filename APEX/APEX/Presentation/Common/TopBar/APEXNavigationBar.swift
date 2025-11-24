@@ -59,6 +59,7 @@ struct APEXNavigationBar: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .glassEffect()
         case .memo(_, let onBack, _, _, _):
             Button(action: onBack) {
                 Image(systemName: "chevron.left")
@@ -67,6 +68,7 @@ struct APEXNavigationBar: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .glassEffect()
         }
     }
 
@@ -99,6 +101,7 @@ struct APEXNavigationBar: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .glassEffect()
 
                 Button(action: onMenu) {
                     Image(systemName: "square.grid.2x2")
@@ -107,6 +110,7 @@ struct APEXNavigationBar: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .glassEffect()
             }
         }
     }
