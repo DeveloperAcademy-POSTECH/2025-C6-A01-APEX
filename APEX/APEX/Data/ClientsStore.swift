@@ -155,6 +155,14 @@ final class ClientsStore: ObservableObject {
         }
     }
 
+    // MARK: - Public CloudKit refresh after login/onboarding
+    func forceCloudKitRefresh() {
+        guard SyncSettings.isAutoOn else { return }
+        pullClientsFromCloudKit()
+        pullUserFromCloudKit()
+        pullAllClientNotesFromCloudKit()
+    }
+
     private func syncAllNotesToChatStore() {
         for client in clients {
             ChatStore.shared.setNotes(client.notes, for: client.id)

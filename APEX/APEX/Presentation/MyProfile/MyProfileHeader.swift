@@ -215,8 +215,7 @@ public struct MyProfileHeaderView: View {
                 )
         case .avatar(let initials):
             let trimmed = initials.trimmingCharacters(in: .whitespacesAndNewlines)
-            let displayInitials = trimmed.isEmpty ? "U" : trimmed
-            Profile(image: nil, initials: displayInitials, size: .large)
+            Profile(image: nil, initials: trimmed, size: .large)
         }
     }
 }

@@ -147,13 +147,13 @@ struct APEXListRow: View {
                     if style == .note && !timeText.isEmpty {
                         Text(timeText)
                             .font(.caption)
-                            .foregroundColor(Color("Gray"))  // .gray 대신 명확한 색상
+                            .foregroundColor(Color("GrayLabel"))  // .gray 대신 명확한 색상
                     }
                 }
 
                 Text(subtitle)
                     .font(.body6)
-                    .foregroundColor(Color("Gray"))  // .gray 대신 명확한 색상
+                    .foregroundColor(Color("GrayLabel"))  // .gray 대신 명확한 색상
                     .lineLimit(1)
             }
             
@@ -161,7 +161,7 @@ struct APEXListRow: View {
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(Color("Gray"))  // .gray 대신 명확한 색상
+                    .foregroundColor(Color("GrayLabel"))  // .gray 대신 명확한 색상
             }
         }
         .frame(height: 64)

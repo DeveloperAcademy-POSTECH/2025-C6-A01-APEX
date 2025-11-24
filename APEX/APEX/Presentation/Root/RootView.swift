@@ -173,38 +173,70 @@ private extension RootView {
 // MARK: - Route Screens (wrappers to adapt bindings)
 private struct MyProfileScreen: View {
     @ObservedObject private var store = ClientsStore.shared
-    @State private var client: DummyClient = DummyClient(
-        profile: nil,
-        nameCardFront: nil,
-        nameCardBack: nil,
-        surname: "",
-        name: "",
-        position: nil,
-        company: "",
-        department: nil,
-        email: nil,
-        phoneNumber: nil,
-        linkedinURL: nil,
-        memo: nil,
-        action: nil,
-        favorite: false,
-        pin: false,
-        notes: [],
-        industry: nil,
-        address: nil,
-        faxNumber: nil,
-        revenue: nil,
-        employees: nil,
-        additionalEmails: [],
-        additionalPhones: [],
-        additionalURLs: []
-    )
+    @State private var client: DummyClient = MyProfileScreen.initialDummyFromStore()
     var body: some View {
         MyProfileView(client: $client)
             .onAppear { syncFromStore() }
             .onChange(of: store.clients) { _ in
                 syncFromStore()
             }
+    }
+    
+    private static func initialDummyFromStore() -> DummyClient {
+        if let first = ClientsStore.shared.clients.first {
+            return DummyClient(
+                profile: first.profile,
+                nameCardFront: first.nameCardFront,
+                nameCardBack: first.nameCardBack,
+                surname: first.surname,
+                name: first.name,
+                position: first.position,
+                company: first.company,
+                department: first.department,
+                email: first.email,
+                phoneNumber: first.phoneNumber,
+                linkedinURL: first.linkedinURL,
+                memo: first.memo,
+                action: first.action,
+                favorite: first.favorite,
+                pin: first.pin,
+                notes: [],
+                industry: first.industry,
+                address: first.address,
+                faxNumber: first.faxNumber,
+                revenue: first.revenue,
+                employees: first.employees,
+                additionalEmails: first.additionalEmails,
+                additionalPhones: first.additionalPhones,
+                additionalURLs: first.additionalURLs
+            )
+        }
+        return DummyClient(
+            profile: nil,
+            nameCardFront: nil,
+            nameCardBack: nil,
+            surname: "",
+            name: "",
+            position: nil,
+            company: "",
+            department: nil,
+            email: nil,
+            phoneNumber: nil,
+            linkedinURL: nil,
+            memo: nil,
+            action: nil,
+            favorite: false,
+            pin: false,
+            notes: [],
+            industry: nil,
+            address: nil,
+            faxNumber: nil,
+            revenue: nil,
+            employees: nil,
+            additionalEmails: [],
+            additionalPhones: [],
+            additionalURLs: []
+        )
     }
     
     private func syncFromStore() {
