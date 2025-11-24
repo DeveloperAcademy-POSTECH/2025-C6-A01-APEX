@@ -23,10 +23,22 @@ final class ClientsStore: ObservableObject {
     @Published var isCloudSyncInProgress: Bool = false
     private var activeSyncOperations: Int = 0
     private func addSyncOperations(_ count: Int = 1) {
+        if !Thread.isMainThread {
+            DispatchQueue.main.async { [weak self] in
+                self?.addSyncOperations(count)
+            }
+            return
+        }
         activeSyncOperations += max(0, count)
         isCloudSyncInProgress = activeSyncOperations > 0
     }
     private func completeOneSyncOperation() {
+        if !Thread.isMainThread {
+            DispatchQueue.main.async { [weak self] in
+                self?.completeOneSyncOperation()
+            }
+            return
+        }
         if activeSyncOperations > 0 { activeSyncOperations -= 1 }
         isCloudSyncInProgress = activeSyncOperations > 0
     }
@@ -72,6 +84,7 @@ final class ClientsStore: ObservableObject {
         // Persist on any change
         $clients
             .dropFirst()
+            .receive(on: RunLoop.main)
             .sink { [weak self] newValue in
                 guard let self else { return }
                 // Avoid persisting when running SwiftUI previews to prevent preview data from leaking into runtime
@@ -84,6 +97,7 @@ final class ClientsStore: ObservableObject {
 
         // Sync notes changes coming from ChatStore into clients, then persist
         NotificationCenter.default.publisher(for: .apexChatNotesUpdated)
+            .receive(on: RunLoop.main)
             .sink { [weak self] notification in
                 guard
                     let self = self,
@@ -101,6 +115,7 @@ final class ClientsStore: ObservableObject {
 
         // When app returns to foreground, pull from App Group in case the Share Extension added notes
         NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)
+            .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 guard let self else { return }
                 if let fromAppGroup = self.localStore.loadClientsFromAppGroup() {
@@ -121,6 +136,7 @@ final class ClientsStore: ObservableObject {
 
         // React to CloudKit DB change notifications by pulling latest minimal client list.
         NotificationCenter.default.publisher(for: .cloudKitDatabaseDidChange)
+            .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 guard SyncSettings.isAutoOn else { return }
                 self?.refreshAllCloudKitDataSequentially()
@@ -355,7 +371,9 @@ final class ClientsStore: ObservableObject {
                     for (client, recordID) in pairs {
                         self.setCloudKitRecordID(recordID, for: client.id)
                     }
-                    completion?()
+                    // After clients list is updated from CloudKit, immediately prefetch notes for all clients
+                    // so NotesView shows latest memo without needing to enter chat.
+                    self.pullAllClientNotesFromCloudKit()
                 }
             }
             self.completeOneSyncOperation()

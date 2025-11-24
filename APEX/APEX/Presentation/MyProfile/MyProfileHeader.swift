@@ -105,8 +105,8 @@ public struct MyProfileHeaderView: View {
         }
         
         if client.nameCardFront != nil || client.nameCardBack != nil {
-            if let f = client.nameCardFront { arr.append(.cardFront(f)) }
-            if let b = client.nameCardBack { arr.append(.cardBack(b)) }
+            if let frontImage = client.nameCardFront { arr.append(.cardFront(frontImage)) }
+            if let backImage = client.nameCardBack { arr.append(.cardBack(backImage)) }
         } else {
             arr.append(.cardFront(Image("CardL")))
             arr.append(.cardBack(Image("CardL")))
@@ -215,15 +215,8 @@ public struct MyProfileHeaderView: View {
                 )
         case .avatar(let initials):
             let trimmed = initials.trimmingCharacters(in: .whitespacesAndNewlines)
-            if trimmed.isEmpty {
-                Image("ProfileL")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 232, height: 232)
-                    .clipShape(Circle())
-            } else {
-                Profile(image: nil, initials: trimmed, size: .large)
-            }
+            let displayInitials = trimmed.isEmpty ? "U" : trimmed
+            Profile(image: nil, initials: displayInitials, size: .large)
         }
     }
 }

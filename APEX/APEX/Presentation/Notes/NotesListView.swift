@@ -303,13 +303,22 @@ enum NotesTextFormatter {
 
 enum NotesListModel {
     static func filter(_ clients: [Client], by filter: NotesFilter) -> [Client] {
+        // 공통: 노트가 한 개도 없는 클라이언트는 제외
+        func hasAnyNotes(_ client: Client) -> Bool {
+            let live = ChatStore.shared.notes(for: client.id)
+            let source = live.isEmpty ? client.notes : live
+            return !source.isEmpty
+        }
+        
+        let base: [Client]
         switch filter {
         case .all:
-            return clients
+            base = clients
         case .company(let companyName):
             let key = companyName.trimmingCharacters(in: .whitespacesAndNewlines)
-            return clients.filter { $0.company.trimmingCharacters(in: .whitespacesAndNewlines) == key }
+            base = clients.filter { $0.company.trimmingCharacters(in: .whitespacesAndNewlines) == key }
         }
+        return base.filter { hasAnyNotes($0) }
     }
 
     static func sort(_ clients: [Client]) -> [Client] {
