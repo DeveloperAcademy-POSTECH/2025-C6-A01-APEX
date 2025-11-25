@@ -173,7 +173,7 @@ struct MyProfileEditSheet: View {
         let emailCount = max(1, (hasPrimaryEmail ? 1 : 0) + client.additionalEmails.count)
         let phoneCount = max(1, (hasPrimaryPhone ? 1 : 0) + client.additionalPhones.count)
         let urlCount = client.additionalURLs.count
-        let showsLinkedIn = !(client.linkedinURL ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let showsLinkedIn = true  // 링크드인은 항상 표시
         let showsIndustry = !(client.industry ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let showsAddress = !(client.address ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let showsFax = !(client.faxNumber ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
