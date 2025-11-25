@@ -12,6 +12,7 @@ import SwiftUI
 struct CardViewer: View {
     let images: [Image]
     let onClose: () -> Void
+    var hasProfileFirst: Bool = false
     @State private var currentIndex = 0
     
     var body: some View {
@@ -39,11 +40,20 @@ struct CardViewer: View {
                 // 명함 이미지들
                 TabView(selection: $currentIndex) {
                     ForEach(images.indices, id: \.self) { index in
-                        images[index]
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .clipped()
-                            .tag(index)
+                        Group {
+                            if hasProfileFirst && index == 0 {
+                                images[index]
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 232, height: 232)
+                                    .clipShape(Circle())
+                            } else {
+                                images[index]
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                            }
+                        }
+                        .tag(index)
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))

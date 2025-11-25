@@ -35,7 +35,7 @@ struct ShareTabPickerExt: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 16)
         .background(
             VStack(spacing: 0) {
                 Spacer()

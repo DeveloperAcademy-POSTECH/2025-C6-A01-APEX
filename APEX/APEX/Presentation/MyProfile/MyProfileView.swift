@@ -132,11 +132,17 @@ struct MyProfileView: View {
         }
         .fullScreenCover(isPresented: $viewModel.isShowingCardViewer) {
             CardViewer(
-                images: [
-                    client.nameCardFront ?? Image("CardL"),
-                    client.nameCardBack  ?? Image("CardL")
-                ],
-                onClose: { viewModel.send(.showCardViewer(false)) }
+                images: {
+                    var images: [Image] = []
+                    if let ui = client.profile {
+                        images.append(Image(uiImage: ui))
+                    }
+                    if let front = client.nameCardFront { images.append(front) }
+                    if let back = client.nameCardBack { images.append(back) }
+                    return images
+                }(),
+                onClose: { viewModel.send(.showCardViewer(false)) },
+                hasProfileFirst: client.profile != nil
             )
         }
         // Hidden NavigationLink removed; Router handles navigation
