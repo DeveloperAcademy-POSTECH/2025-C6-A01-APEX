@@ -179,7 +179,6 @@ final class CloudKitNotesManager {
     private func createAssetsIfNeeded(for note: Note, noteRecordID: CKRecord.ID, clientId: UUID) {
         guard let bundle = note.bundle else { return }
         var remaining = 0
-        var pendingDeletionURLs: [URL] = []
         func onOneSaved() {
             remaining -= 1
             if remaining == 0 {
@@ -187,14 +186,26 @@ final class CloudKitNotesManager {
                 self.fetchNotes(for: clientId) { result in
                     if case .success(let fetched) = result {
                         DispatchQueue.main.async {
-                            ChatStore.shared.setNotes(fetched, for: clientId)
-                            // Defer local file deletion slightly to avoid UI flicker while notes refresh
-                            let urlsToDelete = pendingDeletionURLs
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                                for url in urlsToDelete {
-                                    self.deleteLocalIfInAppGroup(url)
+                            // Merge fetched notes with current local notes to avoid dropping
+                            // just-uploaded items due to CloudKit eventual consistency.
+                            let local = ChatStore.shared.notes(for: clientId)
+                            var merged = fetched
+                            // Preserve local STT text if CloudKit text is empty
+                            for idx in merged.indices {
+                                if let lidx = local.firstIndex(where: { $0.id == merged[idx].id }) {
+                                    let localText = local[lidx].text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                                    let cloudText = merged[idx].text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                                    if !localText.isEmpty && cloudText.isEmpty {
+                                        merged[idx].text = local[lidx].text
+                                    }
                                 }
                             }
+                            // Include local-only notes that are not yet visible from CloudKit
+                            for localNote in local where !merged.contains(where: { $0.id == localNote.id }) {
+                                merged.append(localNote)
+                            }
+                            let sorted = merged.sorted { $0.uploadedAt < $1.uploadedAt }
+                            ChatStore.shared.setNotes(sorted, for: clientId)
                         }
                     }
                 }
@@ -227,7 +238,6 @@ final class CloudKitNotesManager {
                 fields["filename"] = (vid.url.lastPathComponent as NSString)
                 fields["noteRef"] = CKRecord.Reference(recordID: noteRecordID, action: .none)
                 CloudKitManager.shared.saveRecord(type: "NoteAsset", fields: fields) { _ in
-                    pendingDeletionURLs.append(vid.url)
                     onOneSaved()
                 }
             }
@@ -241,7 +251,6 @@ final class CloudKitNotesManager {
                 fields["filename"] = (f.url.lastPathComponent as NSString)
                 fields["noteRef"] = CKRecord.Reference(recordID: noteRecordID, action: .none)
                 CloudKitManager.shared.saveRecord(type: "NoteAsset", fields: fields) { _ in
-                    pendingDeletionURLs.append(f.url)
                     onOneSaved()
                 }
             }
@@ -255,7 +264,6 @@ final class CloudKitNotesManager {
                 fields["filename"] = (a.url.lastPathComponent as NSString)
                 fields["noteRef"] = CKRecord.Reference(recordID: noteRecordID, action: .none)
                 CloudKitManager.shared.saveRecord(type: "NoteAsset", fields: fields) { _ in
-                    pendingDeletionURLs.append(a.url)
                     onOneSaved()
                 }
             }
