@@ -72,63 +72,62 @@ struct PhotoAddView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-                Spacer(minLength: 0)
+            Spacer(minLength: 0)
 
-                // Large preview per type (show cropped result if available)
-                Group {
-                    if isProfile {
-                        if let img = pickedProfileImage {
-                            ZStack {
-                                // Ensure transparent areas of the cropped image do not show as black
-                                Circle().fill(Color("BackgroundSecondary"))
+            // Large preview per type (show cropped result if available)
+            Group {
+                if isProfile {
+                    if let img = pickedProfileImage {
+                        ZStack {
+                            // Ensure transparent areas of the cropped image do not show as black
+                            Circle().fill(Color("BackgroundSecondary"))
+                            Image(uiImage: img)
+                                .resizable()
+                                .scaledToFill()
+                                .clipShape(Circle())
+                        }
+                        .frame(width: 232, height: 232)
+                    } else {
+                        Image("ProfileL")
+                    }
+                } else {
+                    TabView(selection: $selectedCardSide) {
+                        Group {
+                            if let img = pickedFrontImage {
                                 Image(uiImage: img)
                                     .resizable()
-                                    .scaledToFill()
-                                    .clipShape(Circle())
+                                    .scaledToFit()
+                                    .frame(width: 358, height: 214)
+                                    .cornerRadius(9.28)
+                            } else {
+                                Image("CardL")
                             }
-                            .frame(width: 232, height: 232)
-                        } else {
-                            Image("ProfileL")
                         }
-                    } else {
-                        TabView(selection: $selectedCardSide) {
-                            Group {
-                                if let img = pickedFrontImage {
-                                    Image(uiImage: img)
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(width: 358, height: 214)
-                                        .cornerRadius(9.28)
-                                } else {
-                                    Image("CardL")
-                                }
-                            }
-                            .tag(CardSide.front)
-                            .padding(.vertical, 9)
+                        .tag(CardSide.front)
+                        
 
-                            Group {
-                                if let img = pickedBackImage {
-                                    Image(uiImage: img)
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(width: 358, height: 214)
-                                        .cornerRadius(9.28)
-                                } else {
-                                    Image("CardL")
-                                }
+                        Group {
+                            if let img = pickedBackImage {
+                                Image(uiImage: img)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 358, height: 214)
+                                    .cornerRadius(9.28)
+                            } else {
+                                Image("CardL")
                             }
-                            .tag(CardSide.back)
-                            .padding(.vertical, 9)
                         }
-                        .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
-                        .frame(maxWidth: .infinity, minHeight: 214, maxHeight: 214)
+                        .tag(CardSide.back)
                     }
+                    .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
+                    .frame(maxWidth: .infinity, minHeight: 214, maxHeight: 214)
+                    .padding(.vertical, 9)
                 }
+            }
             .frame(maxWidth: .infinity)
             .padding(.bottom, 16)
             Text(isProfile ? "프로필" : (selectedCardSide == .front ? "명함 앞" : "명함 뒤"))
                 .font(.title2)
-                .padding(.top, 16)
             if !isProfile {
                 HStack(spacing: 8) {
                     ForEach(CardSide.allCases, id: \.self) { side in
