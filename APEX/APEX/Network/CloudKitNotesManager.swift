@@ -216,7 +216,7 @@ final class CloudKitNotesManager {
             remaining += images.count + videos.count
             for (idx, img) in images.enumerated() {
                 if let ui = UIImage(data: img.data),
-                   let asset = CloudKitManager.shared.makeAsset(from: ui) {
+                   let asset = CloudKitManager.shared.makeAsset(from: ui, compressionQuality: 1.0) {
                     var fields: [String: CKRecordValueProtocol] = [:]
                     fields["kind"] = "image" as NSString
                     fields["asset"] = asset
@@ -408,7 +408,7 @@ final class CloudKitNotesManager {
                         var fields: [String: CKRecordValueProtocol] = [:]
                         fields["kind"] = item.kind as NSString
                         fields["orderIndex"] = NSNumber(value: item.order)
-                        if item.kind == "image", let data = item.imgData, let ui = UIImage(data: data), let asset = CloudKitManager.shared.makeAsset(from: ui) {
+                        if item.kind == "image", let data = item.imgData, let ui = UIImage(data: data), let asset = CloudKitManager.shared.makeAsset(from: ui, compressionQuality: 1.0) {
                             fields["asset"] = asset
                             fields["imageKey"] = (self.makeImageKey(from: data) as NSString)
                         }

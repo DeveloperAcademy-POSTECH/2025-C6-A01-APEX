@@ -199,7 +199,7 @@ private extension InputBar {
         for item in stagedAttachments {
             switch item.kind {
             case .image(let uiImage):
-                if let data = uiImage.jpegData(compressionQuality: 0.9) ?? uiImage.pngData() {
+                if let data = uiImage.jpegData(compressionQuality: 1.0) ?? uiImage.pngData() {
                     _ = persistDataToAppCache(data: data, preferredExtension: "jpg")
                     images.append(ImageAttachment(data: data, progress: 0, orderIndex: orderCounter))
                     orderCounter += 1
@@ -628,6 +628,7 @@ struct InputBar: View {
                             .scrollDisabled(currentLineCount <= 5)
                             .focused($isEditorFocused)
                             .padding(.top, editorVerticalPadding / 2)
+                            .padding(.bottom, currentLineCount <= 5 ? 0 : editorVerticalPadding / 2)
                             .padding(.leading, editorLeftPadding / 2)
                             .padding(.trailing, editorRightPaddingForButton)
                             .frame(maxWidth: .infinity)
@@ -654,7 +655,7 @@ struct InputBar: View {
                                 )
                             )
                             .overlay(alignment: .bottomLeading) {
-                                if memo.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                if memo.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isEditorFocused {
                                     Text(placeholderText)
                                         .font(.body6)
                                         .foregroundColor(Color.gray.opacity(0.6))
@@ -770,7 +771,7 @@ struct InputBar: View {
                 var images: [ImageAttachment] = []
                 var videos: [VideoAttachment] = []
                 var orderCounter = 0
-                if let img = image, let data = img.jpegData(compressionQuality: 0.9) {
+                if let img = image, let data = img.jpegData(compressionQuality: 1.0) {
                     _ = persistDataToAppCache(data: data, preferredExtension: "jpg")
                     images.append(ImageAttachment(data: data, progress: 0, orderIndex: orderCounter))
                     orderCounter += 1
