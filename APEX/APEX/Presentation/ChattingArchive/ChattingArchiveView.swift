@@ -36,7 +36,7 @@ struct ChattingArchiveView: View {
     private enum Metrics {
         static let headerAndMediaGap: CGFloat = 24
         static let mediaGap: CGFloat = 8
-        static let buttonAndMediaGap: CGFloat = 40
+        static let buttonAndMediaGap: CGFloat = 48
         static let buttonGap: CGFloat = 12
         static let profileAndNameGap: CGFloat = 8
         static let nameAndPositionGap: CGFloat = 2
@@ -107,7 +107,7 @@ struct ChattingArchiveView: View {
 
     private var sharedMediaSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            sectionHeader(title: "사진/동영상", iconName: "Photo", iconColor: Color("Primary"), action: {
+            sectionHeader(title: "사진/동영상", iconName: "Photo", action: {
                 viewModel.send(.presentArchive(.media))
             })
             let allItems = viewModel.mediaItems
@@ -130,6 +130,7 @@ struct ChattingArchiveView: View {
                                 showsDuration: false
                             )
                             .frame(width: 124, height: 124)
+                            .cornerRadius(10)
                             .clipShape(Rectangle())
                             .overlay(alignment: .bottomLeading) {
                                 if item.isVideo, let url = item.videoURL {
@@ -190,13 +191,22 @@ struct ChattingArchiveView: View {
                     }
                     .padding(.horizontal, 8)
                 }
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 1)
+                        .onChanged { _ in
+                            ApexSwipeBackState.shared.isDisabled = true
+                        }
+                        .onEnded { _ in
+                            ApexSwipeBackState.shared.isDisabled = false
+                        }
+                )
             }
         }
     }
 
     private var sharedLinksSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            sectionHeader(title: "링크", iconName: "URL", iconColor: Color(hex: "BC0D59"), action: {
+            sectionHeader(title: "링크", iconName: "URL", action: {
                 viewModel.send(.presentArchive(.links))
             })
             ScrollView(.horizontal, showsIndicators: false) {
@@ -214,12 +224,21 @@ struct ChattingArchiveView: View {
                 }
                 .padding(.horizontal, 8)
             }
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { _ in
+                        ApexSwipeBackState.shared.isDisabled = true
+                    }
+                    .onEnded { _ in
+                        ApexSwipeBackState.shared.isDisabled = false
+                    }
+            )
         }
     }
 
     private var sharedFilesSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            sectionHeader(title: "파일", iconName: "File", iconColor: Color(hex: "00B22D"), action: {
+            sectionHeader(title: "파일", iconName: "File", action: {
                 viewModel.send(.presentArchive(.files))
             })
             ScrollView(.horizontal, showsIndicators: false) {
@@ -247,12 +266,21 @@ struct ChattingArchiveView: View {
                 }
                 .padding(.horizontal, 8)
             }
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { _ in
+                        ApexSwipeBackState.shared.isDisabled = true
+                    }
+                    .onEnded { _ in
+                        ApexSwipeBackState.shared.isDisabled = false
+                    }
+            )
         }
     }
 
     private var sharedAudioSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            sectionHeader(title: "음성메모", iconName: "Waveform", iconColor: Color(hex: "E28822"), action: {
+            sectionHeader(title: "음성메모", iconName: "Waveform", action: {
                 viewModel.send(.presentArchive(.audio))
             })
             ScrollView(.horizontal, showsIndicators: false) {
@@ -281,6 +309,15 @@ struct ChattingArchiveView: View {
                 }
                 .padding(.horizontal, 8)
             }
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { _ in
+                        ApexSwipeBackState.shared.isDisabled = true
+                    }
+                    .onEnded { _ in
+                        ApexSwipeBackState.shared.isDisabled = false
+                    }
+            )
         }
     }
     // MARK: - Helpers
@@ -338,8 +375,6 @@ struct ChattingArchiveView: View {
             }
         }
         .padding(.leading, 8)
-        .padding(.trailing, 24)
-        .padding(.top, 24)
         .padding(.bottom, 8)
         // Confirmations
         .alert("모든 미디어 데이터를 삭제할까요?", isPresented: $viewModel.showDeleteMediaAlert) {
@@ -351,12 +386,10 @@ struct ChattingArchiveView: View {
         .background(Color("Background").ignoresSafeArea())
     }
 
-    private func sectionHeader(title: String, iconName: String, iconColor: Color, action: @escaping (() -> Void)) -> some View {
+    private func sectionHeader(title: String, iconName: String, action: @escaping (() -> Void)) -> some View {
         Button(action: action) {
             HStack(alignment: .center, spacing: 8) {
                 Image(iconName)
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(iconColor)
                 
                 Text(title)
                     .font(.body2)
@@ -366,12 +399,11 @@ struct ChattingArchiveView: View {
                 Image(systemName: "arrow.forward")
                     .font(.system(size: 16, weight: .regular))
                     .foregroundStyle(Color("Primary"))
-                    .frame(width: 19, height: 14)
             }
             .padding(.vertical, 10)
+            .padding(.leading, 8)
+            .padding(.trailing, 16)
         }
-        .padding(.leading, 8)
-        .padding(.trailing, 16)
         .buttonStyle(SectionHeaderPressedStyle())
     }
 
@@ -559,6 +591,7 @@ private struct SectionHeaderPressedStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .background(configuration.isPressed ? Color("BackgroundSecondary") : Color.clear)
+            .cornerRadius(4)
             .contentShape(Rectangle())
             .animation(.easeInOut(duration: 0.12), value: configuration.isPressed)
     }
