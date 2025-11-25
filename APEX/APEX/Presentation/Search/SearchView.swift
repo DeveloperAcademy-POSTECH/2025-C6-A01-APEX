@@ -94,6 +94,10 @@ struct SearchView: View {
 		.toolbar(.hidden, for: .navigationBar)
 		.onAppear {
 			viewModel.send(.onAppear)
+			// Focus search field when the view appears
+			DispatchQueue.main.async {
+				isSearchFocused = true
+			}
 		}
 		.fullScreenCover(item: $viewModel.archivePayload) { payload in
 			ArchiveListView(
