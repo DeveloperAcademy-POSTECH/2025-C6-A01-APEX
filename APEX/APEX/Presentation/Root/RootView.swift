@@ -41,6 +41,9 @@ struct RootView: View {
                         lastNonSearchSelection = newValue
                     }
                 }
+                .onReceive(NotificationCenter.default.publisher(for: .apexSelectNotes)) { _ in
+                    selection = .notes
+                }
                 .navigationDestination(for: NavigationDestination.self) { route in
                     destination(for: route)
                 }

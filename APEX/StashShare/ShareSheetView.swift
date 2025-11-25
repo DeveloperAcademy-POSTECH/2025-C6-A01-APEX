@@ -25,9 +25,9 @@ struct ShareSheetView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 switch viewModel.selectedTab {
-                case .connects:
-                    if !viewModel.connectsFavorites.isEmpty {
-                        ForEach(viewModel.connectsFavorites) { client in
+                case .contacts:
+                    if !viewModel.contactsFavorites.isEmpty {
+                        ForEach(viewModel.contactsFavorites) { client in
                             ShareRowExt(
                                 client: client,
                                 mode: .contacts,
@@ -36,10 +36,10 @@ struct ShareSheetView: View {
                             )
                         }
                     }
-                    ForEach(viewModel.connectsCompanyKeys, id: \.self) { key in
+                    ForEach(viewModel.contactsCompanyKeys, id: \.self) { key in
                         Text(key).font(.body1).foregroundColor(.primary)
                             .padding(.top, 8)
-                        ForEach(viewModel.connectsGrouped[key] ?? []) { client in
+                        ForEach(viewModel.contactsGrouped[key] ?? []) { client in
                             ShareRowExt(
                                 client: client,
                                 mode: .contacts,
@@ -70,6 +70,7 @@ struct ShareSheetView: View {
         }
         .background(ShareTheme.background)
         .padding(.horizontal, 16)
+        .scrollEdgeEffectStyle(.soft, for: .bottom)
         // Tap-to-dismiss keyboard removed for app extension compatibility
         .overlay(alignment: .bottom) {
             VStack(spacing: 6) {
@@ -92,10 +93,20 @@ struct ShareSheetView: View {
                     title: "노트에 공유",
                     selectedCount: viewModel.selectedIds.count,
                     onClose: { viewModel.send(.close) },
-                    onSearch: { }
+                    onSearch: { viewModel.send(.search) }
                 )
                 .padding(.top, 16)
                 .background(ShareTheme.background)
+                
+                if viewModel.isSearching {
+                    ShareSearchBarExt(
+                        text: $viewModel.searchText,
+                        onClose: { viewModel.send(.search) }
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
+                    .background(ShareTheme.background)
+                }
                 
                 Group {
                     if !viewModel.selectedIds.isEmpty {
@@ -170,26 +181,36 @@ struct ShareSheetView: View {
         HStack(spacing: 0) {
             ForEach(ShareSheetViewModel.Tab.allCases) { tab in
                 Button {
-                    withAnimation(.spring(response: 0.22, dampingFraction: 0.95)) {
+                    withAnimation(.easeInOut(duration: 0.25)) {
                         viewModel.send(.setTab(tab))
                     }
                 } label: {
-                    VStack(spacing: 8) {
+                    VStack(spacing: 0) {
                         Text(tab.rawValue)
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(viewModel.selectedTab == tab ? ShareTheme.primary : ShareTheme.backgroundHover)
+                            .font(viewModel.selectedTab == tab ? .body1 : .body2)
+                            .foregroundColor(viewModel.selectedTab == tab ? ShareTheme.primary : .gray)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 8)
                         Rectangle()
-                            .fill(viewModel.selectedTab == tab ? ShareTheme.primary : ShareTheme.backgroundHover)
-                            .frame(height: viewModel.selectedTab == tab ? 4 : 2)
+                            .fill(viewModel.selectedTab == tab ? ShareTheme.primary : .clear)
+                            .frame(height: 4)
+                            .animation(.easeInOut(duration: 0.25), value: viewModel.selectedTab)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
                 }
                 .buttonStyle(.plain)
             }
         }
-        .background(.white)
+        .padding(.horizontal, 10)
+        .background(
+            VStack(spacing: 0) {
+                Spacer()
+                Rectangle()
+                    .fill(ShareTheme.primaryContainer)
+                    .frame(height: 2)
+            }
+        )
+        .animation(.easeInOut(duration: 0.25), value: viewModel.selectedTab)
         .frame(height: 40)
     }
     
@@ -444,4 +465,53 @@ struct ShareInputBarExt: View {
     }
     
     private var computedIsEnabled: Bool { isEnabled }
+}
+
+// MARK: - Search Bar (for ShareSheetView)
+struct ShareSearchBarExt: View {
+    @Binding var text: String
+    var onClose: () -> Void
+    @FocusState private var isFocused: Bool
+    
+    init(text: Binding<String>, onClose: @escaping () -> Void) {
+        self._text = text
+        self.onClose = onClose
+    }
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.gray)
+                TextField("검색", text: $text)
+                    .font(.body5)
+                    .foregroundColor(.primary)
+                    .focused($isFocused)
+                    .submitLabel(.search)
+                if !text.isEmpty {
+                    Button {
+                        text = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 16, weight: .regular))
+                            .foregroundColor(.gray)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 40)
+            .background(ShareTheme.backgroundSecondary)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            
+            Button("취소") {
+                onClose()
+            }
+            .font(.callout)
+            .foregroundColor(ShareTheme.primary)
+            .buttonStyle(.plain)
+        }
+        .onAppear { isFocused = true }
+    }
 }

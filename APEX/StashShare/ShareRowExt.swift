@@ -62,8 +62,7 @@ struct ShareRowExt: View {
             }
             .buttonStyle(.plain)
         }
-        .frame(height: Metrics.rowHeight, alignment: .center)
-        .padding(.vertical, 0)
+        .padding(.vertical, 8)
         .contentShape(Rectangle())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(client.autoFormattedName), \(subtitle)")

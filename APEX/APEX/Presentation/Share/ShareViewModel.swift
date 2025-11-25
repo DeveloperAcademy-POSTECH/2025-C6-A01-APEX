@@ -40,6 +40,8 @@ final class ShareViewModel: ViewModelable {
     @Published var inputText: String = ""
     @Published var attachments: [ShareAttachmentItem] = []
     @Published var shouldDismiss: Bool = false
+    @Published var isSearching: Bool = false
+    @Published var searchText: String = ""
     
     // MARK: - Init
     init(
@@ -52,11 +54,13 @@ final class ShareViewModel: ViewModelable {
     
     // MARK: - Derived: Connects
     var connectsFavorites: [Client] {
-        store.clients.filter { !excludedIds.contains($0.id) && $0.favorite }.sorted(by: sortByName)
+        clientsFiltered
+            .filter { !excludedIds.contains($0.id) && $0.favorite }
+            .sorted(by: sortByName)
     }
     
     var connectsGrouped: [String: [Client]] {
-        let filtered = store.clients.filter { !excludedIds.contains($0.id) }
+        let filtered = clientsFiltered.filter { !excludedIds.contains($0.id) }
         let grouped = Dictionary(grouping: filtered) { client -> String in
             let trimmed = client.company.trimmingCharacters(in: .whitespacesAndNewlines)
             return trimmed.isEmpty ? "Ungrouped" : trimmed
@@ -76,7 +80,7 @@ final class ShareViewModel: ViewModelable {
     
     // MARK: - Derived: Recents
     private var recentsSorted: [Client] {
-        store.clients
+        clientsFiltered
             .filter { !excludedIds.contains($0.id) }
             .sorted { lhs, rhs in
                 let lDate = latestNoteDate(of: lhs) ?? .distantPast
@@ -106,13 +110,31 @@ final class ShareViewModel: ViewModelable {
         case .send:
             handleSend()
         case .search:
-            break
+            if isSearching {
+                searchText = ""
+                isSearching = false
+            } else {
+                isSearching = true
+            }
         }
     }
 }
 
 // MARK: - Private helpers
 private extension ShareViewModel {
+    var clientsFiltered: [Client] {
+        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard isSearching, !trimmed.isEmpty else { return store.clients }
+        return store.clients.filter { matchesQuery($0, query: trimmed) }
+    }
+    
+    func matchesQuery(_ client: Client, query: String) -> Bool {
+        let fullName = "\(client.name) \(client.surname)"
+        if fullName.localizedCaseInsensitiveContains(query) { return true }
+        if client.company.localizedCaseInsensitiveContains(query) { return true }
+        return false
+    }
+    
     func latestNoteDate(of client: Client) -> Date? {
         client.notes.max(by: { $0.uploadedAt < $1.uploadedAt })?.uploadedAt
     }
