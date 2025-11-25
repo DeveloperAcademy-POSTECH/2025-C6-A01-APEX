@@ -129,7 +129,7 @@ struct ChattingArchiveView: View {
                                 variant: .grid,
                                 showsDuration: false
                             )
-                            .frame(width: 121.67, height: 121.67)
+                            .frame(width: 124, height: 124)
                             .clipShape(Rectangle())
                             .overlay(alignment: .bottomLeading) {
                                 if item.isVideo, let url = item.videoURL {
@@ -184,7 +184,7 @@ struct ChattingArchiveView: View {
                             )
                         }
                         if shouldShowSeeAll {
-                            SeeAllTile(size: 121.67, title: "전체보기")
+                            SeeAllTile(size: 124, title: "전체보기")
                                 .onTapGesture { viewModel.send(.presentArchive(.media)) }
                         }
                     }
@@ -205,10 +205,10 @@ struct ChattingArchiveView: View {
                 let previewItems = shouldShowSeeAll ? Array(allItems.prefix(8)) : allItems
                 HStack(spacing: 2) {
                     ForEach(previewItems, id: \.id) { item in
-                        APEXLinkTile(url: item.url, width: 121.67)
+                        APEXLinkTile(url: item.url, width: 124)
                     }
                     if shouldShowSeeAll {
-                        SeeAllTile(size: 121.67, title: "전체보기")
+                        SeeAllTile(size: 124, title: "전체보기")
                             .onTapGesture { viewModel.send(.presentArchive(.links)) }
                     }
                 }
@@ -232,7 +232,7 @@ struct ChattingArchiveView: View {
                             url: item.url,
                             contentType: item.contentType,
                             highlightQuery: nil,
-                            size: 121.67,
+                            size: 124,
                             onTap: {
                                 if FileManager.default.fileExists(atPath: item.url.path) {
                                     UIApplication.shared.open(item.url, options: [:], completionHandler: nil)
@@ -241,7 +241,7 @@ struct ChattingArchiveView: View {
                         )
                     }
                     if shouldShowSeeAll {
-                        SeeAllTile(size: 121.67, title: "전체보기")
+                        SeeAllTile(size: 124, title: "전체보기")
                             .onTapGesture { viewModel.send(.presentArchive(.files)) }
                     }
                 }
@@ -265,7 +265,7 @@ struct ChattingArchiveView: View {
                             AudioSquareTile(
                                 url: item.url,
                                 duration: item.duration,
-                                preferredLength: 121.67,
+                                preferredLength: 124,
                                 titleOverride: nil,
                                 highlightQuery: nil
                             )
@@ -275,7 +275,7 @@ struct ChattingArchiveView: View {
                         .onTapGesture { viewModel.send(.openRecord(item.url)) }
                     }
                     if shouldShowSeeAll {
-                        SeeAllTile(size: 121.67, title: "전체보기")
+                        SeeAllTile(size: 124, title: "전체보기")
                             .onTapGesture { viewModel.send(.presentArchive(.audio)) }
                     }
                 }
@@ -322,43 +322,19 @@ struct ChattingArchiveView: View {
 
     private var bottomActionsBar: some View {
         VStack(spacing: Metrics.buttonGap) {
-            Button(role: .destructive) {
-                viewModel.send(.showDeleteMediaPrompt(true))
-            } label: {
-                Text("미디어 데이터 모두 삭제하기 (\(formatBytes(viewModel.totalMediaBytes)))")
-                    .font(.body5)
-                    .foregroundColor(Color("BlackLabel"))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 15)
-                    .frame(height: 48)
-            }
-            .buttonStyle(.plain)
-            .background(Color("BackgroundSecondary"))
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .disabled(viewModel.totalMediaBytes == 0)
-            .opacity(viewModel.totalMediaBytes == 0 ? 0.5 : 1)
+            DeleteMediaButton(
+                title: "미디어 데이터 모두 삭제하기 (\(formatBytes(viewModel.totalMediaBytes)))",
+                isDisabled: viewModel.totalMediaBytes == 0,
+                action: { viewModel.send(.showDeleteMediaPrompt(true)) }
+            )
 
             // Hide contact delete for my own profile
             let myId = ClientsStore.shared.clients.first?.id
             let isMe = (viewModel.client?.id == myId)
             if !isMe {
-                Button(role: .destructive) {
-                    viewModel.send(.showDeleteContactOverlay(true))
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "trash.fill")
-                            .font(.system(size: 16, weight: .bold))
-                        Text("연락처 삭제하기")
-                            .font(.body5)
-                    }
-                    .foregroundColor(Color("Error"))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .frame(height: 48)
-                }
-                .buttonStyle(.plain)
-                .background(Color("ErrorContainer"))
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                DeleteContactButton(
+                    action: { viewModel.send(.showDeleteContactOverlay(true)) }
+                )
             }
         }
         .padding(.leading, 8)
@@ -501,6 +477,82 @@ struct ChattingArchiveView: View {
     }
 }
 // swiftlint:enable type_body_length
+
+// MARK: - Action Buttons (Consistent Design)
+
+private struct DeleteMediaButton: View {
+    let title: String
+    let isDisabled: Bool
+    let action: () -> Void
+    @State private var isPressed: Bool = false
+    
+    // 색상 정의 (편집시트와 일관성)
+    private let normalBackground = Color("BackgroundSecondary")
+    private let pressedBackground = Color(red: 0xED/255.0, green: 0xF0/255.0, blue: 1.0) // #EDF0FF
+    
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.body2)
+                .foregroundColor(Color("BlackLabel"))
+                .frame(maxWidth: .infinity)
+                .frame(height: 56)
+        }
+        .buttonStyle(.plain)
+        .background(isPressed ? pressedBackground : normalBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .disabled(isDisabled)
+        .opacity(isDisabled ? 0.5 : 1)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    if !isDisabled {
+                        withAnimation(.easeInOut(duration: 0.12)) { isPressed = true }
+                    }
+                }
+                .onEnded { _ in
+                    if !isDisabled {
+                        withAnimation(.easeInOut(duration: 0.12)) { isPressed = false }
+                    }
+                }
+        )
+    }
+}
+
+private struct DeleteContactButton: View {
+    let action: () -> Void
+    @State private var isPressed: Bool = false
+    
+    // 색상 정의 (편집시트와 일관성)
+    private let normalBackground = Color("ErrorContainer")
+    private let pressedBackground = Color(red: 1.0, green: 0xE8/255.0, blue: 0xE5/255.0) // #FFE8E5
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: "trash.fill")
+                    .foregroundColor(Color("Error"))
+                Text("연락처 삭제하기")
+                    .font(.body2)
+                    .foregroundColor(Color("Error"))
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 56)
+        }
+        .buttonStyle(.plain)
+        .background(isPressed ? pressedBackground : normalBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    withAnimation(.easeInOut(duration: 0.12)) { isPressed = true }
+                }
+                .onEnded { _ in
+                    withAnimation(.easeInOut(duration: 0.12)) { isPressed = false }
+                }
+        )
+    }
+}
 
 // MARK: - ButtonStyles
 private struct SectionHeaderPressedStyle: ButtonStyle {
@@ -699,7 +751,7 @@ struct FlattenedLinkItem: Identifiable, Equatable {
 }
 
 #Preview("전체보기 타일") {
-    ChattingArchiveView.SeeAllTile(size: 121.67, title: "전체보기")
+    ChattingArchiveView.SeeAllTile(size: 124, title: "전체보기")
         .padding()
         .background(Color("Background"))
 }

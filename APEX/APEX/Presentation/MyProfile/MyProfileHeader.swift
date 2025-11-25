@@ -223,14 +223,10 @@ public struct MyProfileHeaderView: View {
             image
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .frame(maxWidth: 358, maxHeight: 214)   // 최대 크기 제한으로 비율 유지
-                .background(Color.clear)  // 투명 배경 명시
-                .clipped()  // 경계 밖 콘텐츠 제거
+                .frame(width: 358, height: 214)   // 고정 크기로 일관성 유지
+                .background(Color.clear)
+                .clipped()
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(Color.clear, lineWidth: 0)  // 투명 스트로크로 기본 테두리 제거
-                )
         case .avatar(let initials):
             let trimmed = initials.trimmingCharacters(in: .whitespacesAndNewlines)
             Profile(image: nil, initials: trimmed, size: .large)

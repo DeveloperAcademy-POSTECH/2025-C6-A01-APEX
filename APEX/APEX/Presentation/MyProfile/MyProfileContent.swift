@@ -465,7 +465,7 @@ struct PressableRow<Label: View>: View {
 
 struct PressableRowButtonStyle: ButtonStyle {
     var pressedBackground: Color = Color("BackgroundSecondary")
-    var cornerRadius: CGFloat = 4
+    var cornerRadius: CGFloat = 10  // 4 → 10으로 변경 (ChattingArchiveView SectionHeaderPressedStyle 참고)
     var duration: Double = 0.12
 
     func makeBody(configuration: Configuration) -> some View {

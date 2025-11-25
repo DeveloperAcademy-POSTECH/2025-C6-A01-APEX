@@ -42,6 +42,7 @@ struct CardViewer: View {
                         images[index]
                             .resizable()
                             .aspectRatio(contentMode: .fit)
+                            .clipped()
                             .tag(index)
                     }
                 }
@@ -600,15 +601,20 @@ private extension MyProfileEditSheet {
 
 private extension Image {
     func asUIImage() -> UIImage? {
-        // Render the SwiftUI Image into a UIImage for use in pickers/croppers
+        // 고정된 목표 크기와 스케일 사용으로 일관성 유지
         let targetSize = CGSize(width: 358, height: 214)
+        let scale = UIScreen.main.scale
+        
         let rendered = ImageRenderer(
             content: self
                 .resizable()
-                .scaledToFit()
+                .aspectRatio(contentMode: .fit)
                 .frame(width: targetSize.width, height: targetSize.height)
         )
-        rendered.scale = UIScreen.main.scale
+        
+        // 명시적으로 스케일 설정하여 일관성 보장
+        rendered.scale = scale
+        
         return rendered.uiImage
     }
 }
