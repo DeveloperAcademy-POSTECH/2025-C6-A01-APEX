@@ -47,11 +47,6 @@ struct OnBoardingView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
                 .disabled(viewModel.tempGivenName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                Button("건너뛰기") {
-                    viewModel.send(.namePromptSkip)
-                }
-                .buttonStyle(.plain)
-                .padding(.bottom, 12)
             }
             .padding(16)
             .presentationDetents([.height(280)])
