@@ -19,7 +19,6 @@ final class OnBoardingViewModel: ViewModelable {
         case guestTapped
         case confirmGuest
         case namePromptSave
-        case namePromptSkip
     }
     
     // MARK: - Outputs (bound to View)
@@ -60,13 +59,6 @@ final class OnBoardingViewModel: ViewModelable {
             showNamePrompt = true
             
         case .namePromptSave:
-            applyManualProfileUpdate(given: tempGivenName, family: tempFamilyName, email: pendingEmail)
-            showNamePrompt = false
-            let next = namePromptNext
-            namePromptNext = nil
-            next?()
-            
-        case .namePromptSkip:
             applyManualProfileUpdate(given: tempGivenName, family: tempFamilyName, email: pendingEmail)
             showNamePrompt = false
             let next = namePromptNext
