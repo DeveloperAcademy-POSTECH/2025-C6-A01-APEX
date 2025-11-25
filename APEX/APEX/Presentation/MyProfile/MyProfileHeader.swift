@@ -107,9 +107,6 @@ public struct MyProfileHeaderView: View {
         if client.nameCardFront != nil || client.nameCardBack != nil {
             if let frontImage = client.nameCardFront { arr.append(.cardFront(frontImage)) }
             if let backImage = client.nameCardBack { arr.append(.cardBack(backImage)) }
-        } else {
-            arr.append(.cardFront(Image("CardL")))
-            arr.append(.cardBack(Image("CardL")))
         }
         return arr
     }
@@ -126,9 +123,10 @@ public struct MyProfileHeaderView: View {
                         .background(Color.clear)  // 개별 컨텐츠 배경 투명 처리
                         .onTapGesture {
                             let current = items[index]
-                            if case .cardFront(_) = current {
+                            switch current {
+                            case .cardFront, .cardBack:
                                 onCardTapped?()
-                            } else if case .cardBack(_) = current {
+                            case .profile, .avatar:
                                 onCardTapped?()
                             }
                         }

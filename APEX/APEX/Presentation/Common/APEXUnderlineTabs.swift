@@ -25,7 +25,6 @@ struct APEXUnderlineTabs: View {
 						Text(items[idx])
 							.font(selectedIndex == idx ? .body1 : .body2)
 							.foregroundColor(selectedIndex == idx ? Color("Primary") : Color("BackgroundDisabled"))
-							.padding(.horizontal, 20)
 							.padding(.vertical, 8)
 						Rectangle()
 							.fill(selectedIndex == idx ? Color("Primary") : Color.clear)
@@ -37,7 +36,7 @@ struct APEXUnderlineTabs: View {
 				.buttonStyle(.plain)
 			}
 		}
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 16)
 		.background(
 			VStack {
 				Spacer()

@@ -63,6 +63,15 @@ struct SearchView: View {
 		}
 		.background(Color("Background"))
 		.scrollEdgeEffectStyle(.soft, for: .top)
+		.simultaneousGesture(TapGesture().onEnded {
+			// 외부 탭 시 포커스 및 검색모드 해제
+			if isSearchFocused {
+				isSearchFocused = false
+				if !viewModel.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+					viewModel.send(.updateQuery(""))
+				}
+			}
+		})
 		.toolbar(.hidden, for: .tabBar)
 		.safeAreaInset(edge: .bottom) {
 			let isSearching = !viewModel.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty

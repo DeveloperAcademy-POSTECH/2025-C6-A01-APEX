@@ -59,6 +59,14 @@ final class ClientsStore: ObservableObject {
             localStore.saveClients(self.clients)
             // Push notes into ChatStore so open chats reflect latest
             syncAllNotesToChatStore()
+            // If auto-sync is on, immediately push any notes without CloudKit records
+            if SyncSettings.isAutoOn {
+                // Defer to next runloop to avoid re-entrancy during singleton initialization,
+                // because CloudKit fetch path references ClientsStore.shared internally.
+                DispatchQueue.main.async { [weak self] in
+                    self?.pushUnsyncedNotesToCloudKit()
+                }
+            }
         } else if let persisted = localStore.loadClients() {
             self.clients = persisted
             // Ensure my profile exists even after loading
@@ -126,6 +134,9 @@ final class ClientsStore: ObservableObject {
                     }
                     self.localStore.saveClients(self.clients)
                     self.syncAllNotesToChatStore()
+                    if SyncSettings.isAutoOn {
+                        self.pushUnsyncedNotesToCloudKit()
+                    }
                 }
             }
             .store(in: &cancellables)
