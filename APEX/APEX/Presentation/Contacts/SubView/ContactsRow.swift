@@ -124,8 +124,6 @@ struct ContactsRow: View {
         .frame(width: Metrics.avatarSize, height: Metrics.avatarSize)
         .clipShape(Circle())
     }
-    
-    // 이니셜 길이에 따른 동적 폰트 크기 계산
     private func dynamicFontSize(for initials: String) -> CGFloat {
         let baseSize: CGFloat = 30.72 // 48 * 0.64
         if initials.count <= 1 {
@@ -191,6 +189,8 @@ extension ContactsRow: Equatable {
         && lhs.client.surname == rhs.client.surname
         && lhs.client.position == rhs.client.position
         && lhs.client.company == rhs.client.company
+        // 프로필 이미지 변경도 리렌더링 트리거되도록 반영
+        && ((lhs.client.profile?.pngData()?.count ?? -1) == (rhs.client.profile?.pngData()?.count ?? -1))
         && lhs.rowHeight == rhs.rowHeight
         && lhs.subtitleOverride == rhs.subtitleOverride
     }

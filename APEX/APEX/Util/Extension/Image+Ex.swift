@@ -19,7 +19,16 @@ public extension Image {
         renderer.scale = UIScreen.main.scale
         return renderer.uiImage
     }
+    
+    // Business card specific renderer to preserve rectangular aspect (approx 16:9)
+    func asCardUIImage(size: CGSize = CGSize(width: 358, height: 214)) -> UIImage? {
+        let renderer = ImageRenderer(
+            content: self
+                .resizable()
+                .scaledToFit()
+                .frame(width: size.width, height: size.height)
+        )
+        renderer.scale = UIScreen.main.scale
+        return renderer.uiImage
+    }
 }
-
-
-

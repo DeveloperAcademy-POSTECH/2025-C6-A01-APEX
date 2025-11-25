@@ -16,6 +16,8 @@ final class ProfileAddViewModel: ViewModelable {
         case tapPhoto(PhotoAddView.PhotoType)
         case setProfileImage(UIImage)
         case setCardImage(UIImage, isFront: Bool)
+		case clearProfileImage
+		case clearCardImage(isFront: Bool)
         case presentAddItems(Bool)
     }
     
@@ -69,6 +71,10 @@ final class ProfileAddViewModel: ViewModelable {
             profileUIImage = image
         case .setCardImage(let image, let isFront):
             if isFront { cardFrontUIImage = image } else { cardBackUIImage = image }
+		case .clearProfileImage:
+			profileUIImage = nil
+		case .clearCardImage(let isFront):
+			if isFront { cardFrontUIImage = nil } else { cardBackUIImage = nil }
         case .presentAddItems(let presented):
             isAddItemPresented = presented
         }

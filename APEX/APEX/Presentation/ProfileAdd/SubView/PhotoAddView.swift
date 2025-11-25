@@ -19,6 +19,9 @@ struct PhotoAddView: View {
     let type: PhotoType
     let onCroppedProfile: ((UIImage) -> Void)?
     let onCroppedCard: ((UIImage, Bool) -> Void)?
+    // Reset callbacks to propagate deletions immediately
+    let onResetProfile: (() -> Void)?
+    let onResetCard: ((Bool) -> Void)?  // isFront
     @Environment(\.dismiss) private var dismiss
     private var isProfile: Bool { type == .profile }
     private enum CardSide: String, CaseIterable, Identifiable, Hashable {
@@ -51,6 +54,8 @@ struct PhotoAddView: View {
         type: PhotoType,
         onCroppedProfile: ((UIImage) -> Void)? = nil,
         onCroppedCard: ((UIImage, Bool) -> Void)? = nil,
+        onResetProfile: (() -> Void)? = nil,
+        onResetCard: ((Bool) -> Void)? = nil,
         initialProfile: UIImage? = nil,
         initialFront: UIImage? = nil,
         initialBack: UIImage? = nil
@@ -58,6 +63,8 @@ struct PhotoAddView: View {
         self.type = type
         self.onCroppedProfile = onCroppedProfile
         self.onCroppedCard = onCroppedCard
+        self.onResetProfile = onResetProfile
+        self.onResetCard = onResetCard
         _pickedProfileImage = State(initialValue: initialProfile)
         _pickedFrontImage = State(initialValue: initialFront)
         _pickedBackImage = State(initialValue: initialBack)
@@ -531,10 +538,15 @@ private extension PhotoAddView {
     func resetImages() {
         if isProfile {
             pickedProfileImage = nil
+            onResetProfile?()
         } else {
-            pickedFrontImage = nil
-            pickedBackImage = nil
-            selectedCardSide = .front
+            if selectedCardSide == .front {
+                pickedFrontImage = nil
+                onResetCard?(true)
+            } else {
+                pickedBackImage = nil
+                onResetCard?(false)
+            }
         }
         // Clear any in-progress editing state
         editingImage = nil

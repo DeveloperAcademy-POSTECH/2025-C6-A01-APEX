@@ -162,6 +162,12 @@ struct ProfileAddView: View {
                 onCroppedCard: { uiImage, isFront in
                     viewModel.send(.setCardImage(uiImage, isFront: isFront))
                 },
+                onResetProfile: {
+                    viewModel.send(.clearProfileImage)
+                },
+                onResetCard: { isFront in
+                    viewModel.send(.clearCardImage(isFront: isFront))
+                },
                 initialProfile: viewModel.profileUIImage,
                 initialFront: viewModel.cardFrontUIImage,
                 initialBack: viewModel.cardBackUIImage

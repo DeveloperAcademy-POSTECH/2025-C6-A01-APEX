@@ -78,6 +78,9 @@ struct MyProfileEditSheet: View {
     @State private var profileUIImage: UIImage?
     @State private var cardFrontUIImage: UIImage?
     @State private var cardBackUIImage: UIImage?
+    @State private var didClearProfile: Bool = false
+    @State private var didClearFront: Bool = false
+    @State private var didClearBack: Bool = false
 
     @State private var surname: String
     @State private var name: String
@@ -252,6 +255,8 @@ struct MyProfileEditSheet: View {
                                     .scaledToFit()
                                     .frame(width: 154, height: 92)
                                     .cornerRadius(4)
+                            } else if didClearFront {
+                                Image("CardS")
                             } else if let existing = client.nameCardFront {
                                 existing
                                     .resizable()
@@ -339,9 +344,31 @@ struct MyProfileEditSheet: View {
         .sheet(item: $presentedPhotoType) { sheetType in
             PhotoAddView(
                 type: sheetType,
-                onCroppedProfile: { profileUIImage = $0 },
+                onCroppedProfile: {
+                    didClearProfile = false
+                    profileUIImage = $0
+                },
                 onCroppedCard: { img, isFront in
-                    if isFront { cardFrontUIImage = img } else { cardBackUIImage = img }
+                    if isFront {
+                        didClearFront = false
+                        cardFrontUIImage = img
+                    } else {
+                        didClearBack = false
+                        cardBackUIImage = img
+                    }
+                },
+                onResetProfile: {
+                    didClearProfile = true
+                    profileUIImage = nil
+                },
+                onResetCard: { isFront in
+                    if isFront {
+                        didClearFront = true
+                        cardFrontUIImage = nil
+                    } else {
+                        didClearBack = true
+                        cardBackUIImage = nil
+                    }
                 },
                 initialProfile: profileUIImage,
                 initialFront: cardFrontUIImage,
@@ -406,9 +433,9 @@ struct MyProfileEditSheet: View {
                     }()
                     
                     let updated = DummyClient(
-                        profile: profileUIImage ?? client.profile,
-                        nameCardFront: (cardFrontUIImage.map { Image(uiImage: $0) }) ?? client.nameCardFront,
-                        nameCardBack: (cardBackUIImage.map { Image(uiImage: $0) }) ?? client.nameCardBack,
+                        profile: didClearProfile ? nil : (profileUIImage ?? client.profile),
+                        nameCardFront: didClearFront ? nil : ((cardFrontUIImage.map { Image(uiImage: $0) }) ?? client.nameCardFront),
+                        nameCardBack: didClearBack ? nil : ((cardBackUIImage.map { Image(uiImage: $0) }) ?? client.nameCardBack),
                         surname: surname,
                         name: name,
                         position: position.isEmpty ? nil : position,

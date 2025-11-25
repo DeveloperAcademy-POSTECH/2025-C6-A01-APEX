@@ -10,6 +10,7 @@ import SwiftUI
 struct MyProfileView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var router: NavigationRouter
+    @ObservedObject private var store = ClientsStore.shared
     @Binding var client: DummyClient
     @StateObject private var viewModel: MyProfileViewModel
     // Removed local NavigationLink push states and moved UI state to ViewModel
@@ -24,16 +25,11 @@ struct MyProfileView: View {
             LazyVStack(spacing: 0, pinnedViews: []) {
                 // 헤더 섹션 (패딩 없음 - 전체 화면 너비 사용)
                 MyProfileHeaderView(
-                    client: ClientsStore.convertToClient(client),
+                    client: (store.clients.first ?? ClientsStore.convertToClient(client)),
                     page: $viewModel.currentPageIndex,
                     onCardTapped: { viewModel.send(.showCardViewer(true)) }
                 )
-                .onAppear {
-                    print("🐛 MyProfileView - original client: surname='\(client.surname)', name='\(client.name)'")
-                    print("🐛 MyProfileView - direct convert: surname='\(ClientsStore.convertToClient(client).surname)', name='\(ClientsStore.convertToClient(client).name)'")
-                    print("🐛 MyProfileView - adapted client: surname='\(viewModel.adaptedClient.surname)', name='\(viewModel.adaptedClient.name)'")
-                }
-                
+
                 // 프라이머리 액션
                 MyProfilePrimaryActionView(title: "메모하기") {
                     let id = viewModel.ensureMyChatClientId()
@@ -51,22 +47,21 @@ struct MyProfileView: View {
 
                 // 연락처 섹션
                 MyProfileContactsSection(
-                    email: client.email,
-                    phone: client.phoneNumber,
-                    linkedin: client.linkedinURL,
+                    email: (store.clients.first?.email) ?? client.email,
+                    phone: (store.clients.first?.phoneNumber) ?? client.phoneNumber,
+                    linkedin: (store.clients.first?.linkedinURL) ?? client.linkedinURL,
                     openExternal: { url in viewModel.openExternal(url) },
                     copyToPasteboard: { text in viewModel.copyToPasteboard(text) }
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)
                 .padding(.top, 32)
-                
-
+ 
                 // 저장공간 섹션
                 VStack(spacing: 0) {
                     MyProfileSectionSeparator()
                         .padding(.top, 32)
-                    
+
                     MyProfileStorageSection(
                         usedText: viewModel.usedSizeText,
                         isPurgeEnabled: viewModel.isPurgeEnabledState,
@@ -81,7 +76,7 @@ struct MyProfileView: View {
                 VStack(spacing: 0) {
                     MyProfileSectionSeparator()
                         .padding(.top, 22)
-                    
+
                     MyProfileAppInfoSection(
                         versionText: Bundle.main.apexVersionString(),
                         onTermsTapped: { /* TODO: 약관 화면/URL */ }
@@ -94,7 +89,7 @@ struct MyProfileView: View {
                 VStack(spacing: 0) {
                     MyProfileSectionSeparator()
                         .padding(.top, 22)
-                    
+
                     MyProfileDangerZoneSection(
                         onLogout: { viewModel.send(.tapLogout) },
                         onDeleteAccount: { router.push(.unsubscribe) }
@@ -108,7 +103,9 @@ struct MyProfileView: View {
         .background(Color("Background"))
         .safeAreaBar(edge: .top) {
             MyProfileNavigationBar(
-                title: client.company.isEmpty ? "\(client.surname)\(client.name)" : client.company,
+                title: ((store.clients.first?.company ?? "").isEmpty
+                        ? "\((store.clients.first?.surname ?? client.surname))\((store.clients.first?.name ?? client.name))"
+                        : (store.clients.first?.company ?? client.company)),
                 onBack: { router.pop() },
                 onEdit: { viewModel.send(.presentEdit(true)) }
             )
@@ -155,13 +152,10 @@ struct MyProfileView: View {
         } message: {
             Text("케시에 임시 저장된 기타 데이터를 삭제하고 정리합니다. 노트 내 텍스트, 사진, 동영상, 음성메시지 파일은 그대로 유지됩니다")
         }
-        .alert("로그아웃 하시겠습니까?", isPresented: $viewModel.showLogoutConfirm){
-        Button("취소", role: .cancel) { }
-            Button("로그아웃")
-            {
-                viewModel.send(.confirmLogout)
-            }
-            .keyboardShortcut(.defaultAction)
+        .alert("로그아웃 하시겠습니까?", isPresented: $viewModel.showLogoutConfirm) {
+            Button("취소", role: .cancel) { }
+            Button("로그아웃") { viewModel.send(.confirmLogout) }
+                .keyboardShortcut(.defaultAction)
         }
         message: {
             Text("게스트 계정은 로그아웃 시 모든 데이터가 삭제됩니다.")
