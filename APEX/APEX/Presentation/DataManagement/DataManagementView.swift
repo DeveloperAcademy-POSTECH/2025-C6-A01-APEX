@@ -44,7 +44,7 @@ struct DataManagementView: View {
                         )
                     }
                     
-                    Spacer().frame(height: 32)  // 상단 섹션과 구분선 사이 32pt
+                    Spacer().frame(height: 24)  // 상단 섹션과 구분선 사이 32pt
 
                     Rectangle()
                         .fill(Color("BackgroundSecondary"))

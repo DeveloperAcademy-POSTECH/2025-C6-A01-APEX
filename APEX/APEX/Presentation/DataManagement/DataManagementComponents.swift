@@ -161,6 +161,8 @@ struct DMRefreshSection: View {
     let lastSyncText: String
     let isRefreshing: Bool
     var onRefresh: () -> Void
+    
+    @State private var rotationAngle: Double = 0
 
     private enum Metrics {
         static let hPadding: CGFloat = 8
@@ -192,15 +194,26 @@ struct DMRefreshSection: View {
                 
                 Spacer()
                 
-                Button(action: { if !isRefreshing { onRefresh() } }) {
+                Button(action: { 
+                    if !isRefreshing { 
+                        onRefresh() 
+                    } 
+                }) {
                     Image(systemName: "arrow.trianglehead.2.counterclockwise.rotate.90")
                         .font(.system(size: Metrics.iconSize, weight: .medium))
                         .foregroundColor(isRefreshing ? Color("BackgroundDisabled") : .gray)
-                        .rotationEffect(isRefreshing ? .degrees(360) : .degrees(0))
+                        .rotationEffect(.degrees(rotationAngle))
                 }
                 .buttonStyle(.plain)
                 .disabled(isRefreshing)
-                .animation(isRefreshing ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: isRefreshing)
+                .onChange(of: isRefreshing) { newValue in
+                    if newValue {
+                        // 새로고침 시작 시 한 바퀴 회전
+                        withAnimation(.easeInOut(duration: 0.8)) {
+                            rotationAngle += 360
+                        }
+                    }
+                }
             }
         }
         .padding(.horizontal, Metrics.hPadding)
