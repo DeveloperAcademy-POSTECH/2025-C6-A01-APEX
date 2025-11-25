@@ -18,7 +18,6 @@ struct ShareRow: View {
     private enum Metrics {
         static let rowHeight: CGFloat = 64
         static let hStackSpacing: CGFloat = 12
-        static let avatarSize: CGFloat = 48
         static let textBoxHeight: CGFloat = 38
         static let nameSubtitleSpacing: CGFloat = 2
         static let trailingSpacerMin: CGFloat = 8
@@ -28,7 +27,7 @@ struct ShareRow: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: Metrics.hStackSpacing) {
-            avatarWithBadge
+            avatar
 
             VStack(alignment: .leading, spacing: Metrics.nameSubtitleSpacing) {
                 HStack(spacing: 1) {
@@ -86,10 +85,6 @@ struct ShareRow: View {
         case .recents:
             return client.pin ? "pin.fill" : nil
         }
-    }
-
-    private var avatarWithBadge: some View {
-        avatar
     }
 
     private var avatar: some View {

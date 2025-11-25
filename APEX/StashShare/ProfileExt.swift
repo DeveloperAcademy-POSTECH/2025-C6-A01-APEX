@@ -17,7 +17,7 @@ struct Profile: View {
     let initials: String
     let size: Size
     var fontSize: CGFloat?
-    var backgroundColor: Color = ShareTheme.primaryContainer
+    var backgroundColor: Color = Color("PrimaryContainer")
     var textColor: Color = .white
     var fontWeight: Font.Weight = .semibold
 
