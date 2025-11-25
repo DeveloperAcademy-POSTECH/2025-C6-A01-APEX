@@ -44,7 +44,7 @@ struct ArchiveListView: View {
     }
     
     private enum Metrics {
-        static let horizontalPadding: CGFloat = 12
+        static let horizontalPadding: CGFloat = 16
         static let tapBetweenContentGap: CGFloat = 16
         static let groupMonthMediaGap: CGFloat = 16
         static let monthAndMediaGap: CGFloat = 6

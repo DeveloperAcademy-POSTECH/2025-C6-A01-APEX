@@ -375,6 +375,7 @@ struct ChattingArchiveView: View {
             }
         }
         .padding(.leading, 8)
+        .padding(.trailing, 24)
         .padding(.bottom, 8)
         // Confirmations
         .alert("모든 미디어 데이터를 삭제할까요?", isPresented: $viewModel.showDeleteMediaAlert) {
