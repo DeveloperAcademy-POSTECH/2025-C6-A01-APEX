@@ -21,52 +21,63 @@ final class ShareSheetViewModel: ViewModelable {
         case setText(String)
         case send
         case close
+        case search
     }
     
     enum Tab: String, CaseIterable, Identifiable {
-        case connects = "연결"
-        case recents = "최근"
+        case contacts = "Contacts"
+        case recents = "Recents"
         var id: String { rawValue }
     }
     
     // Inputs
-    @Published var selectedTab: Tab = .connects
+    @Published var selectedTab: Tab = .contacts
     @Published var selectedIds: Set<UUID> = []
     @Published var inputText: String = ""
     @Published var attachments: [ShareAttachmentItem]
     @Published var inputBarHeight: CGFloat = 0
+    @Published var isSearching: Bool = false
+    @Published var searchText: String = ""
     
     // Data
     @Published private(set) var clients: [PClient] = []
     
     // Outputs (computed)
-    var connectsFavorites: [PClient] {
-        clients
+    var contactsFavorites: [PClient] {
+        clientsFiltered
             .filter { $0.favorite }
             .sorted { "\($0.name) \($0.surname)".localizedCaseInsensitiveCompare("\($1.name) \($1.surname)") == .orderedAscending }
     }
     
-    var connectsGrouped: [String: [PClient]] {
-        let nonFavorites = clients.filter { !$0.favorite }
-        let grouped = Dictionary(grouping: nonFavorites, by: { $0.company })
+    var contactsGrouped: [String: [PClient]] {
+        // Match ShareView: group all contacts (including favorites) by company
+        let grouped = Dictionary(grouping: clientsFiltered) { client -> String in
+            let trimmed = client.company.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? "Ungrouped" : trimmed
+        }
         var sorted: [String: [PClient]] = [:]
-        for key in grouped.keys.sorted(by: { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }) {
-            if let list = grouped[key] {
-                sorted[key] = list.sorted { "\($0.name) \($0.surname)".localizedCaseInsensitiveCompare("\($1.name) \($1.surname)") == .orderedAscending }
-            }
+        for (key, list) in grouped {
+            sorted[key] = list.sorted { "\($0.name) \($0.surname)".localizedCaseInsensitiveCompare("\($1.name) \($1.surname)") == .orderedAscending }
         }
         return sorted
     }
     
-    var connectsCompanyKeys: [String] {
-        Array(connectsGrouped.keys).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    var contactsCompanyKeys: [String] {
+        contactsGrouped.keys.sorted { lhs, rhs in
+            if lhs == "Ungrouped" { return false }
+            if rhs == "Ungrouped" { return true }
+            return lhs.localizedCaseInsensitiveCompare(rhs) == .orderedAscending
+        }
     }
     
     private var recentsSorted: [PClient] {
-        clients.sorted {
-            let l = $0.notes.max(by: { $0.uploadedAt < $1.uploadedAt })?.uploadedAt ?? .distantPast
-            let r = $1.notes.max(by: { $0.uploadedAt < $1.uploadedAt })?.uploadedAt ?? .distantPast
-            return l > r
+        clientsFiltered.sorted {
+            let leftDate = $0.notes.max(by: { $0.uploadedAt < $1.uploadedAt })?.uploadedAt ?? .distantPast
+            let rightDate = $1.notes.max(by: { $0.uploadedAt < $1.uploadedAt })?.uploadedAt ?? .distantPast
+            if leftDate != rightDate { return leftDate > rightDate }
+            let lhsName = "\($0.name) \($0.surname)"
+            let rhsName = "\($1.name) \($1.surname)"
+            return lhsName.localizedCaseInsensitiveCompare(rhsName) == .orderedAscending
         }
     }
     var recentsPinned: [PClient] { recentsSorted.filter { $0.pin } }
@@ -108,6 +119,14 @@ final class ShareSheetViewModel: ViewModelable {
             sendNow()
         case .close:
             onFinished?()
+        case .search:
+            // Toggle search mode; clear query when closing
+            if isSearching {
+                searchText = ""
+                isSearching = false
+            } else {
+                isSearching = true
+            }
         }
     }
 }
@@ -116,6 +135,20 @@ final class ShareSheetViewModel: ViewModelable {
 private extension ShareSheetViewModel {
     func loadClients() {
         clients = LocalStoreExt.shared.loadClients()
+    }
+    
+    var clientsFiltered: [PClient] {
+        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard isSearching, !trimmed.isEmpty else { return clients }
+        return clients.filter { matchesQuery($0, query: trimmed) }
+    }
+    
+    func matchesQuery(_ client: PClient, query: String) -> Bool {
+        // Match in full name or company (case-insensitive; works reasonably for Hangul too)
+        let fullName = "\(client.name) \(client.surname)"
+        if fullName.localizedCaseInsensitiveContains(query) { return true }
+        if client.company.localizedCaseInsensitiveContains(query) { return true }
+        return false
     }
     
     func toggleSelect(_ id: UUID) {

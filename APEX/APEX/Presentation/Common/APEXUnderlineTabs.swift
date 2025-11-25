@@ -11,45 +11,42 @@ struct APEXUnderlineTabs: View {
 	let items: [String]
 	@Binding var selectedIndex: Int
 	var onSelect: ((Int) -> Void)?
-	@Namespace private var underlineNamespace
 
 	var body: some View {
 		HStack(spacing: 0) {
 			ForEach(items.indices, id: \.self) { idx in
 				Button {
-					withAnimation(.spring(response: 0.22, dampingFraction: 0.95)) {
+					withAnimation(.easeInOut(duration: 0.25)) {
 						selectedIndex = idx
 						onSelect?(idx)
 					}
 				} label: {
-                    Text(items[idx])
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(selectedIndex == idx ? Color("Primary") : Color("BackgroundHover"))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
+					VStack(spacing: 0) {
+						Text(items[idx])
+							.font(selectedIndex == idx ? .body1 : .body2)
+							.foregroundColor(selectedIndex == idx ? Color("Primary") : Color("BackgroundDisabled"))
+							.padding(.horizontal, 20)
+							.padding(.vertical, 8)
+						Rectangle()
+							.fill(selectedIndex == idx ? Color("Primary") : Color.clear)
+							.frame(height: 4)
+							.animation(.easeInOut(duration: 0.25), value: selectedIndex)
+					}
+					.frame(maxWidth: .infinity)
 				}
-                .overlay(alignment: .bottom) {
-                    if selectedIndex == idx {
-                        Rectangle()
-                            .fill(Color("Primary"))
-                            .frame(height: 4)
-                            .matchedGeometryEffect(id: "apex-underline", in: underlineNamespace)
-                    } else {
-                        VStack(spacing: 0) {
-                            Color.clear
-                                .frame(height: 2)
-                            
-                            Rectangle()
-                                .fill(Color("BackgroundHover"))
-                                .frame(height: 2)
-                        }
-                    }
-                }
 				.buttonStyle(.plain)
 			}
 		}
-		.animation(.spring(response: 0.22, dampingFraction: 0.95), value: selectedIndex)
+        .padding(.horizontal, 10)
+		.background(
+			VStack {
+				Spacer()
+				Rectangle()
+					.fill(Color("PrimaryContainer"))
+					.frame(height: 2)
+			}
+		)
+		.animation(.easeInOut(duration: 0.25), value: selectedIndex)
 		.frame(height: 40)
 	}
 }
@@ -58,6 +55,4 @@ struct APEXUnderlineTabs: View {
 	@State var idx = 0
 	return APEXUnderlineTabs(items: ["First", "Second"], selectedIndex: $idx)
 }
-
-
 

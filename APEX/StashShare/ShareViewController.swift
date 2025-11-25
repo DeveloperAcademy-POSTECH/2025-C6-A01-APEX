@@ -10,12 +10,15 @@ import Social
 import SwiftUI
 import UniformTypeIdentifiers
 import AVFoundation
+import CoreText
 
 class ShareViewController: UIViewController {
     private var hostingController: UIHostingController<ShareSheetView>?
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        registerCustomFonts()
         
         // Build attachments from the incoming extension context
         loadAttachments { [weak self] items in
@@ -39,12 +42,23 @@ class ShareViewController: UIViewController {
     }
     
     private func complete() {
-        extensionContext?.completeRequest(returningItems: nil, completionHandler: nil)
+        let url = URL(string: "apex://open?dest=notes")!
+        extensionContext?.completeRequest(returningItems: nil, completionHandler: { [weak self] _ in
+            // Give the system a beat to dismiss the extension UI before opening the host app.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                self?.extensionContext?.open(url, completionHandler: nil)
+            }
+        })
     }
 }
 
 // MARK: - Input parsing
 extension ShareViewController {
+    private func registerCustomFonts() {
+        guard let url = Bundle.main.url(forResource: "PretendardVariable", withExtension: "ttf") else { return }
+        CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+    }
+    
     private func loadAttachments(completion: @escaping ([ShareAttachmentItem]) -> Void) {
         guard let items = extensionContext?.inputItems as? [NSExtensionItem], !items.isEmpty else {
             completion([])

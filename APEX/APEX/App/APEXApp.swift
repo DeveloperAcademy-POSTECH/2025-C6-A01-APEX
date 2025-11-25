@@ -55,6 +55,14 @@ struct APEXApp: App {
                             didMigrateToAppGroup = true
                         }
                     }
+                    .onOpenURL { url in
+                        guard url.scheme?.lowercased() == "apex" else { return }
+                        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return }
+                        let dest = components.queryItems?.first(where: { $0.name == "dest" })?.value?.lowercased()
+                        if dest == "notes" {
+                            NotificationCenter.default.post(name: .apexSelectNotes, object: nil)
+                        }
+                    }
                     .onReceive(NotificationCenter.default.publisher(for: .apexRequestOnboarding)) { _ in
                         hasCompletedOnboarding = false
                         router.path = []
@@ -134,4 +142,5 @@ private extension APEXApp {
 // MARK: - App-wide Notifications
 extension Notification.Name {
     static let apexRequestOnboarding = Notification.Name("apex.requestOnboarding")
+    static let apexSelectNotes = Notification.Name("apex.selectNotes")
 }
