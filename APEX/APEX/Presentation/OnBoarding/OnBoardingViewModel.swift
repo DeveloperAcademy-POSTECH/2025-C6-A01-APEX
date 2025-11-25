@@ -10,6 +10,7 @@ import Combine
 import SwiftUI
 import AuthenticationServices
 import UIKit
+import CloudKit
 
 @MainActor
 final class OnBoardingViewModel: ViewModelable {
@@ -124,12 +125,41 @@ private extension OnBoardingViewModel {
                     return
                 }
                 
-                // 3) 이름이 전혀 없으면 게스트 모드와 동일한 입력 시트를 띄운 뒤 완료
-                pendingEmail = email
-                tempGivenName = ""
-                tempFamilyName = ""
-                namePromptNext = { [weak self] in self?.onComplete?() }
-                showNamePrompt = true
+                // 3) 클라우드 AppUser에 이름/성이 저장되어 있다면 그것을 사용하고 시트를 띄우지 않음
+                CloudKitManager.shared.query(type: "AppUser") { [weak self] result in
+                    guard let self else { return }
+                    switch result {
+                    case .success(let records):
+                        if let rec = records.first {
+                            let cloudGiven = (rec["name"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                            let cloudFamily = (rec["surname"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                            if !cloudGiven.isEmpty || !cloudFamily.isEmpty {
+                                DispatchQueue.main.async {
+                                    self.applyManualProfileUpdate(given: cloudGiven, family: cloudFamily, email: email)
+                                    self.onComplete?()
+                                }
+                                return
+                            }
+                        }
+                        // 4) 클라우드에도 없다면 이름 입력 시트를 띄움
+                        DispatchQueue.main.async {
+                            self.pendingEmail = email
+                            self.tempGivenName = ""
+                            self.tempFamilyName = ""
+                            self.namePromptNext = { [weak self] in self?.onComplete?() }
+                            self.showNamePrompt = true
+                        }
+                    case .failure:
+                        // 실패 시에도 폴백으로 시트를 띄움
+                        DispatchQueue.main.async {
+                            self.pendingEmail = email
+                            self.tempGivenName = ""
+                            self.tempFamilyName = ""
+                            self.namePromptNext = { [weak self] in self?.onComplete?() }
+                            self.showNamePrompt = true
+                        }
+                    }
+                }
             },
             onFailure: { _ in }
         )

@@ -14,7 +14,7 @@ final class CloudKitWipeService {
 
     private var database: CKDatabase { CloudKitManager.shared.privateDB }
 
-    /// Delete all app records in CloudKit (NoteAsset -> Note -> Client -> AppUser) and clear local CloudKit mirrors.
+    /// Delete user data in CloudKit except AppUser (NoteAsset -> Note -> Client), then clear local CloudKit mirrors.
     func wipeAllUserCloudKitData(completion: @escaping (Result<Void, Error>) -> Void) {
         if UserDefaults.standard.bool(forKey: "apex.isGuestMode") {
             completion(.success(()))
@@ -26,14 +26,12 @@ final class CloudKitWipeService {
                 if let err { completion(.failure(err)); return }
                 self?.deleteAll(ofType: "Client") { err in
                     if let err { completion(.failure(err)); return }
-                    self?.deleteAll(ofType: "AppUser") { err in
-                        if let err { completion(.failure(err)); return }
-                        self?.clearLocalCloudKitMirrors()
-                        DispatchQueue.main.async {
-                            NotificationCenter.default.post(name: .cloudKitDatabaseDidChange, object: nil)
-                        }
-                        completion(.success(()))
+                    // Intentionally KEEP AppUser for future re-login
+                    self?.clearLocalCloudKitMirrors()
+                    DispatchQueue.main.async {
+                        NotificationCenter.default.post(name: .cloudKitDatabaseDidChange, object: nil)
                     }
+                    completion(.success(()))
                 }
             }
         }
