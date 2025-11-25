@@ -142,7 +142,7 @@ final class CloudKitManager {
     }
 
     // MARK: - Assets
-    func makeAsset(from image: UIImage, compressionQuality: CGFloat = 0.9) -> CKAsset? {
+    func makeAsset(from image: UIImage, compressionQuality: CGFloat = 1.0) -> CKAsset? {
         guard let data = image.jpegData(compressionQuality: compressionQuality) else { return nil }
         let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString + ".jpg")
         do {

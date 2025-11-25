@@ -10,12 +10,13 @@ import SwiftUI
 struct ProfileDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var router: NavigationRouter
+    @ObservedObject private var store = ClientsStore.shared
     let clientId: UUID
     @Binding var client: DummyClient
     @StateObject private var viewModel: ProfileDetailViewModel
     @State private var shouldEndMemoEditing = false
     // Removed local NavigationLink push states and moved UI state to ViewModel
-    
+
     // 내 프로필 여부 확인
     private var isMyProfile: Bool {
         let myId = ClientsStore.shared.clients.first?.id
@@ -35,7 +36,7 @@ struct ProfileDetailView: View {
             // 헤더 섹션 (패딩 없음 - 전체 화면 너비 사용)
             Section {
                 MyProfileHeaderView(
-                    client: viewModel.adaptedClient,
+                    client: (store.clients.first(where: { $0.id == clientId }) ?? viewModel.adaptedClient),
                     page: $viewModel.currentPageIndex,
                     onCardTapped: { viewModel.send(.showCardViewer(true)) }
                 )
@@ -67,9 +68,9 @@ struct ProfileDetailView: View {
             // 연락처 섹션
             Section {
                 MyProfileContactsSection(
-                    email: client.email,
-                    phone: client.phoneNumber,
-                    linkedin: client.linkedinURL,
+                    email: (store.clients.first(where: { $0.id == clientId })?.email) ?? client.email,
+                    phone: (store.clients.first(where: { $0.id == clientId })?.phoneNumber) ?? client.phoneNumber,
+                    linkedin: (store.clients.first(where: { $0.id == clientId })?.linkedinURL) ?? client.linkedinURL,
                     openExternal: { url in
                         viewModel.openExternal(url)
                     },
@@ -93,7 +94,7 @@ struct ProfileDetailView: View {
                     ProfileDetailMemoSection(
                         memo: Binding(
                             get: { client.memo ?? "" },
-                            set: { newValue in 
+                            set: { newValue in
                                 client.memo = newValue.isEmpty ? nil : newValue
                                 // 실시간 저장을 위해 ViewModel에 업데이트 알림
                                 viewModel.updateMemo(newValue.isEmpty ? nil : newValue)
@@ -102,7 +103,15 @@ struct ProfileDetailView: View {
                         shouldEndEditing: shouldEndMemoEditing
                     )
                 }
-                .listRowInsets(EdgeInsets(top: 24, leading: 16, bottom: 16, trailing: 16))  // 24-메모-4-컨텐츠-16, 16-8-컨텐츠-8-16 구조
+                .listRowInsets(
+                    EdgeInsets(
+                        top: 24,
+                        leading: 16,
+                        bottom: 16,
+                        trailing: 16
+                    )
+                )
+                // 24-메모-4-컨텐츠-16, 16-8-컨텐츠-8-16 구조
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
             }
@@ -119,7 +128,13 @@ struct ProfileDetailView: View {
         }
         .safeAreaBar(edge: .top) {
             MyProfileNavigationBar(
-                title: client.company.isEmpty ? "\(client.surname)\(client.name)" : client.company,
+                title: {
+                    let fromStore = store.clients.first(where: { $0.id == clientId })
+                    if let fromStore {
+                        return fromStore.company.isEmpty ? "\(fromStore.surname)\(fromStore.name)" : fromStore.company
+                    }
+                    return client.company.isEmpty ? "\(client.surname)\(client.name)" : client.company
+                }(),
                 onBack: { router.pop() },
                 onEdit: { viewModel.send(.presentEdit(true)) }
             )

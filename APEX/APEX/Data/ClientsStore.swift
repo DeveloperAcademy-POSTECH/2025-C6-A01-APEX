@@ -127,10 +127,6 @@ final class ClientsStore: ObservableObject {
                     self.localStore.saveClients(self.clients)
                     self.syncAllNotesToChatStore()
                 }
-                if SyncSettings.isAutoOn {
-                    self.pushUnsyncedNotesToCloudKit()
-                    self.refreshAllCloudKitDataSequentially()
-                }
             }
             .store(in: &cancellables)
 
@@ -550,10 +546,10 @@ final class ClientsStore: ObservableObject {
         if let img = client.profile, let asset = CloudKitManager.shared.makeAsset(from: img) {
             fields["profileAsset"] = asset
         }
-        if let front = client.nameCardFront?.asUIImage(), let asset = CloudKitManager.shared.makeAsset(from: front) {
+        if let front = client.nameCardFront?.asCardUIImage(), let asset = CloudKitManager.shared.makeAsset(from: front) {
             fields["nameCardFrontAsset"] = asset
         }
-        if let back = client.nameCardBack?.asUIImage(), let asset = CloudKitManager.shared.makeAsset(from: back) {
+        if let back = client.nameCardBack?.asCardUIImage(), let asset = CloudKitManager.shared.makeAsset(from: back) {
             fields["nameCardBackAsset"] = asset
         }
         CloudKitManager.shared.saveRecord(type: "Client", fields: fields) { [weak self] result in
@@ -600,12 +596,12 @@ final class ClientsStore: ObservableObject {
         } else {
             clearKeys.append("profileAsset")
         }
-        if let front = client.nameCardFront?.asUIImage(), let asset = CloudKitManager.shared.makeAsset(from: front) {
+        if let front = client.nameCardFront?.asCardUIImage(), let asset = CloudKitManager.shared.makeAsset(from: front) {
             fields["nameCardFrontAsset"] = asset
         } else {
             clearKeys.append("nameCardFrontAsset")
         }
-        if let back = client.nameCardBack?.asUIImage(), let asset = CloudKitManager.shared.makeAsset(from: back) {
+        if let back = client.nameCardBack?.asCardUIImage(), let asset = CloudKitManager.shared.makeAsset(from: back) {
             fields["nameCardBackAsset"] = asset
         } else {
             clearKeys.append("nameCardBackAsset")
@@ -659,10 +655,10 @@ final class ClientsStore: ObservableObject {
         if let img = me.profile, let asset = CloudKitManager.shared.makeAsset(from: img) {
             fields["profileAsset"] = asset
         } else { clearKeys.append("profileAsset") }
-        if let front = me.nameCardFront?.asUIImage(), let asset = CloudKitManager.shared.makeAsset(from: front) {
+        if let front = me.nameCardFront?.asCardUIImage(), let asset = CloudKitManager.shared.makeAsset(from: front) {
             fields["nameCardFrontAsset"] = asset
         } else { clearKeys.append("nameCardFrontAsset") }
-        if let back = me.nameCardBack?.asUIImage(), let asset = CloudKitManager.shared.makeAsset(from: back) {
+        if let back = me.nameCardBack?.asCardUIImage(), let asset = CloudKitManager.shared.makeAsset(from: back) {
             fields["nameCardBackAsset"] = asset
         } else { clearKeys.append("nameCardBackAsset") }
 
