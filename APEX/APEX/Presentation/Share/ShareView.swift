@@ -55,7 +55,7 @@ struct ShareView: View {
 
                     // All grouped by company
                     ForEach(viewModel.connectsCompanyKeys, id: \.self) { key in
-                        Text(key).font(.body1).foregroundColor(.primary)
+                        Text(key).font(.body1).foregroundColor(Color("GrayLabel"))
                             .padding(.top, 8)
                         ForEach(viewModel.connectsGrouped[key] ?? []) { client in
                             ShareRow(
