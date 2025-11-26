@@ -14,6 +14,7 @@ struct RecordView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var isKeyboardShown: Bool = false
+    @State private var focusedFieldId: String?
 
     init(audioURL: URL?) {
         _viewModel = StateObject(wrappedValue: RecordViewModel(audioURL: audioURL))
@@ -82,18 +83,32 @@ struct RecordView: View {
                     state: .normal(helper: nil),
                     isRequired: false,
                     isDisabled: false,
-                    showsClearButton: true
+                    showsClearButton: true,
+                    onFocusChange: { isFocused in
+                        if isFocused {
+                            focusedFieldId = "filenameField"
+                        }
+                    }
                 )
                 .id("filenameField")
                 .padding(.top, 42)
                 .padding(.bottom, 16)
                 APEXTextField(
-                    style: .editor,
+                    kind: .multiLine(minHeight: 144),
                     label: "음성녹음 기록",
                     placeholder: "주요 대화",
                     text: $viewModel.conversation,
-                    isRequired: false
+                    state: .normal(helper: nil),
+                    isRequired: false,
+                    isDisabled: false,
+                    showsClearButton: true,
+                    onFocusChange: { isFocused in
+                        if isFocused {
+                            focusedFieldId = "conversationField"
+                        }
+                    }
                 )
+                    .id("conversationField")
                     .frame(height: 165)
                     .padding(.bottom, 10)
             }
@@ -103,40 +118,40 @@ struct RecordView: View {
         .scrollDisabled(!isKeyboardShown)
         .background(Color("Background"))
         .toolbar(.hidden, for: .navigationBar)
-        .safeAreaBar(edge: .top) {
+        .safeAreaBar(edge: .top, content: {
             APEXRecordTopBar(
                 onClose: { dismiss() },
                 onDone: { viewModel.send(.save); dismiss() }
             )
-        }
+        })
         .scrollDismissesKeyboard(.interactively)
-        .overlay {
+        .overlay(content: {
             GeometryReader { proxy in
                 VStack(spacing: 0) {
                     Spacer() // 전체 높이 채운 뒤 아래로 밀기
                     HStack(spacing: 48) {
-                        Button(action: { viewModel.send(.save) }) {
+                        Button(action: { viewModel.send(.save) }, label: {
                             Image(systemName: "square.and.arrow.down")
                                 .font(.system(size: 15, weight: .semibold))
                                 .frame(width: 44, height: 44)
                                 .glassEffect()
-                        }
+                        })
                         .buttonStyle(.plain)
 
-                        Button(action: { viewModel.send(.tapShare) }) {
+                        Button(action: { viewModel.send(.tapShare) }, label: {
                             Image(systemName: "square.and.arrow.up")
                                 .font(.system(size: 15, weight: .semibold))
                                 .frame(width: 44, height: 44)
                                 .glassEffect()
-                        }
+                        })
                         .buttonStyle(.plain)
 
-                        Button(action: { viewModel.send(.tapDelete) }) {
+                        Button(action: { viewModel.send(.tapDelete) }, label: {
                             Image(systemName: "trash")
                                 .font(.system(size: 15, weight: .semibold))
                                 .frame(width: 44, height: 44)
                                 .glassEffect()
-                        }
+                        })
                         .buttonStyle(.plain)
                     }
                     .frame(maxWidth: .infinity)
@@ -147,25 +162,25 @@ struct RecordView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity) // 전체 영역 채우기
             }
             .ignoresSafeArea(.keyboard, edges: .bottom) // 키보드 올라와도 고정
-        }
-        .sheet(isPresented: $viewModel.showShareSheet) {
+        })
+        .sheet(isPresented: $viewModel.showShareSheet, content: {
             if let url = viewModel.workingURL ?? viewModel.originalURL {
                 ShareView(initialAttachments: [ShareAttachmentItem(id: UUID(), kind: .audio(url))])
             } else {
                 ShareView()
             }
-        }
-        .alert("음성 녹음을 삭제할까요?", isPresented: $viewModel.showDeleteAlert) {
+        })
+        .alert("음성 녹음을 삭제할까요?", isPresented: $viewModel.showDeleteAlert, actions: {
             Button("삭제", role: .destructive) {
                 viewModel.send(.confirmDelete)
                 dismiss()
             }
             Button("취소", role: .cancel) { }
-        }
+        })
         .simultaneousGesture(
-            TapGesture().onEnded {
+            TapGesture().onEnded({
                 UIApplication.apexDismissKeyboard()
-            }
+            })
         )
         .onAppear {
             viewModel.send(.onAppear)
@@ -174,13 +189,21 @@ struct RecordView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
             isKeyboardShown = true
             withAnimation(.easeOut(duration: 0.25)) {
-                proxy.scrollTo("filenameField", anchor: .bottom)
+                if let target = focusedFieldId {
+                    proxy.scrollTo(target, anchor: .bottom)
+                } else {
+                    proxy.scrollTo("filenameField", anchor: .bottom)
+                }
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { _ in
             if isKeyboardShown {
                 withAnimation(.easeOut(duration: 0.2)) {
-                    proxy.scrollTo("filenameField", anchor: .bottom)
+                    if let target = focusedFieldId {
+                        proxy.scrollTo(target, anchor: .bottom)
+                    } else {
+                        proxy.scrollTo("filenameField", anchor: .bottom)
+                    }
                 }
             }
         }

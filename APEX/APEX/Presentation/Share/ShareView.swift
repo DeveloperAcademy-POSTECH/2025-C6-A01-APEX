@@ -55,7 +55,7 @@ struct ShareView: View {
 
                     // All grouped by company
                     ForEach(viewModel.connectsCompanyKeys, id: \.self) { key in
-                        Text(key).font(.body1).foregroundColor(.primary)
+                        Text(key).font(.body1).foregroundColor(Color("GrayLabel"))
                             .padding(.top, 8)
                         ForEach(viewModel.connectsGrouped[key] ?? []) { client in
                             ShareRow(
@@ -129,6 +129,19 @@ struct ShareView: View {
                 )
                 .padding(.top, 16)
                 .background(Color("Background"))
+
+                if viewModel.isSearching {
+                    ShareSearchBar(
+                        text: Binding(
+                            get: { viewModel.searchText },
+                            set: { viewModel.searchText = $0 }
+                        ),
+                        onClose: { viewModel.send(.search) }
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
+                    .background(Color("Background"))
+                }
 
                 Group {
                     if !viewModel.selectedIds.isEmpty {
@@ -316,7 +329,7 @@ struct ShareView: View {
                 .buttonStyle(.plain)
             }
 
-            Text("\(client.name)\n\(client.surname)")
+            Text(client.autoFormattedName)
                 .font(.caption2)
                 .foregroundColor(.primary)
                 .lineLimit(2)
@@ -351,6 +364,55 @@ struct ShareView: View {
             }
         }
         return false
+    }
+}
+
+// MARK: - Search Bar (for ShareView)
+private struct ShareSearchBar: View {
+    @Binding var text: String
+    var onClose: () -> Void
+    @FocusState private var isFocused: Bool
+    
+    init(text: Binding<String>, onClose: @escaping () -> Void) {
+        self._text = text
+        self.onClose = onClose
+    }
+    
+    var body: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.gray)
+                TextField("검색", text: $text)
+                    .font(.body5)
+                    .foregroundColor(.primary)
+                    .focused($isFocused)
+                    .submitLabel(.search)
+                if !text.isEmpty {
+                    Button {
+                        text = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 16, weight: .regular))
+                            .foregroundColor(.gray)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 40)
+            .background(Color("BackgroundSecondary"))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            
+            Button("취소") {
+                onClose()
+            }
+            .font(.callout)
+            .foregroundColor(Color("Primary"))
+            .buttonStyle(.plain)
+        }
+        .onAppear { isFocused = true }
     }
 }
 

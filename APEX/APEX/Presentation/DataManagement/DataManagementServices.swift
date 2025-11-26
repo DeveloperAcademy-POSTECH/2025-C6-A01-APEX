@@ -1,6 +1,34 @@
 import Foundation
 import UIKit
 
+// MARK: - Sync Settings
+struct SyncSettings {
+    private static let autoKey = "apex.sync.auto"
+    private static let lastKey = "apex.sync.lastDate"
+    
+    static var isAutoOn: Bool {
+        get {
+            // Default to ON when not set yet
+            if UserDefaults.standard.object(forKey: autoKey) == nil {
+                return true
+            }
+            return UserDefaults.standard.bool(forKey: autoKey)
+        }
+        set { UserDefaults.standard.set(newValue, forKey: autoKey) }
+    }
+    
+    static var lastSyncDate: Date? {
+        get { UserDefaults.standard.object(forKey: lastKey) as? Date }
+        set {
+            if let newDateValue = newValue {
+                UserDefaults.standard.set(newDateValue, forKey: lastKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: lastKey)
+            }
+        }
+    }
+}
+
 // MARK: - Models
 
 struct DMContactUsage: Identifiable, Equatable {
@@ -15,7 +43,7 @@ struct DMContactUsage: Identifiable, Equatable {
 
 protocol StorageSyncService {
     func isAutoSyncOn() async throws -> Bool
-    func setAutoSyncOn(_ on: Bool) async throws
+    func setAutoSyncOn(_ isOn: Bool) async throws
     func refreshNow() async throws -> Date
     func lastSyncDate() async throws -> Date?
 }
@@ -26,9 +54,9 @@ final class MockStorageSyncService: StorageSyncService {
 
     func isAutoSyncOn() async throws -> Bool { autoOn }
 
-    func setAutoSyncOn(_ on: Bool) async throws {
+    func setAutoSyncOn(_ isOn: Bool) async throws {
         try await Task.sleep(nanoseconds: 200_000_000)
-        autoOn = on
+        autoOn = isOn
     }
 
     func refreshNow() async throws -> Date {
@@ -39,6 +67,80 @@ final class MockStorageSyncService: StorageSyncService {
     }
 
     func lastSyncDate() async throws -> Date? { lastSync }
+}
+
+// MARK: - Real Storage Sync
+final class RealStorageSyncService: StorageSyncService {
+    func isAutoSyncOn() async throws -> Bool {
+        SyncSettings.isAutoOn
+    }
+    
+    func setAutoSyncOn(_ isOn: Bool) async throws {
+        SyncSettings.isAutoOn = isOn
+        // Optionally kick a best-effort sync when enabling
+        if isOn {
+            _ = try? await refreshNow()
+        }
+    }
+    
+    func refreshNow() async throws -> Date {
+        // Best-effort ensure subscription for silent pushes
+        CloudKitManager.shared.ensureDatabaseSubscription()
+        // Push any unsynced notes to CloudKit
+        let clients = ClientsStore.shared.clients
+        for client in clients {
+            // Merge ChatStore + ClientsStore notes to cover open chats and persisted
+            let storeNotes = ChatStore.shared.notes(for: client.id)
+            var seen = Set<UUID>()
+            var merged: [Note] = []
+            for noteItem in storeNotes where seen.insert(noteItem.id).inserted { merged.append(noteItem) }
+            for noteItem in client.notes where seen.insert(noteItem.id).inserted { merged.append(noteItem) }
+            for note in merged {
+                // Only create records for notes not yet mapped to CloudKit
+                if !CloudKitNotesManager.shared.hasRecord(for: note.id) {
+                    CloudKitNotesManager.shared.save(note: note, for: client.id)
+                }
+            }
+        }
+        // Pull latest notes from CloudKit and reflect into app immediately (even when auto-sync is off)
+        // We update ChatStore only; ClientsStore will mirror via its NotificationCenter subscriber.
+        if !clients.isEmpty {
+            DispatchQueue.main.async {
+                ClientsStore.shared.beginCloudSync(clients.count)
+            }
+        }
+        for client in clients {
+            CloudKitNotesManager.shared.fetchNotes(for: client.id) { result in
+                if case .success(let fetched) = result {
+                    DispatchQueue.main.async {
+                        // Merge: preserve local STT text if CloudKit is empty
+                        let local = ChatStore.shared.notes(for: client.id)
+                        var merged = fetched
+                        for idx in merged.indices {
+                            if let lidx = local.firstIndex(where: { $0.id == merged[idx].id }) {
+                                let localText = local[lidx].text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                                let cloudText = merged[idx].text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                                if !localText.isEmpty && cloudText.isEmpty {
+                                    merged[idx].text = local[lidx].text
+                                }
+                            }
+                        }
+                        ChatStore.shared.setNotes(merged, for: client.id)
+                    }
+                }
+                DispatchQueue.main.async {
+                    ClientsStore.shared.endCloudSync()
+                }
+            }
+        }
+        let now = Date()
+        SyncSettings.lastSyncDate = now
+        return now
+    }
+    
+    func lastSyncDate() async throws -> Date? {
+        SyncSettings.lastSyncDate
+    }
 }
 
 // MARK: - Data Usage
@@ -124,32 +226,42 @@ final class RealDataUsageService: DataUsageService {
         let notes = ChatStore.shared.notes(for: contactId)
         if !notes.isEmpty {
             var updated: [Note] = []
+            var removedNoteIds: [UUID] = []
+            var changedNoteIds: [UUID] = []
             updated.reserveCapacity(notes.count)
-            for var note in notes {
-                if isMediaOnly(note) {
+            for var noteItem in notes {
+                if isMediaOnly(noteItem) {
                     // drop media-only note entirely (no residual timestamp)
+                    removedNoteIds.append(noteItem.id)
                     continue
                 }
-                if note.bundle != nil {
-                    note.bundle = nil
+                if noteItem.bundle != nil {
+                    noteItem.bundle = nil
+                    changedNoteIds.append(noteItem.id)
                 }
-                updated.append(note)
+                updated.append(noteItem)
             }
             ChatStore.shared.setNotes(updated, for: contactId)
+            if SyncSettings.isAutoOn {
+                for id in changedNoteIds {
+                    if let idx = updated.firstIndex(where: { $0.id == id }) {
+                        CloudKitNotesManager.shared.rewriteAssets(noteId: id, bundle: updated[idx].bundle)
+                    }
+                }
+                for id in removedNoteIds {
+                    CloudKitNotesManager.shared.delete(noteId: id)
+                }
+            }
         }
         // Update ClientsStore copy
         if let idx = ClientsStore.shared.clients.firstIndex(where: { $0.id == contactId }) {
             var client = ClientsStore.shared.clients[idx]
             if !client.notes.isEmpty {
-                client.notes = client.notes.compactMap { n in
-                    var m = n
-                    if isMediaOnly(m) {
-                        return nil
-                    }
-                    if m.bundle != nil {
-                        m.bundle = nil
-                    }
-                    return m
+                client.notes = client.notes.compactMap { current in
+                    var mutable = current
+                    if isMediaOnly(mutable) { return nil }
+                    if mutable.bundle != nil { mutable.bundle = nil }
+                    return mutable
                 }
                 ClientsStore.shared.update(client)
             }
@@ -169,11 +281,11 @@ private extension RealDataUsageService {
         // Merge store + fallback, dedupe by id
         var seen = Set<UUID>()
         var merged: [Note] = []
-        for n in storeNotes {
-            if seen.insert(n.id).inserted { merged.append(n) }
+        for noteItem in storeNotes where seen.insert(noteItem.id).inserted {
+            merged.append(noteItem)
         }
-        for n in fallbackNotes {
-            if seen.insert(n.id).inserted { merged.append(n) }
+        for noteItem in fallbackNotes where seen.insert(noteItem.id).inserted {
+            merged.append(noteItem)
         }
         var total: Int64 = 0
         for note in merged {
@@ -183,16 +295,16 @@ private extension RealDataUsageService {
                 for img in images {
                     total &+= Int64(img.data.count)
                 }
-                for v in videos {
-                    total &+= fileSize(at: v.url)
+                for videoAttachment in videos {
+                    total &+= fileSize(at: videoAttachment.url)
                 }
             case .files(let files):
-                for f in files {
-                    total &+= fileSize(at: f.url)
+                for fileAttachment in files {
+                    total &+= fileSize(at: fileAttachment.url)
                 }
             case .audio(let audios):
-                for a in audios {
-                    total &+= fileSize(at: a.url)
+                for audioAttachment in audios {
+                    total &+= fileSize(at: audioAttachment.url)
                 }
             }
         }
@@ -216,12 +328,12 @@ private extension RealDataUsageService {
         // 1024-based; show GB if >= 1 GB else MB
         let oneMB: Double = 1024 * 1024
         let oneGB: Double = oneMB * 1024
-        let b = Double(bytes)
-        if b >= oneGB {
-            let val = (b / oneGB * 100).rounded() / 100
+        let bytesDouble = Double(bytes)
+        if bytesDouble >= oneGB {
+            let val = (bytesDouble / oneGB * 100).rounded() / 100
             return String(format: "%.2f GB", val)
         } else {
-            let val = (b / oneMB * 100).rounded() / 100
+            let val = (bytesDouble / oneMB * 100).rounded() / 100
             return String(format: "%.2f MB", val)
         }
     }
@@ -240,10 +352,10 @@ private extension RealDataUsageService {
     }
     
     func makeInitials(surname: String, name: String) -> String {
-        let s = surname.trimmingCharacters(in: .whitespacesAndNewlines)
-        let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let sInitial = s.first.map { String($0) } ?? ""
-        let nInitial = n.first.map { String($0) } ?? ""
-        return sInitial + nInitial
+        let trimmedSurname = surname.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let surnameInitial = trimmedSurname.first.map { String($0) } ?? ""
+        let nameInitial = trimmedName.first.map { String($0) } ?? ""
+        return surnameInitial + nameInitial
     }
 }

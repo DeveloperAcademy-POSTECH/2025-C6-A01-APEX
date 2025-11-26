@@ -6,12 +6,15 @@
 //
 
 import SwiftUI
+import UIKit
 
 @main
 struct APEXApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var router = NavigationRouter() // router instance for navigation
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
+    @AppStorage("apex.isGuestMode") private var isGuestMode: Bool = false
     @AppStorage("appGroupMigration_v1") private var didMigrateToAppGroup: Bool = false
     private var isPreviewEnv: Bool {
         let env = ProcessInfo.processInfo.environment
@@ -39,9 +42,25 @@ struct APEXApp: App {
                     .environmentObject(router)
                     .task {
                         guard !isPreviewEnv else { return }
+                        // After onboarding completion, if not guest, start CloudKit + push setup now.
+                        if !isGuestMode {
+                            appDelegate.startCloudKitAndPushSetupIfNeeded()
+                            // Force an immediate CloudKit refresh so UI repopulates after login
+                            DispatchQueue.main.async {
+                                ClientsStore.shared.forceCloudKitRefresh()
+                            }
+                        }
                         if !didMigrateToAppGroup {
                             migrateDocumentsToAppGroupIfNeeded()
                             didMigrateToAppGroup = true
+                        }
+                    }
+                    .onOpenURL { url in
+                        guard url.scheme?.lowercased() == "apex" else { return }
+                        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return }
+                        let dest = components.queryItems?.first(where: { $0.name == "dest" })?.value?.lowercased()
+                        if dest == "notes" {
+                            NotificationCenter.default.post(name: .apexSelectNotes, object: nil)
                         }
                     }
                     .onReceive(NotificationCenter.default.publisher(for: .apexRequestOnboarding)) { _ in
@@ -51,10 +70,12 @@ struct APEXApp: App {
             } else {
                 OnBoardingView(
                     onComplete: {
+                        isGuestMode = false
                         hasCompletedOnboarding = true
                     },
                     onGuest: {
                         // Guest should persist across restarts like a completed onboarding
+                        isGuestMode = true
                         hasCompletedOnboarding = true
                     }
                 )
@@ -121,4 +142,5 @@ private extension APEXApp {
 // MARK: - App-wide Notifications
 extension Notification.Name {
     static let apexRequestOnboarding = Notification.Name("apex.requestOnboarding")
+    static let apexSelectNotes = Notification.Name("apex.selectNotes")
 }

@@ -36,12 +36,12 @@ struct ContactsRow: View {
                 VStack(alignment: .leading, spacing: Metrics.nameSubtitleSpacing) {
                     Text(client.autoFormattedName)
                         .font(.body2)
-                        .foregroundColor(.primary)
+                        .foregroundColor(Color("BlackLabel"))
                         .lineLimit(1)
 
                     Text(subtitle)
-                        .font(.body6)
-                        .foregroundColor(.gray)
+                        .font(.body5)
+                        .foregroundColor(Color("GrayLabel"))
                         .lineLimit(1)
                 }
                 .frame(height: Metrics.textBoxHeight)
@@ -76,7 +76,7 @@ struct ContactsRow: View {
                 return first.id == client.id
             }()
             if !isMe, let onDelete {
-                Button(role: .destructive) {
+                Button { // role: .destructive 제거
                     onDelete()
                 } label: {
                     Image(systemName: "trash")
@@ -114,13 +114,25 @@ struct ContactsRow: View {
                     Circle()
                         .fill(Color("PrimaryContainer"))
                     Text(initials)
-                        .font(.system(size: 30.72, weight: .semibold))
+                        .font(.system(size: dynamicFontSize(for: initials), weight: .semibold))
                         .foregroundColor(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5) // 텍스트가 잘리면 50%까지 축소
                 }
             }
         }
         .frame(width: Metrics.avatarSize, height: Metrics.avatarSize)
         .clipShape(Circle())
+    }
+    private func dynamicFontSize(for initials: String) -> CGFloat {
+        let baseSize: CGFloat = 30.72 // 48 * 0.64
+        if initials.count <= 1 {
+            return baseSize // 한 글자: 기본 크기
+        } else if initials.count == 2 {
+            return baseSize * 0.85 // 두 글자: 15% 축소 (약 26.1)
+        } else {
+            return baseSize * 0.7 // 세 글자 이상: 30% 축소
+        }
     }
 }
 
@@ -177,6 +189,8 @@ extension ContactsRow: Equatable {
         && lhs.client.surname == rhs.client.surname
         && lhs.client.position == rhs.client.position
         && lhs.client.company == rhs.client.company
+        // 프로필 이미지 변경도 리렌더링 트리거되도록 반영
+        && ((lhs.client.profile?.pngData()?.count ?? -1) == (rhs.client.profile?.pngData()?.count ?? -1))
         && lhs.rowHeight == rhs.rowHeight
         && lhs.subtitleOverride == rhs.subtitleOverride
     }

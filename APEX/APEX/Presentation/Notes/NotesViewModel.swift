@@ -88,6 +88,7 @@ final class NotesViewModel: ViewModelable {
                     name: old.name,
                     position: old.position,
                     company: old.company,
+                    department: old.department,
                     email: old.email,
                     phoneNumber: old.phoneNumber,
                     linkedinURL: old.linkedinURL,
@@ -95,7 +96,15 @@ final class NotesViewModel: ViewModelable {
                     action: old.action,
                     favorite: old.favorite,
                     pin: old.pin,
-                    notes: latestNotes
+                    notes: latestNotes,
+                    industry: old.industry,
+                    address: old.address,
+                    faxNumber: old.faxNumber,
+                    revenue: old.revenue,
+                    employees: old.employees,
+                    additionalEmails: old.additionalEmails,
+                    additionalPhones: old.additionalPhones,
+                    additionalURLs: old.additionalURLs
                 )
             }
         }
@@ -117,8 +126,11 @@ final class NotesViewModel: ViewModelable {
         case .undoPin:
             undoPinAction()
         case .showDelete(let client):
-            clientToDelete = client
-            showDeleteDialog = true
+            // 배치 업데이트로 리렌더링 최소화
+            Task { @MainActor in
+                clientToDelete = client
+                showDeleteDialog = true
+            }
         case .deleteConfirmed(let client):
             deleteClient(client)
         case .dismissDelete:
@@ -140,6 +152,7 @@ final class NotesViewModel: ViewModelable {
                     name: old.name,
                     position: old.position,
                     company: old.company,
+                    department: old.department,
                     email: old.email,
                     phoneNumber: old.phoneNumber,
                     linkedinURL: old.linkedinURL,
@@ -147,7 +160,15 @@ final class NotesViewModel: ViewModelable {
                     action: old.action,
                     favorite: old.favorite,
                     pin: old.pin,
-                    notes: latestNotes
+                    notes: latestNotes,
+                    industry: old.industry,
+                    address: old.address,
+                    faxNumber: old.faxNumber,
+                    revenue: old.revenue,
+                    employees: old.employees,
+                    additionalEmails: old.additionalEmails,
+                    additionalPhones: old.additionalPhones,
+                    additionalURLs: old.additionalURLs
                 )
             }
         }
@@ -212,8 +233,16 @@ final class NotesViewModel: ViewModelable {
     }
     
     private func deleteClient(_ client: Client) {
-        // Only clear notes (keep contact)
+        // Delete all notes for this client
+        let notesToDelete = ChatStore.shared.notes(for: client.id)
+        // Clear locally first (keep contact)
         ChatStore.shared.setNotes([], for: client.id)
+        // Reflect deletion to CloudKit
+        if SyncSettings.isAutoOn {
+            for note in notesToDelete {
+                CloudKitNotesManager.shared.delete(noteId: note.id)
+            }
+        }
         
         if case .company(let name) = selectedFilter,
            !companyNamesWithNotes.contains(name) {

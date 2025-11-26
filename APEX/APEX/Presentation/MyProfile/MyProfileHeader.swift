@@ -105,11 +105,8 @@ public struct MyProfileHeaderView: View {
         }
         
         if client.nameCardFront != nil || client.nameCardBack != nil {
-            if let f = client.nameCardFront { arr.append(.cardFront(f)) }
-            if let b = client.nameCardBack { arr.append(.cardBack(b)) }
-        } else {
-            arr.append(.cardFront(Image("CardL")))
-            arr.append(.cardBack(Image("CardL")))
+            if let frontImage = client.nameCardFront { arr.append(.cardFront(frontImage)) }
+            if let backImage = client.nameCardBack { arr.append(.cardBack(backImage)) }
         }
         return arr
     }
@@ -126,9 +123,10 @@ public struct MyProfileHeaderView: View {
                         .background(Color.clear)  // 개별 컨텐츠 배경 투명 처리
                         .onTapGesture {
                             let current = items[index]
-                            if case .cardFront(_) = current {
+                            switch current {
+                            case .cardFront, .cardBack:
                                 onCardTapped?()
-                            } else if case .cardBack(_) = current {
+                            case .profile, .avatar:
                                 onCardTapped?()
                             }
                         }
@@ -159,36 +157,55 @@ public struct MyProfileHeaderView: View {
             .opacity(items.count > 1 ? 1.0 : 0.0)
             
             VStack(alignment: .center, spacing: 0) {
-                Text(client.autoFormattedName)
+                Text("\(client.surname)\(client.name)")
                     .font(.title2)
                     .multilineTextAlignment(.center)
                     .foregroundColor(.black)
                     .lineLimit(1)
+                    .onAppear {
+                        print("🐛 MyProfileHeader - surname: '\(client.surname)', name: '\(client.name)'")
+                        print("🐛 MyProfileHeader - company: '\(client.company)', position: '\(client.position ?? "nil")'")
+                    }
                 
-                Spacer().frame(height: 4)
-                
-                Text(subtitle)
-                    .font(.body5)
-                    .foregroundColor(.gray)
-                    .lineLimit(1)
+                if !subtitle.isEmpty {
+                    Spacer().frame(height: 3)
+                    
+                    Text(subtitle)
+                        .font(.body5)
+                        .foregroundColor(.gray)
+                        .lineLimit(1)
+                }
             }
             .padding(.horizontal, 16)  // 이름 섹션에만 16px 좌우 패딩
             .padding(.top, 4)      // 상단 4px 패딩 추가
-            .padding(.bottom, 8)   // 하단 8px 패딩만 유지
         }
         .padding(.top, 16)  // 네비게이션 바와의 간격 16px를 내부로 이동
+        // 헤더 영역에서의 좌우 스와이프 중에는 글로벌 스와이프-백(pop) 비활성화
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 1)
+                .onChanged { _ in
+                    ApexSwipeBackState.shared.isDisabled = true
+                }
+                .onEnded { _ in
+                    ApexSwipeBackState.shared.isDisabled = false
+                }
+        )
+        .onDisappear {
+            // 안전장치: 화면 이탈 시 항상 원복
+            ApexSwipeBackState.shared.isDisabled = false
+        }
         .onChange(of: pages.count) { _ in
             page = min(page, max(pages.count - 1, 0))
         }
     }
     
     private var subtitle: String {
-        let company = client.company.trimmingCharacters(in: .whitespacesAndNewlines)
+        let department = (client.department ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let position = (client.position ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        if company.isEmpty && position.isEmpty { return "" }
-        if company.isEmpty { return position }
-        if position.isEmpty { return company }
-        return "\(company) \(position)"
+        if department.isEmpty && position.isEmpty { return "" }
+        if department.isEmpty { return position }
+        if position.isEmpty { return department }
+        return "\(department) \(position)"
     }
 
     @ViewBuilder
@@ -198,23 +215,19 @@ public struct MyProfileHeaderView: View {
             Profile(
                 image: ui,
                 initials: Profile.makeInitials(name: client.name, surname: client.surname),
-                size: .large,
-                fontSize: 128
+                size: .large
             )
         case .cardFront(let image), .cardBack(let image):
             image
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .frame(maxWidth: 358, maxHeight: 214)   // 최대 크기 제한으로 비율 유지
-                .background(Color.clear)  // 투명 배경 명시
-                .clipped()  // 경계 밖 콘텐츠 제거
+                .frame(width: 358, height: 214)   // 고정 크기로 일관성 유지
+                .background(Color.clear)
+                .clipped()
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(Color.clear, lineWidth: 0)  // 투명 스트로크로 기본 테두리 제거
-                )
         case .avatar(let initials):
-            Profile(image: nil, initials: initials, size: .large, fontSize: 128)
+            let trimmed = initials.trimmingCharacters(in: .whitespacesAndNewlines)
+            Profile(image: nil, initials: trimmed, size: .large)
         }
     }
 }

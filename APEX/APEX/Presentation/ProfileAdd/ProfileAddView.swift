@@ -17,9 +17,23 @@ struct ProfileAddView: View {
     @StateObject private var viewModel = ProfileAddViewModel()
     
     var body: some View {
+        ZStack {
+            mainContent
+        }
+        .background(Color("Background"))
+        .onAppear { viewModel.ensureFieldArrays() }
+        .onChange(of: viewModel.addItemConfig.emailCount) { _ in viewModel.ensureFieldArrays() }
+        .onChange(of: viewModel.addItemConfig.phoneCount) { _ in viewModel.ensureFieldArrays() }
+        .onChange(of: viewModel.addItemConfig.urlCount) { _ in viewModel.ensureFieldArrays() }
+    }
+
+    // MARK: - Main Content
+    
+    private var mainContent: some View {
         ScrollView {
             VStack {
                 HStack {
+                    /* 닫기 */
                     Button {
                         viewModel.send(.tapPhoto(.profile))
                     } label: {
@@ -30,8 +44,7 @@ struct ProfileAddView: View {
                                 Profile(
                                     image: image,
                                     initials: Profile.makeInitials(name: trimmedName, surname: trimmedSurname),
-                                    size: .small,
-                                    fontSize: 64
+                                    size: .small
                                 )
                             } else if trimmedName.isEmpty && trimmedSurname.isEmpty {
                                 Image("ProfileS")
@@ -39,8 +52,7 @@ struct ProfileAddView: View {
                                 Profile(
                                     image: nil,
                                     initials: Profile.makeInitials(name: trimmedName, surname: trimmedSurname),
-                                    size: .small,
-                                    fontSize: 64
+                                    size: .small
                                 )
                             }
                             Text("프로필")
@@ -71,7 +83,7 @@ struct ProfileAddView: View {
                     .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 24)
+                .padding(.top, 24)  // 원래대로 복구
                 .padding(.bottom, 48)
                 
                 APEXTextField(style: .field, placeholder: "성", text: $viewModel.surname)
@@ -112,7 +124,7 @@ struct ProfileAddView: View {
                 }
                 
                 if isFieldEnabled(.memo) {
-                    APEXTextField(style: .editor, label: "메모", placeholder: "주요 대화", text: $viewModel.memo, maxLength: 100)
+                    ProfileEditMemoSection(memo: $viewModel.memo)
                         .padding(.bottom, 48)
                 }
                 
@@ -122,7 +134,7 @@ struct ProfileAddView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "plus.circle.fill")
                             .foregroundColor(Color("Primary"))
-                        Text("항목 추가하기")
+                        Text("항목 수정하기")
                             .font(.body2)
                             .foregroundColor(Color("Primary"))
                     }
@@ -135,6 +147,12 @@ struct ProfileAddView: View {
             .padding(.horizontal, 24)
         }
         .scrollEdgeEffectStyle(.soft, for: .all)
+        .scrollDismissesKeyboard(.interactively)
+        .simultaneousGesture(
+            TapGesture().onEnded {
+                UIApplication.apexDismissKeyboard()
+            }
+        )
         .sheet(item: $viewModel.presentedPhotoType) { sheetType in
             PhotoAddView(
                 type: sheetType,
@@ -144,15 +162,19 @@ struct ProfileAddView: View {
                 onCroppedCard: { uiImage, isFront in
                     viewModel.send(.setCardImage(uiImage, isFront: isFront))
                 },
+                onResetProfile: {
+                    viewModel.send(.clearProfileImage)
+                },
+                onResetCard: { isFront in
+                    viewModel.send(.clearCardImage(isFront: isFront))
+                },
                 initialProfile: viewModel.profileUIImage,
                 initialFront: viewModel.cardFrontUIImage,
                 initialBack: viewModel.cardBackUIImage
             )
-            .padding(.top, 30)
         }
         .sheet(isPresented: $viewModel.isAddItemPresented) {
             AddItemView(config: $viewModel.addItemConfig)
-                .padding(.top, 30)
         }
         .safeAreaBar(edge: .top) {
             APEXSheetTopBar(
@@ -165,6 +187,7 @@ struct ProfileAddView: View {
             }, onClose: {
                 dismiss()
             })
+            .padding(.top, 10)
         }
         .onAppear { viewModel.send(.onAppear) }
         .onChange(of: viewModel.addItemConfig.emailCount) { _ in viewModel.ensureFieldArrays() }
@@ -278,8 +301,10 @@ struct ProfileAddView: View {
     }
 }
 
+
 #Preview {
     ProfileAddView()
 }
 
 // makeInitials moved to common component: Profile.makeInitials
+

@@ -155,7 +155,7 @@ struct ChatMediaPickerSheet: View {
                         .glassEffect()
                 }
                 .buttonStyle(.plain)
-                .disabled(selectedIds.isEmpty)
+                .disabled(selectedIds.isEmpty || hasPendingVideos)
                 .padding(16)
             }
         }
@@ -187,6 +187,13 @@ struct ChatMediaPickerSheet: View {
     private var showLargeHeader: Bool {
         if let override = isFullyExpandedOverride { return override }
         return detentSelection == .large
+    }
+
+    private var hasPendingVideos: Bool {
+        selectedAttachmentItems.contains {
+            if case .video(let url, _) = $0.kind { return url == nil }
+            return false
+        }
     }
 
     private func toggleSelection(for asset: PHAsset) {
@@ -223,9 +230,19 @@ struct ChatMediaPickerSheet: View {
             guard let asset = idToAsset[selId] else { continue }
             switch asset.mediaType {
             case .image:
-                let ui = thumbnails[selId] ?? makeThumbSync(for: asset)
-                let image = ui ?? UIImage(systemName: "photo") ?? UIImage()
-                newItems.append(ShareAttachmentItem(id: UUID(), kind: .image(image)))
+                // Use a thumbnail immediately for UI responsiveness, then upgrade to full-res asynchronously.
+                let thumb = thumbnails[selId] ?? makeThumbSync(for: asset)
+                let placeholder = thumb ?? UIImage(systemName: "photo") ?? UIImage()
+                let newId = UUID()
+                newItems.append(ShareAttachmentItem(id: newId, kind: .image(placeholder)))
+                requestHighQualityImage(for: asset) { img in
+                    guard let img else { return }
+                    DispatchQueue.main.async {
+                        if let idx = selectedAttachmentItems.firstIndex(where: { $0.id == newId }) {
+                            selectedAttachmentItems[idx].kind = .image(img)
+                        }
+                    }
+                }
             case .video:
                 let thumb = thumbnails[selId] ?? makeThumbSync(for: asset)
                 let newId = UUID()
@@ -245,6 +262,23 @@ struct ChatMediaPickerSheet: View {
         selectedAttachmentItems = newItems
     }
 
+    /// Requests a high-quality, full-resolution UIImage for the given PHAsset.
+    /// Falls back to Photos network if needed.
+    private func requestHighQualityImage(for asset: PHAsset, completion: @escaping (UIImage?) -> Void) {
+        let options = PHImageRequestOptions()
+        options.deliveryMode = .highQualityFormat
+        options.resizeMode = .none
+        options.isNetworkAccessAllowed = true
+        PHImageManager.default().requestImage(
+            for: asset,
+            targetSize: PHImageManagerMaximumSize,
+            contentMode: .default,
+            options: options
+        ) { image, _ in
+            completion(image)
+        }
+    }
+
     private func fetchVideoURL(for asset: PHAsset, completion: @escaping (URL?) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
             let resources = PHAssetResource.assetResources(for: asset).filter { res in
@@ -261,7 +295,9 @@ struct ChatMediaPickerSheet: View {
             let tmp = apexTmpDir
                 .appendingPathComponent(UUID().uuidString)
                 .appendingPathExtension("mov")
-            PHAssetResourceManager.default().writeData(for: resource, toFile: tmp, options: nil) { error in
+            let opts = PHAssetResourceRequestOptions()
+            opts.isNetworkAccessAllowed = true
+            PHAssetResourceManager.default().writeData(for: resource, toFile: tmp, options: opts) { error in
                 DispatchQueue.main.async {
                     completion(error == nil ? tmp : nil)
                 }

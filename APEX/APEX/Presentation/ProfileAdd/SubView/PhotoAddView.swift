@@ -19,6 +19,9 @@ struct PhotoAddView: View {
     let type: PhotoType
     let onCroppedProfile: ((UIImage) -> Void)?
     let onCroppedCard: ((UIImage, Bool) -> Void)?
+    // Reset callbacks to propagate deletions immediately
+    let onResetProfile: (() -> Void)?
+    let onResetCard: ((Bool) -> Void)?  // isFront
     @Environment(\.dismiss) private var dismiss
     private var isProfile: Bool { type == .profile }
     private enum CardSide: String, CaseIterable, Identifiable, Hashable {
@@ -51,6 +54,8 @@ struct PhotoAddView: View {
         type: PhotoType,
         onCroppedProfile: ((UIImage) -> Void)? = nil,
         onCroppedCard: ((UIImage, Bool) -> Void)? = nil,
+        onResetProfile: (() -> Void)? = nil,
+        onResetCard: ((Bool) -> Void)? = nil,
         initialProfile: UIImage? = nil,
         initialFront: UIImage? = nil,
         initialBack: UIImage? = nil
@@ -58,6 +63,8 @@ struct PhotoAddView: View {
         self.type = type
         self.onCroppedProfile = onCroppedProfile
         self.onCroppedCard = onCroppedCard
+        self.onResetProfile = onResetProfile
+        self.onResetCard = onResetCard
         _pickedProfileImage = State(initialValue: initialProfile)
         _pickedFrontImage = State(initialValue: initialFront)
         _pickedBackImage = State(initialValue: initialBack)
@@ -65,63 +72,62 @@ struct PhotoAddView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-                Spacer(minLength: 0)
+            Spacer(minLength: 0)
 
-                // Large preview per type (show cropped result if available)
-                Group {
-                    if isProfile {
-                        if let img = pickedProfileImage {
-                            ZStack {
-                                // Ensure transparent areas of the cropped image do not show as black
-                                Circle().fill(Color("BackgroundSecondary"))
+            // Large preview per type (show cropped result if available)
+            Group {
+                if isProfile {
+                    if let img = pickedProfileImage {
+                        ZStack {
+                            // Ensure transparent areas of the cropped image do not show as black
+                            Circle().fill(Color("BackgroundSecondary"))
+                            Image(uiImage: img)
+                                .resizable()
+                                .scaledToFill()
+                                .clipShape(Circle())
+                        }
+                        .frame(width: 232, height: 232)
+                    } else {
+                        Image("ProfileL")
+                    }
+                } else {
+                    TabView(selection: $selectedCardSide) {
+                        Group {
+                            if let img = pickedFrontImage {
                                 Image(uiImage: img)
                                     .resizable()
-                                    .scaledToFill()
-                                    .clipShape(Circle())
+                                    .scaledToFit()
+                                    .frame(width: 358, height: 214)
+                                    .cornerRadius(9.28)
+                            } else {
+                                Image("CardL")
                             }
-                            .frame(width: 232, height: 232)
-                        } else {
-                            Image("ProfileL")
                         }
-                    } else {
-                        TabView(selection: $selectedCardSide) {
-                            Group {
-                                if let img = pickedFrontImage {
-                                    Image(uiImage: img)
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(width: 358, height: 214)
-                                        .cornerRadius(9.28)
-                                } else {
-                                    Image("CardL")
-                                }
-                            }
-                            .tag(CardSide.front)
-                            .padding(.vertical, 9)
+                        .tag(CardSide.front)
+                        
 
-                            Group {
-                                if let img = pickedBackImage {
-                                    Image(uiImage: img)
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(width: 358, height: 214)
-                                        .cornerRadius(9.28)
-                                } else {
-                                    Image("CardL")
-                                }
+                        Group {
+                            if let img = pickedBackImage {
+                                Image(uiImage: img)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 358, height: 214)
+                                    .cornerRadius(9.28)
+                            } else {
+                                Image("CardL")
                             }
-                            .tag(CardSide.back)
-                            .padding(.vertical, 9)
                         }
-                        .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
-                        .frame(maxWidth: .infinity, minHeight: 214, maxHeight: 214)
+                        .tag(CardSide.back)
                     }
+                    .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
+                    .frame(maxWidth: .infinity, minHeight: 214, maxHeight: 214)
+                    .padding(.vertical, 9)
                 }
+            }
             .frame(maxWidth: .infinity)
             .padding(.bottom, 16)
             Text(isProfile ? "프로필" : (selectedCardSide == .front ? "명함 앞" : "명함 뒤"))
-                .font(.title2)
-                .padding(.top, 16)
+                .font(.title4)
             if !isProfile {
                 HStack(spacing: 8) {
                     ForEach(CardSide.allCases, id: \.self) { side in
@@ -131,7 +137,7 @@ struct PhotoAddView: View {
                             .onTapGesture { selectedCardSide = side }
                     }
                 }
-                .padding(.top, 8)
+                .padding(.top, 12)
             }
             // Reset button under preview - reserve space always to prevent layout jump
             Button {
@@ -223,6 +229,7 @@ struct PhotoAddView: View {
                     }
                 )
             }
+            .padding(.top, 10)
         }
         .photosPicker(isPresented: $showLibraryPicker, selection: $librarySelection, matching: .images)
         .onChange(of: librarySelection) { newItem in
@@ -530,10 +537,15 @@ private extension PhotoAddView {
     func resetImages() {
         if isProfile {
             pickedProfileImage = nil
+            onResetProfile?()
         } else {
-            pickedFrontImage = nil
-            pickedBackImage = nil
-            selectedCardSide = .front
+            if selectedCardSide == .front {
+                pickedFrontImage = nil
+                onResetCard?(true)
+            } else {
+                pickedBackImage = nil
+                onResetCard?(false)
+            }
         }
         // Clear any in-progress editing state
         editingImage = nil

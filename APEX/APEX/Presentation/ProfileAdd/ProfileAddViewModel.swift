@@ -16,6 +16,8 @@ final class ProfileAddViewModel: ViewModelable {
         case tapPhoto(PhotoAddView.PhotoType)
         case setProfileImage(UIImage)
         case setCardImage(UIImage, isFront: Bool)
+		case clearProfileImage
+		case clearCardImage(isFront: Bool)
         case presentAddItems(Bool)
     }
     
@@ -69,6 +71,10 @@ final class ProfileAddViewModel: ViewModelable {
             profileUIImage = image
         case .setCardImage(let image, let isFront):
             if isFront { cardFrontUIImage = image } else { cardBackUIImage = image }
+		case .clearProfileImage:
+			profileUIImage = nil
+		case .clearCardImage(let isFront):
+			if isFront { cardFrontUIImage = nil } else { cardBackUIImage = nil }
         case .presentAddItems(let presented):
             isAddItemPresented = presented
         }
@@ -76,7 +82,19 @@ final class ProfileAddViewModel: ViewModelable {
     
     // MARK: - Public
     func makeClient() -> Client {
-        Client(
+        // Split primary + additional for email/phone/url
+        let trimmedEmails = emails.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        let primaryEmail = trimmedEmails.first?.isEmpty == false ? trimmedEmails.first! : ""
+        let additionalEmails = Array(trimmedEmails.dropFirst()).filter { !$0.isEmpty }
+
+        let trimmedPhones = contacts.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        let primaryPhone = trimmedPhones.first?.isEmpty == false ? trimmedPhones.first! : ""
+        let additionalPhones = Array(trimmedPhones.dropFirst()).filter { !$0.isEmpty }
+
+        let trimmedURLs = urls.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        let additionalURLs = trimmedURLs.filter { !$0.isEmpty }
+
+        return Client(
             profile: profileUIImage,
             nameCardFront: cardFrontUIImage.map { Image(uiImage: $0) },
             nameCardBack: cardBackUIImage.map { Image(uiImage: $0) },
@@ -84,14 +102,23 @@ final class ProfileAddViewModel: ViewModelable {
             name: name,
             position: position.isEmpty ? nil : position,
             company: company,
-            email: emails.first,
-            phoneNumber: contacts.first,
-            linkedinURL: linkedinLink.isEmpty ? nil : linkedinLink,
+            department: department.isEmpty ? nil : department,
+            email: primaryEmail.isEmpty ? nil : primaryEmail,
+            phoneNumber: primaryPhone.isEmpty ? nil : primaryPhone,
+            linkedinURL: linkedinLink.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : linkedinLink.trimmingCharacters(in: .whitespacesAndNewlines),
             memo: memo.isEmpty ? nil : memo,
             action: nil,
             favorite: false,
             pin: false,
-            notes: []
+            notes: [],
+            industry: industry.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : industry.trimmingCharacters(in: .whitespacesAndNewlines),
+            address: address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : address.trimmingCharacters(in: .whitespacesAndNewlines),
+            faxNumber: faxNumber.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : faxNumber.trimmingCharacters(in: .whitespacesAndNewlines),
+            revenue: revenue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : revenue.trimmingCharacters(in: .whitespacesAndNewlines),
+            employees: employees.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : employees.trimmingCharacters(in: .whitespacesAndNewlines),
+            additionalEmails: additionalEmails,
+            additionalPhones: additionalPhones,
+            additionalURLs: additionalURLs
         )
     }
     

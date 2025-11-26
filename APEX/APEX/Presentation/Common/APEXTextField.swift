@@ -115,6 +115,7 @@ struct APEXTextField: View {
     private var onEditingEndValidate: ((String) -> APEXTextFieldState)?
     private var success: Bool?
     private var error: Bool?
+    private var onFocusChange: ((Bool) -> Void)?
 
     // Focus
     @FocusState private var focused: Bool
@@ -161,7 +162,8 @@ struct APEXTextField: View {
         onEditingEndValidate: ((String) -> APEXTextFieldState)? = nil,
         showSuccess: Bool? = nil,
         showError: Bool? = nil,
-        maxLength: Int? = nil
+        maxLength: Int? = nil,
+        onFocusChange: ((Bool) -> Void)? = nil
     ) {
         self.kind = kind
         self.label = label
@@ -175,6 +177,7 @@ struct APEXTextField: View {
         self.onEditingEndValidate = onEditingEndValidate
         self.success = showSuccess
         self.error = showError
+        self.onFocusChange = onFocusChange
     }
 
     enum Style { case field, editor }
@@ -223,6 +226,7 @@ struct APEXTextField: View {
         .animation(.easeInOut(duration: 0.2), value: internalState)
         .onChange(of: focused) { newFocus in
             if newFocus { hadFocusOnce = true }
+            onFocusChange?(newFocus)
             if !newFocus {
                 if let validate = onEditingEndValidate {
                     internalState = validate(text)

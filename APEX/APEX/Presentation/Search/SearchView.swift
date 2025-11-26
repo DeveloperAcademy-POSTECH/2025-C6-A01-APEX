@@ -63,6 +63,15 @@ struct SearchView: View {
 		}
 		.background(Color("Background"))
 		.scrollEdgeEffectStyle(.soft, for: .top)
+		.simultaneousGesture(TapGesture().onEnded {
+			// 외부 탭 시 포커스 및 검색모드 해제
+			if isSearchFocused {
+				isSearchFocused = false
+				if !viewModel.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+					viewModel.send(.updateQuery(""))
+				}
+			}
+		})
 		.toolbar(.hidden, for: .tabBar)
 		.safeAreaInset(edge: .bottom) {
 			let isSearching = !viewModel.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -94,6 +103,10 @@ struct SearchView: View {
 		.toolbar(.hidden, for: .navigationBar)
 		.onAppear {
 			viewModel.send(.onAppear)
+			// Focus search field when the view appears
+			DispatchQueue.main.async {
+				isSearchFocused = true
+			}
 		}
 		.fullScreenCover(item: $viewModel.archivePayload) { payload in
 			ArchiveListView(
@@ -360,7 +373,6 @@ private extension SearchView {
 										image: client.profile,
 										initials: Profile.makeInitials(name: client.name, surname: client.surname),
 										size: .extraSmall,
-                                        fontSize: 30.72,
 										backgroundColor: Color("PrimaryContainer"),
 										textColor: .white,
 										fontWeight: .semibold
@@ -411,7 +423,6 @@ private extension SearchView {
 										image: client.profile,
 										initials: Profile.makeInitials(name: client.name, surname: client.surname),
 										size: .extraSmall,
-                                        fontSize: 30.72,
 										backgroundColor: Color("PrimaryContainer"),
 										textColor: .white,
 										fontWeight: .semibold

@@ -126,8 +126,23 @@ final class ArchiveListViewModel: ViewModelable {
         for (newOrder, entry) in merged.enumerated() {
             if entry.isImage { images[entry.idx].orderIndex = newOrder } else { videos[entry.idx].orderIndex = newOrder }
         }
-        notes[noteIndex].bundle = (images.isEmpty && videos.isEmpty) ? nil : .media(images: images, videos: videos)
+        if images.isEmpty && videos.isEmpty {
+            if notes[noteIndex].text == nil {
+                notes.remove(at: noteIndex)
+            } else {
+                notes[noteIndex].bundle = nil
+            }
+        } else {
+            notes[noteIndex].bundle = .media(images: images, videos: videos)
+        }
         ChatStore.shared.setNotes(notes, for: clientId)
+        if SyncSettings.isAutoOn {
+            if let idx = notes.firstIndex(where: { $0.id == parsed.noteId }) {
+                CloudKitNotesManager.shared.rewriteAssets(noteId: parsed.noteId, bundle: notes[idx].bundle)
+            } else {
+                CloudKitNotesManager.shared.delete(noteId: parsed.noteId)
+            }
+        }
     }
     
     func ownerName(for item: FlattenedMediaItem) -> String? {
@@ -162,6 +177,7 @@ private extension ArchiveListViewModel {
                       let newURL = notif.userInfo?["newURL"] as? URL else { return }
                 var notes = ChatStore.shared.notes(for: clientId)
                 var changed = false
+                var changedNoteIds: Set<UUID> = []
                 for idx in notes.indices {
                     if case var .audio(audios) = notes[idx].bundle {
                         var updated = false
@@ -172,11 +188,19 @@ private extension ArchiveListViewModel {
                         if updated {
                             notes[idx].bundle = .audio(audios)
                             changed = true
+                            changedNoteIds.insert(notes[idx].id)
                         }
                     }
                 }
                 if changed {
                     ChatStore.shared.setNotes(notes, for: clientId)
+                    if SyncSettings.isAutoOn {
+                        for id in changedNoteIds {
+                            if let index = notes.firstIndex(where: { $0.id == id }) {
+                                CloudKitNotesManager.shared.rewriteAssets(noteId: id, bundle: notes[index].bundle)
+                            }
+                        }
+                    }
                 }
             }
             .store(in: &cancellables)
@@ -186,6 +210,8 @@ private extension ArchiveListViewModel {
                 guard let url = notif.userInfo?["url"] as? URL else { return }
                 var notes = ChatStore.shared.notes(for: clientId)
                 var changed = false
+                var changedNoteIds: Set<UUID> = []
+                var removedNoteIds: Set<UUID> = []
                 for idx in notes.indices {
                     if case var .audio(audios) = notes[idx].bundle {
                         let before = audios.count
@@ -193,11 +219,27 @@ private extension ArchiveListViewModel {
                         if audios.count != before {
                             notes[idx].bundle = audios.isEmpty ? nil : .audio(audios)
                             changed = true
+                            let noteId = notes[idx].id
+                            if audios.isEmpty, notes[idx].text == nil {
+                                removedNoteIds.insert(noteId)
+                            } else {
+                                changedNoteIds.insert(noteId)
+                            }
                         }
                     }
                 }
                 if changed {
                     ChatStore.shared.setNotes(notes, for: clientId)
+                    if SyncSettings.isAutoOn {
+                        for id in changedNoteIds {
+                            if let index = notes.firstIndex(where: { $0.id == id }) {
+                                CloudKitNotesManager.shared.rewriteAssets(noteId: id, bundle: notes[index].bundle)
+                            }
+                        }
+                        for id in removedNoteIds {
+                            CloudKitNotesManager.shared.delete(noteId: id)
+                        }
+                    }
                 }
             }
             .store(in: &cancellables)

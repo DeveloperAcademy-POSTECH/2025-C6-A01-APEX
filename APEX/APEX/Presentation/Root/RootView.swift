@@ -11,6 +11,7 @@ struct RootView: View {
     enum Tabs { case contacts, notes, search }
     
     @EnvironmentObject private var router: NavigationRouter
+    @ObservedObject private var sync = ClientsStore.shared
     @State private var selection: Tabs = .contacts
     @State private var lastNonSearchSelection: Tabs = .contacts
     
@@ -40,12 +41,33 @@ struct RootView: View {
                         lastNonSearchSelection = newValue
                     }
                 }
+                .onReceive(NotificationCenter.default.publisher(for: .apexSelectNotes)) { _ in
+                    selection = .notes
+                }
                 .navigationDestination(for: NavigationDestination.self) { route in
                     destination(for: route)
                 }
             }
         }
         .apexSwipeBack()
+        .overlay(alignment: .center) {
+            if sync.isCloudSyncInProgress {
+                ZStack {
+                    Color.black.opacity(0.2)
+                        .ignoresSafeArea()
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                        .tint(Color("Primary"))
+                        .scaleEffect(1.2)
+                        .padding(24)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14)
+                                .fill(Color(.systemBackground))
+                                .shadow(color: Color.black.opacity(0.15), radius: 12, x: 0, y: 4)
+                        )
+                }
+            }
+        }
     }
 }
 
@@ -154,29 +176,70 @@ private extension RootView {
 // MARK: - Route Screens (wrappers to adapt bindings)
 private struct MyProfileScreen: View {
     @ObservedObject private var store = ClientsStore.shared
-    @State private var client: DummyClient = DummyClient(
-        profile: nil,
-        nameCardFront: nil,
-        nameCardBack: nil,
-        surname: "",
-        name: "",
-        position: nil,
-        company: "",
-        email: nil,
-        phoneNumber: nil,
-        linkedinURL: nil,
-        memo: nil,
-        action: nil,
-        favorite: false,
-        pin: false,
-        notes: []
-    )
+    @State private var client: DummyClient = MyProfileScreen.initialDummyFromStore()
     var body: some View {
         MyProfileView(client: $client)
             .onAppear { syncFromStore() }
             .onChange(of: store.clients) { _ in
                 syncFromStore()
             }
+    }
+    
+    private static func initialDummyFromStore() -> DummyClient {
+        if let first = ClientsStore.shared.clients.first {
+            return DummyClient(
+                profile: first.profile,
+                nameCardFront: first.nameCardFront,
+                nameCardBack: first.nameCardBack,
+                surname: first.surname,
+                name: first.name,
+                position: first.position,
+                company: first.company,
+                department: first.department,
+                email: first.email,
+                phoneNumber: first.phoneNumber,
+                linkedinURL: first.linkedinURL,
+                memo: first.memo,
+                action: first.action,
+                favorite: first.favorite,
+                pin: first.pin,
+                notes: [],
+                industry: first.industry,
+                address: first.address,
+                faxNumber: first.faxNumber,
+                revenue: first.revenue,
+                employees: first.employees,
+                additionalEmails: first.additionalEmails,
+                additionalPhones: first.additionalPhones,
+                additionalURLs: first.additionalURLs
+            )
+        }
+        return DummyClient(
+            profile: nil,
+            nameCardFront: nil,
+            nameCardBack: nil,
+            surname: "",
+            name: "",
+            position: nil,
+            company: "",
+            department: nil,
+            email: nil,
+            phoneNumber: nil,
+            linkedinURL: nil,
+            memo: nil,
+            action: nil,
+            favorite: false,
+            pin: false,
+            notes: [],
+            industry: nil,
+            address: nil,
+            faxNumber: nil,
+            revenue: nil,
+            employees: nil,
+            additionalEmails: [],
+            additionalPhones: [],
+            additionalURLs: []
+        )
     }
     
     private func syncFromStore() {
@@ -190,6 +253,7 @@ private struct MyProfileScreen: View {
                 name: first.name,
                 position: first.position,
                 company: first.company,
+                department: first.department,
                 email: first.email,
                 phoneNumber: first.phoneNumber,
                 linkedinURL: first.linkedinURL,
@@ -197,7 +261,15 @@ private struct MyProfileScreen: View {
                 action: first.action,
                 favorite: first.favorite,
                 pin: first.pin,
-                notes: []
+                notes: [],
+                industry: first.industry,
+                address: first.address,
+                faxNumber: first.faxNumber,
+                revenue: first.revenue,
+                employees: first.employees,
+                additionalEmails: first.additionalEmails,
+                additionalPhones: first.additionalPhones,
+                additionalURLs: first.additionalURLs
             )
         }
     }
@@ -340,6 +412,7 @@ private struct ProfileDetailScreen: View {
         name: "",
         position: nil,
         company: "",
+        department: nil,
         email: nil,
         phoneNumber: nil,
         linkedinURL: nil,
@@ -347,7 +420,15 @@ private struct ProfileDetailScreen: View {
         action: nil,
         favorite: false,
         pin: false,
-        notes: []
+        notes: [],
+        industry: nil,
+        address: nil,
+        faxNumber: nil,
+        revenue: nil,
+        employees: nil,
+        additionalEmails: [],
+        additionalPhones: [],
+        additionalURLs: []
     )
     
     init(clientId: UUID) {
@@ -369,6 +450,7 @@ private struct ProfileDetailScreen: View {
             name: client.name,
             position: client.position,
             company: client.company,
+            department: client.department,
             email: client.email,
             phoneNumber: client.phoneNumber,
             linkedinURL: client.linkedinURL,
@@ -376,7 +458,15 @@ private struct ProfileDetailScreen: View {
             action: client.action,
             favorite: client.favorite,
             pin: client.pin,
-            notes: []
+            notes: [],
+            industry: client.industry,
+            address: client.address,
+            faxNumber: client.faxNumber,
+            revenue: client.revenue,
+            employees: client.employees,
+            additionalEmails: client.additionalEmails,
+            additionalPhones: client.additionalPhones,
+            additionalURLs: client.additionalURLs
         )
     }
 }

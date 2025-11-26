@@ -84,8 +84,15 @@ final class ChattingViewModel: ViewModelable {
             
         case .performDeleteSelected:
             guard !selectedNoteIds.isEmpty else { return }
-            notes.removeAll { selectedNoteIds.contains($0.id) }
+            // Capture IDs to delete for CloudKit sync before mutating local array
+            let idsToDelete = selectedNoteIds
+            notes.removeAll { idsToDelete.contains($0.id) }
             ChatStore.shared.setNotes(notes, for: clientId)
+            if SyncSettings.isAutoOn {
+                for noteId in idsToDelete {
+                    CloudKitNotesManager.shared.delete(noteId: noteId)
+                }
+            }
             isDeleteSelecting = false
             selectedNoteIds.removeAll()
             
@@ -106,12 +113,18 @@ final class ChattingViewModel: ViewModelable {
             if let idx = notes.firstIndex(where: { $0.id == noteId }) {
                 notes[idx].text = newText
                 ChatStore.shared.setNotes(notes, for: clientId)
+                if SyncSettings.isAutoOn {
+                    CloudKitNotesManager.shared.updateText(noteId: noteId, newText: newText)
+                }
             }
             
         case .deleteNote(let noteId):
             if let idx = notes.firstIndex(where: { $0.id == noteId }) {
                 notes.remove(at: idx)
                 ChatStore.shared.setNotes(notes, for: clientId)
+                if SyncSettings.isAutoOn {
+                    CloudKitNotesManager.shared.delete(noteId: noteId)
+                }
             }
             
         case .recomputeMatches:
@@ -153,10 +166,45 @@ final class ChattingViewModel: ViewModelable {
 // MARK: - Private helpers
 private extension ChattingViewModel {
     func loadInitialNotes() {
-        let persisted = ChatStore.shared.notes(for: clientId)
+        var persisted = ChatStore.shared.notes(for: clientId)
+        // Normalize order on load: oldest → newest
+        if !persisted.isEmpty {
+            persisted.sort { $0.uploadedAt < $1.uploadedAt }
+        }
         if persisted.isEmpty {
-            notes = initialNotes
-            ChatStore.shared.setNotes(initialNotes, for: clientId)
+            var seeded = initialNotes
+            if !seeded.isEmpty {
+                seeded.sort { $0.uploadedAt < $1.uploadedAt }
+            }
+            notes = seeded
+            ChatStore.shared.setNotes(seeded, for: clientId)
+            // If nothing local, attempt a lightweight CloudKit pull to repopulate chat on cold start
+            if SyncSettings.isAutoOn {
+                ClientsStore.shared.beginCloudSync()
+                CloudKitNotesManager.shared.fetchNotes(for: clientId) { [weak self] result in
+                    defer { ClientsStore.shared.endCloudSync() }
+                    guard let self else { return }
+                    if case .success(let fetched) = result {
+                        DispatchQueue.main.async {
+                            // Merge: preserve local STT text if CloudKit text is empty
+                            let local = ChatStore.shared.notes(for: self.clientId)
+                            var merged = fetched
+                            for idx in merged.indices {
+                                if let lidx = local.firstIndex(where: { $0.id == merged[idx].id }) {
+                                    let localText = local[lidx].text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                                    let cloudText = merged[idx].text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                                    if !localText.isEmpty && cloudText.isEmpty {
+                                        merged[idx].text = local[lidx].text
+                                    }
+                                }
+                            }
+                            let sorted = merged.sorted { $0.uploadedAt < $1.uploadedAt }
+                            self.notes = sorted
+                            ChatStore.shared.setNotes(sorted, for: self.clientId)
+                        }
+                    }
+                }
+            }
         } else {
             notes = persisted
         }
@@ -182,30 +230,42 @@ private extension ChattingViewModel {
                 if let text = note.text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
                     let textOnly = Note(uploadedAt: baseDate, text: text, bundle: nil)
                     notes.append(textOnly)
+                    // Persist the text-only note to CloudKit as well
+                    if SyncSettings.isAutoOn {
+                        CloudKitNotesManager.shared.save(note: textOnly, for: clientId)
+                    }
                 }
                 let startIdx = notes.count
-                for f in files {
+                for fileAttachment in files {
                     let single = Note(
                         uploadedAt: baseDate,
                         text: nil,
                         bundle: .files([
-                            FileAttachment(url: f.url, contentType: f.contentType, progress: 0)
+                            FileAttachment(url: fileAttachment.url, contentType: fileAttachment.contentType, progress: 0)
                         ])
                     )
                     notes.append(single)
+                    // Persist each split file note to CloudKit
+                    if SyncSettings.isAutoOn {
+                        CloudKitNotesManager.shared.save(note: single, for: clientId)
+                    }
                 }
                 ChatStore.shared.setNotes(notes, for: clientId)
                 for idx in startIdx..<notes.count {
                     startUploadsForNote(at: idx)
                 }
                 return
-            } else if files.count == 1, let f = files.first {
-                noteWithProgress.bundle = .files([FileAttachment(url: f.url, contentType: f.contentType, progress: 0)])
+            } else if files.count == 1, let firstFile = files.first {
+                noteWithProgress.bundle = .files([FileAttachment(url: firstFile.url, contentType: firstFile.contentType, progress: 0)])
             }
         }
         notes.append(noteWithProgress)
         ChatStore.shared.setNotes(notes, for: clientId)
         if let idx = notes.indices.last { startUploadsForNote(at: idx) }
+        // CloudKit: save note + assets
+        if SyncSettings.isAutoOn {
+            CloudKitNotesManager.shared.save(note: noteWithProgress, for: clientId)
+        }
         // Kick off STT for audio notes so that STT appears under the tile in chat
         if let idx = notes.indices.last {
             transcribeIfAudio(at: idx)
@@ -292,6 +352,14 @@ private extension ChattingViewModel {
             notes[idx].bundle = .audio(audios)
         }
         ChatStore.shared.setNotes(notes, for: clientId)
+        // CloudKit: reflect audio deletion
+        if SyncSettings.isAutoOn {
+            if notes.indices.contains(idx) {
+                CloudKitNotesManager.shared.rewriteAssets(noteId: noteId, bundle: notes[idx].bundle)
+            } else {
+                CloudKitNotesManager.shared.delete(noteId: noteId)
+            }
+        }
     }
     
     func deleteMedia(anchor: ChatMessageView.ChatAnchor) {
@@ -313,18 +381,21 @@ private extension ChattingViewModel {
                 notes[noteIndex].bundle = nil
             }
             ChatStore.shared.setNotes(notes, for: clientId)
+            if SyncSettings.isAutoOn {
+                CloudKitNotesManager.shared.rewriteAssets(noteId: anchor.noteId, bundle: notes.indices.contains(noteIndex) ? notes[noteIndex].bundle : nil)
+            }
             return
         }
         
         struct Combined { let isImage: Bool; let idx: Int; let order: Int }
         var merged: [Combined] = []
-        for i in images.indices {
-            let order = images[i].orderIndex ?? i
-            merged.append(Combined(isImage: true, idx: i, order: order))
+        for imageIndex in images.indices {
+            let order = images[imageIndex].orderIndex ?? imageIndex
+            merged.append(Combined(isImage: true, idx: imageIndex, order: order))
         }
-        for v in videos.indices {
-            let order = videos[v].orderIndex ?? (images.count + v)
-            merged.append(Combined(isImage: false, idx: v, order: order))
+        for videoIndex in videos.indices {
+            let order = videos[videoIndex].orderIndex ?? (images.count + videoIndex)
+            merged.append(Combined(isImage: false, idx: videoIndex, order: order))
         }
         merged.sort { $0.order < $1.order }
         for (newOrder, entry) in merged.enumerated() {
@@ -333,6 +404,9 @@ private extension ChattingViewModel {
         
         notes[noteIndex].bundle = .media(images: images, videos: videos)
         ChatStore.shared.setNotes(notes, for: clientId)
+        if SyncSettings.isAutoOn {
+            CloudKitNotesManager.shared.rewriteAssets(noteId: anchor.noteId, bundle: notes[noteIndex].bundle)
+        }
     }
     
     func deleteFile(noteId: UUID, fileIndex: Int) {
@@ -347,9 +421,12 @@ private extension ChattingViewModel {
                 notes[noteIndex].bundle = nil
             }
         } else {
-            notes[noteIndex].bundle = .files(files)
+            notes[noteIndex] = Note(uploadedAt: notes[noteIndex].uploadedAt, text: notes[noteIndex].text, bundle: .files(files))
         }
         ChatStore.shared.setNotes(notes, for: clientId)
+        if SyncSettings.isAutoOn {
+            CloudKitNotesManager.shared.rewriteAssets(noteId: noteId, bundle: notes.indices.contains(noteIndex) ? notes[noteIndex].bundle : nil)
+        }
     }
     
     func hasPendingProgress(at index: Int) -> Bool {
@@ -404,6 +481,13 @@ private extension ChattingViewModel {
                         if self.notes.indices.contains(index) {
                             self.notes[index].text = result.bestTranscription.formattedString
                             ChatStore.shared.setNotes(self.notes, for: self.clientId)
+                            // Persist STT text to CloudKit when final result arrives
+                            if result.isFinal {
+                                let noteId = self.notes[index].id
+                                if SyncSettings.isAutoOn {
+                                    self.updateSTTToCloudKitEventually(noteId: noteId, text: result.bestTranscription.formattedString, attempt: 0)
+                                }
+                            }
                         }
                     }
                 }
@@ -411,6 +495,19 @@ private extension ChattingViewModel {
                     // Silently ignore errors in chat auto-STT
                 }
             }
+        }
+    }
+    
+    private func updateSTTToCloudKitEventually(noteId: UUID, text: String, attempt: Int) {
+        let maxAttempts = 20
+        if CloudKitNotesManager.shared.hasRecord(for: noteId) {
+            CloudKitNotesManager.shared.updateText(noteId: noteId, newText: text)
+            return
+        }
+        guard attempt < maxAttempts else { return }
+        let delay: TimeInterval = 0.5
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            self?.updateSTTToCloudKitEventually(noteId: noteId, text: text, attempt: attempt + 1)
         }
     }
     
@@ -455,9 +552,9 @@ private extension ChattingViewModel {
                 for idx in notes.indices {
                     if case var .audio(audios) = notes[idx].bundle {
                         var changed = false
-                        for i in audios.indices {
-                            if audios[i].url == oldURL {
-                                audios[i] = AudioAttachment(url: newURL, duration: audios[i].duration)
+                for audioIndex in audios.indices {
+                    if audios[audioIndex].url == oldURL {
+                        audios[audioIndex] = AudioAttachment(url: newURL, duration: audios[audioIndex].duration)
                                 changed = true
                             }
                         }
@@ -474,6 +571,8 @@ private extension ChattingViewModel {
                 guard let self else { return }
                 guard let url = notif.userInfo?["url"] as? URL else { return }
                 var changedAny = false
+                var changedNoteIds: Set<UUID> = []
+                var removedNoteIds: Set<UUID> = []
                 for idx in notes.indices {
                     if case var .audio(audios) = notes[idx].bundle {
                         let before = audios.count
@@ -481,11 +580,27 @@ private extension ChattingViewModel {
                         if audios.count != before {
                             notes[idx].bundle = audios.isEmpty ? nil : .audio(audios)
                             changedAny = true
+                            let noteId = notes[idx].id
+                            if audios.isEmpty, notes[idx].text == nil {
+                                removedNoteIds.insert(noteId)
+                            } else {
+                                changedNoteIds.insert(noteId)
+                            }
                         }
                     }
                 }
                 if changedAny {
                     ChatStore.shared.setNotes(notes, for: clientId)
+                    if SyncSettings.isAutoOn {
+                        for id in changedNoteIds {
+                            if let index = notes.firstIndex(where: { $0.id == id }) {
+                                CloudKitNotesManager.shared.rewriteAssets(noteId: id, bundle: notes[index].bundle)
+                            }
+                        }
+                        for id in removedNoteIds {
+                            CloudKitNotesManager.shared.delete(noteId: id)
+                        }
+                    }
                 }
             }
             .store(in: &cancellables)
@@ -496,6 +611,37 @@ private extension ChattingViewModel {
                 if let changedId = notif.userInfo?["clientId"] as? UUID, changedId == clientId {
                     notes = ChatStore.shared.notes(for: clientId)
                     kickOffPendingUploadsIfNeeded()
+                }
+            }
+            .store(in: &cancellables)
+        
+        // CloudKit push → fetch notes for this client and refresh UI
+        NotificationCenter.default.publisher(for: .cloudKitDatabaseDidChange)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                guard SyncSettings.isAutoOn else { return }
+                ClientsStore.shared.beginCloudSync()
+                CloudKitNotesManager.shared.fetchNotes(for: self.clientId) { result in
+                    defer { ClientsStore.shared.endCloudSync() }
+                    if case .success(let fetched) = result {
+                        DispatchQueue.main.async {
+                            // Merge: keep existing STT text if fetched is empty
+                            let local = self.notes
+                            var merged = fetched
+                            for idx in merged.indices {
+                                if let lidx = local.firstIndex(where: { $0.id == merged[idx].id }) {
+                                    let localText = local[lidx].text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                                    let cloudText = merged[idx].text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                                    if !localText.isEmpty && cloudText.isEmpty {
+                                        merged[idx].text = local[lidx].text
+                                    }
+                                }
+                            }
+                            let sorted = merged.sorted { $0.uploadedAt < $1.uploadedAt }
+                            self.notes = sorted
+                            ChatStore.shared.setNotes(sorted, for: self.clientId)
+                        }
+                    }
                 }
             }
             .store(in: &cancellables)

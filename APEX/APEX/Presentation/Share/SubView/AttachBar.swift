@@ -64,8 +64,12 @@ struct AttachBar: View {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: Metrics.xSize, weight: .medium))
                     .foregroundColor(.gray)
-                    .overlay(Circle().stroke(Color.white, lineWidth: 1))
-                    .contentShape(Rectangle())
+                    .background(Color.white)
+                    .clipShape(Circle()) // Clip the image to a circle
+                    .overlay(
+                        Circle()
+                            .stroke(Color.white, lineWidth: 1)
+                    )
             }
             .buttonStyle(.plain)
             .frame(width: Metrics.xTapSize, height: Metrics.xTapSize, alignment: .topTrailing)

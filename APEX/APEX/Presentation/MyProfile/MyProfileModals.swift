@@ -12,6 +12,7 @@ import SwiftUI
 struct CardViewer: View {
     let images: [Image]
     let onClose: () -> Void
+    var hasProfileFirst: Bool = false
     @State private var currentIndex = 0
     
     var body: some View {
@@ -39,10 +40,20 @@ struct CardViewer: View {
                 // 명함 이미지들
                 TabView(selection: $currentIndex) {
                     ForEach(images.indices, id: \.self) { index in
-                        images[index]
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .tag(index)
+                        Group {
+                            if hasProfileFirst && index == 0 {
+                                images[index]
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 232, height: 232)
+                                    .clipShape(Circle())
+                            } else {
+                                images[index]
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                            }
+                        }
+                        .tag(index)
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
@@ -78,22 +89,38 @@ struct MyProfileEditSheet: View {
     @State private var profileUIImage: UIImage?
     @State private var cardFrontUIImage: UIImage?
     @State private var cardBackUIImage: UIImage?
+    @State private var didClearProfile: Bool = false
+    @State private var didClearFront: Bool = false
+    @State private var didClearBack: Bool = false
 
     @State private var surname: String
     @State private var name: String
     @State private var company: String
+    @State private var department: String
     @State private var position: String
     @State private var email: String
     @State private var phone: String
     @State private var linkedin: String
     @State private var memo: String
+    
+    // 추가 정보 필드들
+    @State private var industry: String
+    @State private var address: String
+    @State private var faxNumber: String
+    @State private var revenue: String
+    @State private var employees: String
+    
+    // 동적 항목 배열 (추가 이메일/연락처/URL 포함)
+    @State private var emails: [String]
+    @State private var contacts: [String]
+    @State private var urls: [String]
 
     // Photo picker
     @State private var presentedPhotoType: PhotoAddView.PhotoType?
     
     // AddItem 관련 상태  
     @State private var isAddItemPresented: Bool = false
-    @State private var addItemConfig: AddItemConfig = .default
+    @State private var addItemConfig: AddItemConfig
     
     // 삭제 확인 모달 상태
     @State private var showDeleteDialog: Bool = false
@@ -103,6 +130,12 @@ struct MyProfileEditSheet: View {
     var onSave: (DummyClient) -> Void
     var onDelete: (() -> Void)? = nil  // 삭제 콜백 추가
     var showDeleteButton: Bool = false  // 삭제 버튼 표시 여부
+    
+    // 내 프로필 여부 확인
+    private var isMyProfile: Bool {
+        let myId = ClientsStore.shared.clients.first?.id
+        return client.id == myId
+    }
 
     init(client: DummyClient, onCancel: @escaping () -> Void, onSave: @escaping (DummyClient) -> Void, onDelete: (() -> Void)? = nil, showDeleteButton: Bool = false) {
         self.client = client
@@ -118,11 +151,60 @@ struct MyProfileEditSheet: View {
         _surname = State(initialValue: client.surname)
         _name = State(initialValue: client.name)
         _company = State(initialValue: client.company)
+        _department = State(initialValue: client.department ?? "")
         _position = State(initialValue: client.position ?? "")
         _email = State(initialValue: client.email ?? "")
         _phone = State(initialValue: client.phoneNumber ?? "")
         _linkedin = State(initialValue: client.linkedinURL ?? "")
         _memo = State(initialValue: client.memo ?? "")
+        
+        // 추가 정보 초기값
+        _industry = State(initialValue: client.industry ?? "")
+        _address = State(initialValue: client.address ?? "")
+        _faxNumber = State(initialValue: client.faxNumber ?? "")
+        _revenue = State(initialValue: client.revenue ?? "")
+        _employees = State(initialValue: client.employees ?? "")
+        
+        // 동적 배열 초기값 (항상 최소 1칸 보장)
+        let initialEmails: [String] = {
+            var arr: [String] = [client.email ?? ""]
+            arr.append(contentsOf: client.additionalEmails)
+            return arr
+        }()
+        let initialContacts: [String] = {
+            var arr: [String] = [client.phoneNumber ?? ""]
+            arr.append(contentsOf: client.additionalPhones)
+            return arr
+        }()
+        let initialURLs: [String] = client.additionalURLs
+        _emails = State(initialValue: initialEmails)
+        _contacts = State(initialValue: initialContacts)
+        _urls = State(initialValue: initialURLs)
+        
+        // 편집 시트의 항목 구성은 기존 데이터 기반으로 설정
+        let hasPrimaryEmail = !(client.email ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasPrimaryPhone = !(client.phoneNumber ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let emailCount = max(1, (hasPrimaryEmail ? 1 : 0) + client.additionalEmails.count)
+        let phoneCount = max(1, (hasPrimaryPhone ? 1 : 0) + client.additionalPhones.count)
+        let urlCount = client.additionalURLs.count
+        let showsLinkedIn = true  // 링크드인은 항상 표시
+        let showsIndustry = !(client.industry ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let showsAddress = !(client.address ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let showsFax = !(client.faxNumber ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let showsRevenue = !(client.revenue ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let showsEmployees = !(client.employees ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        _addItemConfig = State(initialValue: AddItemConfig(
+            items: AddItemConfig.default.items,
+            emailCount: emailCount,
+            phoneCount: phoneCount,
+            urlCount: urlCount,
+            showsLinkedIn: showsLinkedIn,
+            showsIndustry: showsIndustry,
+            showsAddress: showsAddress,
+            showsFax: showsFax,
+            showsRevenue: showsRevenue,
+            showsEmployees: showsEmployees
+        ))
     }
 
     var body: some View {
@@ -133,6 +215,10 @@ struct MyProfileEditSheet: View {
             }
         }
         .background(Color("Background"))
+        .onAppear { ensureFieldArrays() }
+        .onChange(of: addItemConfig.emailCount) { _ in ensureFieldArrays() }
+        .onChange(of: addItemConfig.phoneCount) { _ in ensureFieldArrays() }
+        .onChange(of: addItemConfig.urlCount) { _ in ensureFieldArrays() }
     }
     
     // MARK: - Main Content
@@ -140,7 +226,6 @@ struct MyProfileEditSheet: View {
     private var mainContent: some View {
         ScrollView {
             VStack {
-                // Image pickers (ProfileAddView 스타일로 변경)
                 HStack {
                     Button {
                         presentedPhotoType = .profile
@@ -152,8 +237,7 @@ struct MyProfileEditSheet: View {
                                 Profile(
                                     image: image,
                                     initials: Profile.makeInitials(name: trimmedName, surname: trimmedSurname),
-                                    size: .small,
-                                    fontSize: 64
+                                    size: .small
                                 )
                             } else if trimmedName.isEmpty && trimmedSurname.isEmpty {
                                 Image("ProfileS")
@@ -161,8 +245,7 @@ struct MyProfileEditSheet: View {
                                 Profile(
                                     image: nil,
                                     initials: Profile.makeInitials(name: trimmedName, surname: trimmedSurname),
-                                    size: .small,
-                                    fontSize: 64
+                                    size: .small
                                 )
                             }
                             Text("프로필")
@@ -183,6 +266,8 @@ struct MyProfileEditSheet: View {
                                     .scaledToFit()
                                     .frame(width: 154, height: 92)
                                     .cornerRadius(4)
+                            } else if didClearFront {
+                                Image("CardS")
                             } else if let existing = client.nameCardFront {
                                 existing
                                     .resizable()
@@ -211,33 +296,57 @@ struct MyProfileEditSheet: View {
                 // 회사 정보 필드들
                 APEXTextField(style: .field, placeholder: "회사", text: $company)
                     .padding(.bottom, 8)
+                APEXTextField(style: .field, placeholder: "부서", text: $department)
+                    .padding(.bottom, 8)
                 APEXTextField(style: .field, placeholder: "직책", text: $position)
                     .padding(.bottom, 48)
                 
-                // 연락처 정보 필드들
-                APEXTextField(style: .field, placeholder: "이메일", text: $email)
-                    .padding(.bottom, 8)
-                ContactsField(phone: $phone, placeholder: "연락처", isRegionInteractive: true)
-                    .padding(.bottom, 8)
-                APEXTextField(style: .field, placeholder: "링크드인 URL", text: $linkedin)
-                    .padding(.bottom, 48)
+                // 연락처/URL 그룹
+                contactInfoGroup
                 
-                // 메모 필드
-                APEXTextField(style: .editor, label: "메모", placeholder: "주요 대화", text: $memo, maxLength: 100)
-                    .padding(.bottom, 48)
+                // 추가 회사 정보
+                if addItemConfig.showsIndustry {
+                    APEXTextField(style: .field, placeholder: "회사 업종", text: $industry)
+                        .padding(.bottom, 8)
+                }
+                if addItemConfig.showsAddress {
+                    APEXTextField(style: .field, placeholder: "주소", text: $address)
+                        .padding(.bottom, 8)
+                }
+                if addItemConfig.showsFax {
+                    APEXTextField(style: .field, placeholder: "팩스번호", text: $faxNumber)
+                        .padding(.bottom, 8)
+                }
+                if addItemConfig.showsRevenue {
+                    APEXTextField(style: .field, placeholder: "연매출", text: $revenue)
+                        .padding(.bottom, 8)
+                }
+                if addItemConfig.showsEmployees {
+                    APEXTextField(style: .field, placeholder: "근무 인원", text: $employees)
+                        .padding(.bottom, 48)
+                } else {
+                    // 연락처 그룹 후 기본 간격 유지
+                    Spacer(minLength: 0).frame(height: 16)
+                }
+                
+                // 메모 필드 (ProfileDetailView에서만 - 다른 사람 프로필 편집시)
+                if showDeleteButton {
+                    ProfileEditMemoSection(memo: $memo)
+                        .padding(.bottom, 48)
+                }
                 
                 // 항목 수정하기 버튼
                 AddItemButton {
                     isAddItemPresented = true
                 }
-                .padding(.bottom, showDeleteButton ? 12 : 16)
+                .padding(.bottom, showDeleteButton ? 8 : 12)
                 
                 // 연락처 삭제하기 버튼 (ProfileDetailView에서만)
                 if showDeleteButton {
                     DeleteContactButton {
                         showDeleteConfirmation()
                     }
-                    .padding(.bottom, 16)
+                    .padding(.bottom, 12)
                 }
             }
             .padding(.horizontal, 24)
@@ -246,19 +355,39 @@ struct MyProfileEditSheet: View {
         .sheet(item: $presentedPhotoType) { sheetType in
             PhotoAddView(
                 type: sheetType,
-                onCroppedProfile: { profileUIImage = $0 },
+                onCroppedProfile: {
+                    didClearProfile = false
+                    profileUIImage = $0
+                },
                 onCroppedCard: { img, isFront in
-                    if isFront { cardFrontUIImage = img } else { cardBackUIImage = img }
+                    if isFront {
+                        didClearFront = false
+                        cardFrontUIImage = img
+                    } else {
+                        didClearBack = false
+                        cardBackUIImage = img
+                    }
+                },
+                onResetProfile: {
+                    didClearProfile = true
+                    profileUIImage = nil
+                },
+                onResetCard: { isFront in
+                    if isFront {
+                        didClearFront = true
+                        cardFrontUIImage = nil
+                    } else {
+                        didClearBack = true
+                        cardBackUIImage = nil
+                    }
                 },
                 initialProfile: profileUIImage,
                 initialFront: cardFrontUIImage,
                 initialBack: cardBackUIImage
             )
-            .padding(.top, 30)
         }
         .sheet(isPresented: $isAddItemPresented) {
             AddItemView(config: $addItemConfig)
-                .padding(.top, 30)
         }
         .safeAreaBar(edge: .top) {
             APEXSheetTopBar(
@@ -266,22 +395,79 @@ struct MyProfileEditSheet: View {
                 rightTitle: "완료",
                 isRightEnabled: true,
                 onRightTap: {
+                    // 저장용 값 정리
+                    let trimmedEmails = emails.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    let primaryEmail = trimmedEmails.first ?? ""
+                    let savedEmail: String? = primaryEmail.isEmpty ? nil : primaryEmail
+                    let savedAdditionalEmails: [String] = Array(trimmedEmails.dropFirst()).filter { !$0.isEmpty }
+                    
+                    let trimmedContacts = contacts.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    let primaryPhone = trimmedContacts.first ?? ""
+                    let savedPhone: String? = primaryPhone.isEmpty ? nil : primaryPhone
+                    let savedAdditionalPhones: [String] = Array(trimmedContacts.dropFirst()).filter { !$0.isEmpty }
+                    
+                    let savedLinkedIn: String? = {
+                        if addItemConfig.showsLinkedIn {
+                            let v = linkedin.trimmingCharacters(in: .whitespacesAndNewlines)
+                            return v.isEmpty ? nil : v
+                        } else {
+                            return nil
+                        }
+                    }()
+                    
+                    let savedURLs: [String] = urls.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+                    
+                    let savedIndustry: String? = {
+                        guard addItemConfig.showsIndustry else { return nil }
+                        let v = industry.trimmingCharacters(in: .whitespacesAndNewlines)
+                        return v.isEmpty ? nil : v
+                    }()
+                    let savedAddress: String? = {
+                        guard addItemConfig.showsAddress else { return nil }
+                        let v = address.trimmingCharacters(in: .whitespacesAndNewlines)
+                        return v.isEmpty ? nil : v
+                    }()
+                    let savedFax: String? = {
+                        guard addItemConfig.showsFax else { return nil }
+                        let v = faxNumber.trimmingCharacters(in: .whitespacesAndNewlines)
+                        return v.isEmpty ? nil : v
+                    }()
+                    let savedRevenue: String? = {
+                        guard addItemConfig.showsRevenue else { return nil }
+                        let v = revenue.trimmingCharacters(in: .whitespacesAndNewlines)
+                        return v.isEmpty ? nil : v
+                    }()
+                    let savedEmployees: String? = {
+                        guard addItemConfig.showsEmployees else { return nil }
+                        let v = employees.trimmingCharacters(in: .whitespacesAndNewlines)
+                        return v.isEmpty ? nil : v
+                    }()
+                    
                     let updated = DummyClient(
-                        profile: profileUIImage ?? client.profile,
-                        nameCardFront: (cardFrontUIImage.map { Image(uiImage: $0) }) ?? client.nameCardFront,
-                        nameCardBack: (cardBackUIImage.map { Image(uiImage: $0) }) ?? client.nameCardBack,
+                        profile: didClearProfile ? nil : (profileUIImage ?? client.profile),
+                        nameCardFront: didClearFront ? nil : ((cardFrontUIImage.map { Image(uiImage: $0) }) ?? client.nameCardFront),
+                        nameCardBack: didClearBack ? nil : ((cardBackUIImage.map { Image(uiImage: $0) }) ?? client.nameCardBack),
                         surname: surname,
                         name: name,
                         position: position.isEmpty ? nil : position,
                         company: company,
-                        email: email.isEmpty ? nil : email,
-                        phoneNumber: phone.isEmpty ? nil : phone,
-                        linkedinURL: linkedin.isEmpty ? nil : linkedin,
-                        memo: memo.isEmpty ? nil : memo,
+                        department: department.isEmpty ? nil : department,
+                        email: savedEmail,
+                        phoneNumber: savedPhone,
+                        linkedinURL: savedLinkedIn,
+                        memo: showDeleteButton ? (memo.isEmpty ? nil : memo) : client.memo,
                         action: client.action,
                         favorite: client.favorite,
                         pin: client.pin,
-                        notes: client.notes
+                        notes: client.notes,
+                        industry: savedIndustry,
+                        address: savedAddress,
+                        faxNumber: savedFax,
+                        revenue: savedRevenue,
+                        employees: savedEmployees,
+                        additionalEmails: savedAdditionalEmails,
+                        additionalPhones: savedAdditionalPhones,
+                        additionalURLs: savedURLs
                     )
                     onSave(updated)
                     dismiss()
@@ -329,18 +515,143 @@ struct MyProfileEditSheet: View {
 }
 
 // MARK: - Helpers
+private extension MyProfileEditSheet {
+    // 연락처/URL 그룹 (편집 시트 버전)
+    @ViewBuilder
+    var contactInfoGroup: some View {
+        let totalBlockCount = addItemConfig.emailCount
+            + addItemConfig.phoneCount
+            + (addItemConfig.showsLinkedIn ? 1 : 0)
+            + addItemConfig.urlCount
+        
+        if addItemConfig.emailCount > 0 {
+            ForEach(0..<addItemConfig.emailCount, id: \.self) { idx in
+                APEXTextField(
+                    style: .field,
+                    placeholder: emailPlaceholder(for: idx),
+                    text: emailBinding(index: idx)
+                )
+                .padding(.bottom, bottomPaddingForGroup(globalIndex: idx, total: totalBlockCount))
+            }
+        }
+        
+        if addItemConfig.phoneCount > 0 {
+            ForEach(0..<addItemConfig.phoneCount, id: \.self) { idx in
+                ContactsField(
+                    phone: contactBinding(index: idx),
+                    placeholder: phonePlaceholder(for: idx),
+                    isRegionInteractive: true
+                )
+                .padding(.bottom, bottomPaddingForGroup(globalIndex: addItemConfig.emailCount + idx, total: totalBlockCount))
+            }
+        }
+        
+        if addItemConfig.showsLinkedIn {
+            APEXTextField(style: .field, placeholder: "링크드인 URL", text: $linkedin)
+                .padding(
+                    .bottom,
+                    bottomPaddingForGroup(
+                        globalIndex: addItemConfig.emailCount + addItemConfig.phoneCount,
+                        total: totalBlockCount
+                    )
+                )
+        }
+        
+        if addItemConfig.urlCount > 0 {
+            ForEach(0..<addItemConfig.urlCount, id: \.self) { idx in
+                APEXTextField(
+                    style: .field,
+                    placeholder: "URL \(idx + 1)",
+                    text: urlBinding(index: idx)
+                )
+                .padding(
+                    .bottom,
+                    bottomPaddingForGroup(
+                        globalIndex: addItemConfig.emailCount + addItemConfig.phoneCount + (addItemConfig.showsLinkedIn ? 1 : 0) + idx,
+                        total: totalBlockCount
+                    )
+                )
+            }
+        }
+    }
+    
+    private func ensureFieldArrays() {
+        // 이메일 배열 길이 보정
+        if emails.count < addItemConfig.emailCount {
+            emails.append(contentsOf: Array(repeating: "", count: addItemConfig.emailCount - emails.count))
+        } else if emails.count > addItemConfig.emailCount {
+            emails = Array(emails.prefix(addItemConfig.emailCount))
+        }
+        // 연락처 배열 길이 보정
+        if contacts.count < addItemConfig.phoneCount {
+            contacts.append(contentsOf: Array(repeating: "", count: addItemConfig.phoneCount - contacts.count))
+        } else if contacts.count > addItemConfig.phoneCount {
+            contacts = Array(contacts.prefix(addItemConfig.phoneCount))
+        }
+        // URL 배열 길이 보정
+        if urls.count < addItemConfig.urlCount {
+            urls.append(contentsOf: Array(repeating: "", count: addItemConfig.urlCount - urls.count))
+        } else if urls.count > addItemConfig.urlCount {
+            urls = Array(urls.prefix(addItemConfig.urlCount))
+        }
+    }
+    
+    private func emailBinding(index: Int) -> Binding<String> {
+        Binding<String>(
+            get: { emails.indices.contains(index) ? emails[index] : "" },
+            set: { value in
+                if emails.indices.contains(index) { emails[index] = value }
+            }
+        )
+    }
+    
+    private func contactBinding(index: Int) -> Binding<String> {
+        Binding<String>(
+            get: { contacts.indices.contains(index) ? contacts[index] : "" },
+            set: { value in
+                if contacts.indices.contains(index) { contacts[index] = value }
+            }
+        )
+    }
+    
+    private func urlBinding(index: Int) -> Binding<String> {
+        Binding<String>(
+            get: { urls.indices.contains(index) ? urls[index] : "" },
+            set: { value in
+                if urls.indices.contains(index) { urls[index] = value }
+            }
+        )
+    }
+    
+    private func bottomPaddingForGroup(globalIndex: Int, total: Int) -> CGFloat {
+        return (globalIndex == total - 1) ? 40 : 8
+    }
+    
+    private func emailPlaceholder(for index: Int) -> String {
+        return addItemConfig.emailCount == 1 ? "이메일" : "이메일 \(index + 1)"
+    }
+    
+    private func phonePlaceholder(for index: Int) -> String {
+        return addItemConfig.phoneCount == 1 ? "연락처" : "연락처 \(index + 1)"
+    }
+}
 
 private extension Image {
     func asUIImage() -> UIImage? {
-        // Render the SwiftUI Image into a UIImage for use in pickers/croppers
+        // 고정된 목표 크기와 스케일 사용으로 일관성 유지
         let targetSize = CGSize(width: 358, height: 214)
+        let scale = UIScreen.main.scale
+        
         let rendered = ImageRenderer(
             content: self
                 .resizable()
-                .scaledToFit()
+                .aspectRatio(contentMode: .fit)
                 .frame(width: targetSize.width, height: targetSize.height)
         )
-        rendered.scale = UIScreen.main.scale
+        
+        // 명시적으로 스케일 설정하여 일관성 보장
+        rendered.scale = scale
+        
         return rendered.uiImage
     }
 }
@@ -416,7 +727,7 @@ private struct DeleteContactButton: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 4) {
-                Image(systemName: "minus.circle.fill")
+                Image(systemName: "trash.fill")
                     .foregroundColor(Color.red)
                 Text("연락처 삭제하기")
                     .font(.body2)

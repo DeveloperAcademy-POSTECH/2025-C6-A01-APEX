@@ -23,15 +23,8 @@ struct ContactsListSection: View {
 
     var body: some View {
         Group {
-            // 1) 섹션 헤더
             headerRow
 
-            // 2) 헤더 아래 고정 간격 8 (All 섹션은 제외)
-            if title != "All" {
-                gapRow
-            }
-
-            // 3) 펼침 상태일 때 내용
             if isExpanded {
                 if groupByCompany {
                     // 회사명 기준으로 그룹핑. 공백/빈 문자열은 "Ungrouped" 처리
@@ -81,10 +74,13 @@ struct ContactsListSection: View {
                 }
             }
             
-            // 4) Favorites 전용: 구분선을 토글 상태와 관계없이 favorites가 있으면 항상 표시
-            if showsSeparatorBelowHeader, !clients.isEmpty {
+            // 4) Favorites 전용: 구분선을 토글 상태와 관계없이 항상 표시
+            if showsSeparatorBelowHeader {
                 gapRow                  // 구분선 위쪽 간격 8
                 separatorBarRow         // 색 있는 구분선(높이 2)
+                    .onAppear {
+                        print("🐛 Separator appearing for \(title) - clients count: \(clients.count)")
+                    }
                 gapRow                  // 구분선 아래쪽 간격 8
             }
         }
@@ -103,8 +99,8 @@ struct ContactsListSection: View {
 
     private func groupHeaderRow(title: String) -> some View {
         Text(title)
-            .font(.body2)
-            .foregroundColor(Color.secondary)  // 시스템 기본 보조 색상으로 변경
+            .font(.body2)                       // All과 같은 폰트로 변경
+            .foregroundColor(Color("GrayLabel"))             // Gray 색상으로 변경
             .frame(height: Metrics.groupTitleHeight)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, Metrics.horizontalPadding)
@@ -133,6 +129,9 @@ struct ContactsListSection: View {
             .fill(Color("BackgroundSecondary"))
             .frame(height: Metrics.separatorHeight)
             .applyListRowCleaning()
+            .onAppear {
+                print("🐛 separatorBarRow rendered with height: \(Metrics.separatorHeight)")
+            }
     }
 }
 

@@ -34,14 +34,12 @@ enum PAttachmentBundle: Codable {
     case media(images: [PImageAttachment], videos: [PVideoAttachment])
     case files([PFileAttachment])
     case audio([PAudioAttachment])
-    
     private enum CodingKeys: String, CodingKey {
         case type, images, videos, files, audios
     }
     private enum Kind: String, Codable {
         case media, files, audio
     }
-    
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let kind = try container.decode(Kind.self, forKey: .type)
@@ -58,7 +56,6 @@ enum PAttachmentBundle: Codable {
             self = .audio(audios)
         }
     }
-    
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
@@ -100,6 +97,98 @@ struct PClient: Codable, Identifiable {
     var favorite: Bool
     var pin: Bool
     var notes: [PNote]
+}
+
+// MARK: - Text Formatting (mirror NotesRow behavior in main app)
+enum NotesTextFormatterExt {
+    static func latestSummary(from notes: [PNote]) -> String? {
+        guard let latest = notes.max(by: { $0.uploadedAt < $1.uploadedAt }) else { return nil }
+
+        if let text = latest.text?
+            .split(whereSeparator: \.isNewline)
+            .first
+            .map(String.init)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           !text.isEmpty {
+            return text
+        }
+
+        let id = videoIdPlaceholder()
+        switch latest.bundle {
+        case .media(let images, let videos):
+            if !videos.isEmpty { return "Video [\(id)]" }
+            if !images.isEmpty { return "Photo [\(id)]" }
+            return nil
+        case .files(let files):
+            return files.isEmpty ? nil : "File [\(id)]"
+        case .audio(let audios):
+            return audios.isEmpty ? nil : "Audio [\(id)]"
+        case .none:
+            return nil
+        }
+    }
+
+    private static func videoIdPlaceholder() -> String {
+        "94128942198382"
+    }
+}
+
+// MARK: - Name Formatting (mirror main app NameFormatter for PClient)
+private enum NameFormatterExt {
+    enum NameDisplayFormat {
+        case korean
+        case western
+        case koreanWithSpace
+        case westernWithSpace
+    }
+    
+    static func format(name: String, surname: String, format: NameDisplayFormat = .korean) -> String {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedSurname = surname.trimmingCharacters(in: .whitespacesAndNewlines)
+        let parts = [trimmedName, trimmedSurname].filter { !$0.isEmpty }
+        guard !parts.isEmpty else { return "" }
+        if parts.count == 1 { return parts[0] }
+        switch format {
+        case .korean:
+            return "\(trimmedSurname)\(trimmedName)"
+        case .western:
+            return "\(trimmedName) \(trimmedSurname)"
+        case .koreanWithSpace:
+            return "\(trimmedSurname) \(trimmedName)"
+        case .westernWithSpace:
+            return "\(trimmedName) \(trimmedSurname)"
+        }
+    }
+    
+    static func isKoreanBased(_ text: String) -> Bool {
+        guard let first = text.first else { return false }
+        let range = "\u{AC00}"..."\u{D7A3}"
+        return range.contains(String(first))
+    }
+    
+    static func determineFormat(name: String, surname: String) -> NameDisplayFormat {
+        let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let s = surname.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !n.isEmpty || !s.isEmpty else { return .korean }
+        let nKo = !n.isEmpty ? isKoreanBased(n) : false
+        let sKo = !s.isEmpty ? isKoreanBased(s) : false
+        if n.isEmpty { return sKo ? .korean : .western }
+        if s.isEmpty { return nKo ? .korean : .western }
+        if nKo && sKo { return .korean }
+        if !nKo && !sKo { return .western }
+        return .koreanWithSpace
+    }
+    
+    static func autoFormat(name: String, surname: String) -> String {
+        let fmt = determineFormat(name: name, surname: surname)
+        return format(name: name, surname: surname, format: fmt)
+    }
+}
+
+extension PClient {
+    var autoFormattedName: String {
+        NameFormatterExt.autoFormat(name: name, surname: surname)
+    }
 }
 
 

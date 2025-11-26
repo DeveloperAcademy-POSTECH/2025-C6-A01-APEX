@@ -19,6 +19,16 @@ struct MyProfilePrimaryActionView: View {
     }
 }
 
+// MARK: - Section Separator View
+
+struct MyProfileSectionSeparator: View {
+    var body: some View {
+        Rectangle()
+            .fill(Color("BackgroundSecondary"))
+            .frame(height: 2)
+    }
+}
+
 // MARK: - Contacts Section (Menu 기반으로 전환)
 
 struct MyProfileContactsSection: View {
@@ -32,10 +42,6 @@ struct MyProfileContactsSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // 첫 표시 항목이 이메일이면 상단 구분선 숨김
-            if !(hasEmailFirst) {
-                topSeparator
-            }
 
             if let email, !email.isEmpty {
                 ContactCard {
@@ -154,28 +160,29 @@ struct MyProfileContactsSection: View {
         valueTint: Color,
         @ViewBuilder menu: @escaping () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 0) {  // spacing 0으로 변경
             Text(label)
                 .font(.body6)
-                .foregroundColor(.gray)
-
+                .foregroundColor(Color("GrayLabel"))
+                .frame(height: 18)  // 이메일 라벨 높이 18pt
+            
+            Spacer().frame(height: 2)  // 이메일과 이메일정보 사이 2pt
+            
             // 시스템 Menu 사용하되 호버 상태 유지
             ContactMenuWithHover(
                 value: value,
                 valueTint: valueTint,
                 menu: menu
             )
+            .frame(height: 24)  // 이메일 정보 높이 24pt
             .accessibilityLabel("\(label), \(value)")
             .accessibilityHint("메뉴 보기")
+        
         }
-    }
-
-    private var topSeparator: some View {
-        Rectangle()
-            .fill(Color("BackgroundSecondary"))
-            .frame(width: 361, height: 2)
+        .padding(.vertical, 10)  // 상하 10pt씩 패딩
     }
 }
+
 
 // MARK: - Contact Menu with Clean Style (호버 효과 제거)
 
@@ -190,7 +197,6 @@ private struct ContactMenuWithHover<MenuContent: View>: View {
         } label: {
             ContactValueLabel(text: value, tint: valueTint)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: 40, alignment: .center)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain) // 기본 버튼 효과 제거
@@ -263,16 +269,12 @@ struct MyProfileStorageSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: MyProfileSectionMetrics.interRowSpacing) {
-            topSeparator
-
-            Spacer().frame(height: 6)
 
             // Title
             Text("데이터 및 저장공간")
                 .font(.body1)
                 .foregroundColor(.black)
                 .frame(height: MyProfileSectionMetrics.titleHeight, alignment: .center)
-                .padding(.horizontal, 8)
 
             // Row: 노트 저장공간 관리 (공통 PressableRow 사용)
             PressableRow(height: MyProfileSectionMetrics.rowHeight, action: onManageTapped) {
@@ -280,15 +282,17 @@ struct MyProfileStorageSection: View {
                     Text("노트 저장공간 관리")
                         .font(.body3)
                         .foregroundColor(.gray)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Spacer()
+                        
                     if !usedText.isEmpty {
                         Text(usedText)
                             .font(.body3)
                             .foregroundColor(.gray)
                     }
                 }
+                // ⭐ 패딩 제거하여 구분선 전체 길이 사용
             }
-            .padding(.horizontal, 8)
             
 
             // Row: 임시 데이터 삭제 (텍스트 동일, 우측 버튼)
@@ -296,23 +300,19 @@ struct MyProfileStorageSection: View {
                 Text("임시 데이터 삭제")
                     .font(.body3)
                     .foregroundColor(.gray)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                
+                Spacer()
 
                 PurgeButton(isEnabled: isPurgeEnabled, action: onPurgeTapped)
             }
             .frame(height: MyProfileSectionMetrics.rowHeight)
-            .padding(.horizontal, 8)
 
             Spacer().frame(height: 10)
         }
         .padding(.horizontal, 8)
     }
 
-    private var topSeparator: some View {
-        Rectangle()
-            .fill(Color("BackgroundSecondary"))
-            .frame(width: 361, height: 2)
-    }
 }
 
 // MARK: - Purge Button (지정 스펙 적용)
@@ -365,26 +365,22 @@ struct MyProfileAppInfoSection: View {
     var onTermsTapped: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: MyProfileSectionMetrics.interRowSpacing) {
-            topSeparator
-
-            Spacer().frame(height: 6)
-
+        VStack(alignment: .leading, spacing: MyProfileSectionMetrics.interRowSpacing)
+        {
             Text("앱 정보")
                 .font(.body1)
                 .foregroundColor(.black)
                 .frame(height: MyProfileSectionMetrics.titleHeight, alignment: .center)
-                .padding(.horizontal, 8)
 
             PressableRow(height: MyProfileSectionMetrics.rowHeight, action: onTermsTapped) {
                 HStack(spacing: 12) {
                     Text("약관 및 정책")
                         .font(.body3)
                         .foregroundColor(.gray)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    Spacer()
                 }
             }
-            .padding(.horizontal, 8)
 
             HStack(spacing: 12) {
                 Text("현재 버전")
@@ -396,18 +392,12 @@ struct MyProfileAppInfoSection: View {
                     .foregroundColor(.gray)
             }
             .frame(height: MyProfileSectionMetrics.rowHeight)
-            .padding(.horizontal, 8)
 
             Spacer().frame(height: 10)
         }
         .padding(.horizontal, 8)
     }
 
-    private var topSeparator: some View {
-        Rectangle()
-            .fill(Color("BackgroundSecondary"))
-            .frame(width: 361, height: 2)
-    }
 }
 
 // MARK: - Danger Zone Section
@@ -418,39 +408,30 @@ struct MyProfileDangerZoneSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: MyProfileSectionMetrics.interRowSpacing) {
-            topSeparator
-
-            Spacer().frame(height: 6)
 
             PressableRow(height: MyProfileSectionMetrics.rowHeight, action: onLogout) {
                 HStack {
                     Text("로그아웃")
                         .font(.body3)
                         .foregroundColor(.gray)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    Spacer()
                 }
             }
-            .padding(.horizontal, 8)
 
             PressableRow(height: MyProfileSectionMetrics.rowHeight, action: onDeleteAccount) {
                 HStack {
                     Text("계정 탈퇴")
                         .font(.body3)
                         .foregroundColor(.gray)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    
+                    Spacer()
                 }
             }
-            .padding(.horizontal, 8)
 
             Spacer().frame(height: 10)
         }
         .padding(.horizontal, 8)
-    }
-
-    private var topSeparator: some View {
-        Rectangle()
-            .fill(Color("BackgroundSecondary"))
-            .frame(width: 361, height: 2)
     }
 }
 
@@ -484,7 +465,7 @@ struct PressableRow<Label: View>: View {
 
 struct PressableRowButtonStyle: ButtonStyle {
     var pressedBackground: Color = Color("BackgroundSecondary")
-    var cornerRadius: CGFloat = 4
+    var cornerRadius: CGFloat = 10  // 4 → 10으로 변경 (ChattingArchiveView SectionHeaderPressedStyle 참고)
     var duration: Double = 0.12
 
     func makeBody(configuration: Configuration) -> some View {
