@@ -167,61 +167,64 @@ struct ChatMessageView: View {
             }
             else if case let .audio(audios) = note.bundle {
                 if let first = audios.first {
-                    AudioSquareTile(url: first.url, duration: first.duration, preferredLength: nil, titleOverride: nil, highlightQuery: highlightQuery)
-                        .contextMenu {
-                            Button { onOpenRecord(first.url) } label: {
-                                Label("더보기", systemImage: "ellipsis.circle")
+                    VStack(spacing: 6) {
+                        AudioSquareTile(url: first.url, duration: first.duration, preferredLength: nil, titleOverride: nil, highlightQuery: highlightQuery)
+                            .contextMenu {
+                                Button { onOpenRecord(first.url) } label: {
+                                    Label("더보기", systemImage: "ellipsis.circle")
+                                }
+                                .tint(.primary)
+                                Button {
+                                    NotificationCenter.default.post(name: .apexStopAllAudioPlayback, object: nil)
+                                    onOpenShareAudio(first.url)
+                                } label: {
+                                    Label("공유", systemImage: "square.and.arrow.up")
+                                }
+                                .tint(.primary)
+                                Button(role: .destructive) {
+                                    onStartMultiDelete(note.id)
+                                } label: {
+                                    Label("삭제", systemImage: "trash")
+                                }
+                                .tint(.red)
                             }
-                            .tint(.primary)
-                            Button {
-                                NotificationCenter.default.post(name: .apexStopAllAudioPlayback, object: nil)
-                                onOpenShareAudio(first.url)
-                            } label: {
-                                Label("공유", systemImage: "square.and.arrow.up")
-                            }
-                            .tint(.primary)
-                            Button(role: .destructive) {
-                                onStartMultiDelete(note.id)
-                            } label: {
-                                Label("삭제", systemImage: "trash")
-                            }
-                            .tint(.red)
-                        }
-                    
-                    // Filename + STT text under the audio tile
-                    VStack(alignment: .leading, spacing: 4) {
-                        let baseName = first.url.deletingPathExtension().lastPathComponent
-                        let displayName = baseName.isEmpty ? "음성 메모" : baseName
-                        if let attr = highlightedText(displayName, query: highlightQuery) {
-                            Text(attr)
+                        
+                        // Filename + STT text under the audio tile
+                        VStack(alignment: .leading, spacing: 4) {
+                            let baseName = first.url.deletingPathExtension().lastPathComponent
+                            let displayName = baseName.isEmpty ? "음성 메모" : baseName
+                            if let attr = highlightedText(displayName, query: highlightQuery) {
+                                Text(attr)
+                                    .font(.caption2)
+                                    .foregroundStyle(Color("BlackLabel"))
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                            } else {
+                                Text(displayName)
                                 .font(.caption2)
                                 .foregroundStyle(Color("BlackLabel"))
                                 .lineLimit(1)
                                 .truncationMode(.middle)
-                        } else {
-                            Text(displayName)
-                            .font(.caption2)
-                            .foregroundStyle(Color("BlackLabel"))
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                        }
-                        if let stt = note.text, !stt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            if let attr = highlightedText(stt, query: highlightQuery) {
-                                Text(attr)
-                                    .font(.body6)
-                                    .foregroundStyle(Color("BlackLabel"))
-                            } else {
-                                Text(stt)
-                                    .font(.body6)
-                                    .foregroundStyle(Color("BlackLabel"))
+                            }
+                            if let stt = note.text, !stt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                if let attr = highlightedText(stt, query: highlightQuery) {
+                                    Text(attr)
+                                        .font(.body6)
+                                        .foregroundStyle(Color("BlackLabel"))
+                                } else {
+                                    Text(stt)
+                                        .font(.body6)
+                                        .foregroundStyle(Color("BlackLabel"))
+                                }
                             }
                         }
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.vertical, 12)
+                        .padding(.horizontal, 8)
+                        .background(Color("BackgroundSecondary"))
+                        .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
                     }
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 8)
-                    .background(Color("BackgroundSecondary"))
-                    .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+                    
                 }
             }
             

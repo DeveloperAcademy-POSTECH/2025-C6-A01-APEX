@@ -140,7 +140,7 @@ private extension SearchView {
 							viewModel.send(.clearRecent)
 						} label: {
 							Text("초기화")
-								.font(.body3)
+								.font(.body2)
 								.foregroundStyle(Color("Primary"))
 								.padding(.horizontal, 8)
 								.padding(.vertical, 6)
