@@ -103,9 +103,9 @@ struct MyProfileView: View {
         .background(Color("Background"))
         .safeAreaBar(edge: .top) {
             MyProfileNavigationBar(
-                title: ((store.clients.first?.company ?? "").isEmpty
-                        ? "\((store.clients.first?.surname ?? client.surname))\((store.clients.first?.name ?? client.name))"
-                        : (store.clients.first?.company ?? client.company)),
+                title: (store.clients.first?.company ?? client.company).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty 
+                    ? "" 
+                    : (store.clients.first?.company ?? client.company),
                 onBack: { router.pop() },
                 onEdit: { viewModel.send(.presentEdit(true)) }
             )
