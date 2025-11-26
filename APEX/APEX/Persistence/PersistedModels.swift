@@ -183,7 +183,7 @@ extension PClient {
         self.id = client.id
         if let image = client.profile {
             // Prefer JPEG for smaller size; fallback to PNG
-            self.profileImageData = image.jpegData(compressionQuality: 0.9) ?? image.pngData()
+            self.profileImageData = image.jpegData(compressionQuality: 1.0) ?? image.pngData()
         } else {
             self.profileImageData = nil
         }
@@ -250,7 +250,11 @@ private extension PClient {
                 .frame(width: targetSize.width, height: targetSize.height)
         )
         renderer.scale = UIScreen.main.scale
-        return renderer.uiImage?.jpegData(compressionQuality: 0.9)
+        if let ui = renderer.uiImage {
+            let normalized = normalizeUIImageToSRGB8(ui, opaque: false)
+            return normalized.jpegData(compressionQuality: 1.0)
+        }
+        return nil
     }
 }
 

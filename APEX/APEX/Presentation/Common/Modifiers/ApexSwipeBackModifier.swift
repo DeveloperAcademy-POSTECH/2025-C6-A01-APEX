@@ -42,7 +42,29 @@ private struct ApexSwipeBackModifier: ViewModifier {
 						guard abs(dx) > abs(dy) else { return }
 						guard dx > 80 else { return }
 						guard !router.path.isEmpty else { return }
-						router.pop()
+                        // Special-case: if current is .chat and previous is profile, return to Contacts
+                        let path = router.path
+                        if let current = path.last {
+                            switch current {
+                            case .chat:
+                                if path.count >= 2 {
+                                    let previous = path[path.count - 2]
+                                    switch previous {
+                                    case .myProfile, .profileDetail:
+                                        NotificationCenter.default.post(name: .apexSelectContacts, object: nil)
+                                        router.popToRoot()
+                                        return
+                                    default:
+                                        break
+                                    }
+                                }
+                                router.pop()
+                            default:
+                                router.pop()
+                            }
+                        } else {
+                            router.pop()
+                        }
 					}
 			)
 	}

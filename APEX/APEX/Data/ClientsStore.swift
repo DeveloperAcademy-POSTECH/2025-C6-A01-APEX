@@ -150,10 +150,7 @@ final class ClientsStore: ObservableObject {
             }
             .store(in: &cancellables)
 
-        // Attempt a lightweight initial pull so UI can reflect server state quickly.
-        if SyncSettings.isAutoOn {
-            DispatchQueue.main.async { self.refreshAllCloudKitDataSequentially() }
-        }
+        // Note: Removed automatic CloudKit refresh at launch to improve startup latency.
     }
 
     // MARK: - Public CloudKit refresh after login/onboarding
@@ -162,6 +159,13 @@ final class ClientsStore: ObservableObject {
         pullClientsFromCloudKit()
         pullUserFromCloudKit()
         pullAllClientNotesFromCloudKit()
+    }
+
+    /// Lighter variant for app launch: refresh clients and user only, defer heavy notes prefetch.
+    func forceLightCloudKitRefresh() {
+        guard SyncSettings.isAutoOn else { return }
+        pullClientsFromCloudKit()
+        pullUserFromCloudKit()
     }
 
     private func syncAllNotesToChatStore() {

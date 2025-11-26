@@ -44,6 +44,9 @@ struct RootView: View {
                 .onReceive(NotificationCenter.default.publisher(for: .apexSelectNotes)) { _ in
                     selection = .notes
                 }
+                .onReceive(NotificationCenter.default.publisher(for: .apexSelectContacts)) { _ in
+                    selection = .contacts
+                }
                 .navigationDestination(for: NavigationDestination.self) { route in
                     destination(for: route)
                 }
@@ -53,18 +56,17 @@ struct RootView: View {
         .overlay(alignment: .center) {
             if sync.isCloudSyncInProgress {
                 ZStack {
-                    Color.black.opacity(0.2)
+                    Color.white
                         .ignoresSafeArea()
-                    ProgressView()
-                        .progressViewStyle(.circular)
-                        .tint(Color("Primary"))
-                        .scaleEffect(1.2)
-                        .padding(24)
-                        .background(
-                            RoundedRectangle(cornerRadius: 14)
-                                .fill(Color(.systemBackground))
-                                .shadow(color: Color.black.opacity(0.15), radius: 12, x: 0, y: 4)
-                        )
+                    VStack(spacing: 12) {
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                            .tint(.gray)
+                            .scaleEffect(1.2)
+                        Text("로딩중")
+                            .font(.body)
+                            .foregroundColor(.gray)
+                    }
                 }
             }
         }

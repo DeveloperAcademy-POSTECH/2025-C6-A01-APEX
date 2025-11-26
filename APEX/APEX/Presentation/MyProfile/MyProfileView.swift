@@ -41,7 +41,10 @@ struct MyProfileView: View {
                 // 프라이머리 액션
                 MyProfilePrimaryActionView(title: "메모하기") {
                     let id = viewModel.ensureMyChatClientId()
-                    router.push(.chat(id))
+                    // Go to Contacts tab and replace current route with chat,
+                    // so popping from chat returns to Contacts instead of profile
+                    NotificationCenter.default.post(name: .apexSelectContacts, object: nil)
+                    router.replace(with: .chat(id))
                 }
                     .accessibilityLabel("메모하기")
                     .apexButtonTheme(

@@ -282,7 +282,7 @@ private extension RecordViewModel {
             }
             
             let request = SFSpeechURLRecognitionRequest(url: url)
-            request.shouldReportPartialResults = true
+            request.shouldReportPartialResults = false
             request.taskHint = .dictation
             if #available(iOS 13.0, *) {
                 request.requiresOnDeviceRecognition = false
@@ -294,11 +294,12 @@ private extension RecordViewModel {
             
             recognizer.recognitionTask(with: request) { result, error in
                 if let result = result {
-                    DispatchQueue.main.async {
-                        self.conversation = result.bestTranscription.formattedString
-                    }
+                    // Only apply final transcript; show placeholder elsewhere in UI while loading
                     if result.isFinal {
-                        DispatchQueue.main.async { self.isTranscribing = false }
+                        DispatchQueue.main.async {
+                            self.conversation = result.bestTranscription.formattedString
+                            self.isTranscribing = false
+                        }
                     }
                 }
                 if let error = error {

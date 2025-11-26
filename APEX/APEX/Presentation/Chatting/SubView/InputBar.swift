@@ -60,6 +60,22 @@ private struct PickedVideo: Transferable {
 
 // MARK: - InputBar logic (moved out for lint compliance)
 private extension InputBar {
+    func splitTrailingNumber(from name: String) -> (stem: String, number: Int?) {
+        let ns = name as NSString
+        let pattern = #"^(.*?)(?:\s+(\d+))$"#
+        if let regex = try? NSRegularExpression(pattern: pattern, options: []) {
+            let range = NSRange(location: 0, length: ns.length)
+            if let match = regex.firstMatch(in: name, options: [], range: range), match.numberOfRanges == 3 {
+                let stemRange = match.range(at: 1)
+                let numRange = match.range(at: 2)
+                let stem = ns.substring(with: stemRange)
+                let numStr = ns.substring(with: numRange)
+                if let n = Int(numStr) { return (stem: stem, number: n) }
+                return (stem: stem, number: nil)
+            }
+        }
+        return (stem: name, number: nil)
+    }
     enum PersistCategory { case video, file, audio }
     // Per-client isolation is applied for audio category to avoid global suffix accumulation
     func persistToAppGroup(originalURL: URL, category: PersistCategory, ownerClientId: UUID? = nil) -> URL {
@@ -81,11 +97,31 @@ private extension InputBar {
         try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
         let basename = originalURL.deletingPathExtension().lastPathComponent
         let ext = originalURL.pathExtension.isEmpty ? "bin" : originalURL.pathExtension
-        var target = dir.appendingPathComponent(basename).appendingPathExtension(ext)
-        var suffix = 2
-        while fm.fileExists(atPath: target.path) {
-            target = dir.appendingPathComponent("\(basename) \(suffix)").appendingPathExtension(ext)
-            suffix += 1
+        // Build a unique filename. For audio, increment an existing trailing number instead of appending another.
+        var candidateName = basename
+        var target = dir.appendingPathComponent(candidateName).appendingPathExtension(ext)
+        if fm.fileExists(atPath: target.path) {
+            switch category {
+            case .audio:
+                var (stem, maybeNum) = splitTrailingNumber(from: candidateName)
+                if stem.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    stem = "새로운 녹음"
+                }
+                var n = (maybeNum ?? 1) + 1
+                while true {
+                    candidateName = "\(stem) \(n)"
+                    target = dir.appendingPathComponent(candidateName).appendingPathExtension(ext)
+                    if !fm.fileExists(atPath: target.path) { break }
+                    n += 1
+                }
+            case .video, .file:
+                var suffix = 2
+                while fm.fileExists(atPath: target.path) {
+                    candidateName = "\(basename) \(suffix)"
+                    target = dir.appendingPathComponent(candidateName).appendingPathExtension(ext)
+                    suffix += 1
+                }
+            }
         }
         if originalURL.path.hasPrefix(dir.path) {
             return originalURL
@@ -135,6 +171,72 @@ private extension InputBar {
                 return target
             }
             return originalURL
+        }
+    }
+    // Determine if UIImage likely requires PNG (alpha) or can be JPEG; export with matching extension.
+    func exportUIImagePreservingFormat(_ image: UIImage) -> (Data, String)? {
+        if imageHasAlpha(image), let png = image.pngData() {
+            return (png, "png")
+        }
+        if let jpg = image.jpegData(compressionQuality: 1.0) {
+            return (jpg, "jpg")
+        }
+        if let png = image.pngData() {
+            return (png, "png")
+        }
+        return nil
+    }
+    func imageHasAlpha(_ image: UIImage) -> Bool {
+        guard let info = image.cgImage?.alphaInfo else { return false }
+        switch info {
+        case .premultipliedLast, .premultipliedFirst, .last, .first:
+            return true
+        default:
+            return false
+        }
+    }
+    // Sniff common image formats; normalize to JPEG when unknown.
+    enum DetectedImageFormat { case jpeg, png, gif, heic, unknown }
+    func detectImageFormat(from data: Data) -> DetectedImageFormat {
+        if data.count >= 3 {
+            let sig = [data[0], data[1], data[2]]
+            if sig == [0xFF, 0xD8, 0xFF] { return .jpeg }
+        }
+        if data.count >= 8 {
+            let sig = [data[0], data[1], data[2], data[3]]
+            if sig == [0x89, 0x50, 0x4E, 0x47] { return .png }
+        }
+        if data.count >= 4 {
+            if String(bytes: data.prefix(4), encoding: .ascii) == "GIF8" { return .gif }
+        }
+        if data.count >= 12 {
+            // ISO BMFF: bytes 4-7 "ftyp", brands at 8-11
+            let ftypRange = 4..<8
+            let brandRange = 8..<12
+            if let box = String(bytes: data[ftypRange], encoding: .ascii),
+               box == "ftyp",
+               let brand = String(bytes: data[brandRange], encoding: .ascii) {
+                let heicBrands: Set<String> = ["heic", "heix", "hevc", "hevx", "mif1", "msf1", "heif"]
+                if heicBrands.contains(brand) { return .heic }
+            }
+        }
+        return .unknown
+    }
+    // Return (data, extension) preferring original JPEG/PNG, otherwise re-encode to JPEG.
+    func normalizePickedImageData(_ data: Data) -> (Data, String)? {
+        let fmt = detectImageFormat(from: data)
+        switch fmt {
+        case .jpeg: return (data, "jpg")
+        case .png:  return (data, "png")
+        case .gif, .heic, .unknown:
+            guard let ui = UIImage(data: data) else { return nil }
+            if let jpg = ui.jpegData(compressionQuality: 1.0) {
+                return (jpg, "jpg")
+            }
+            if let png = ui.pngData() {
+                return (png, "png")
+            }
+            return nil
         }
     }
     func calculateHeight() {
@@ -199,8 +301,9 @@ private extension InputBar {
         for item in stagedAttachments {
             switch item.kind {
             case .image(let uiImage):
-                if let data = uiImage.jpegData(compressionQuality: 1.0) ?? uiImage.pngData() {
-                    _ = persistDataToAppCache(data: data, preferredExtension: "jpg")
+                if let exported = exportUIImagePreservingFormat(uiImage) {
+                    let (data, ext) = exported
+                    _ = persistDataToAppCache(data: data, preferredExtension: ext)
                     images.append(ImageAttachment(data: data, progress: 0, orderIndex: orderCounter))
                     orderCounter += 1
                 }
@@ -269,9 +372,17 @@ private extension InputBar {
             // 2) If not handled as video, try raw Data (image most common; can also be video data in some cases)
             if !handled, let data = try? await item.loadTransferable(type: Data.self) {
                 if UIImage(data: data) != nil {
-                    _ = persistDataToAppCache(data: data, preferredExtension: "jpg")
-                    images.append(ImageAttachment(data: data, progress: 0, orderIndex: selectionIndex))
-                    handled = true
+                    if let normalized = normalizePickedImageData(data) {
+                        let (finalData, ext) = normalized
+                        _ = persistDataToAppCache(data: finalData, preferredExtension: ext)
+                        images.append(ImageAttachment(data: finalData, progress: 0, orderIndex: selectionIndex))
+                        handled = true
+                    } else {
+                        // Fallback: keep original bytes and default to jpg extension for cache filename
+                        _ = persistDataToAppCache(data: data, preferredExtension: "jpg")
+                        images.append(ImageAttachment(data: data, progress: 0, orderIndex: selectionIndex))
+                        handled = true
+                    }
                 } else {
                     // Data that isn't an image: treat as movie by writing to tmp (best-effort)
                     let fm = FileManager.default
@@ -322,7 +433,14 @@ private extension InputBar {
                 if !handled {
                     // Try reading as image data
                     if let data = try? Data(contentsOf: url), UIImage(data: data) != nil {
-                        images.append(ImageAttachment(data: data, progress: 0, orderIndex: selectionIndex))
+                        if let normalized = normalizePickedImageData(data) {
+                            let (finalData, ext) = normalized
+                            _ = persistDataToAppCache(data: finalData, preferredExtension: ext)
+                            images.append(ImageAttachment(data: finalData, progress: 0, orderIndex: selectionIndex))
+                        } else {
+                            _ = persistDataToAppCache(data: data, preferredExtension: url.pathExtension.isEmpty ? "jpg" : url.pathExtension)
+                            images.append(ImageAttachment(data: data, progress: 0, orderIndex: selectionIndex))
+                        }
                         handled = true
                     }
                 }
@@ -1121,22 +1239,34 @@ private extension InputBar {
     func stopRecordingAndSend() {
         let shouldRestoreFocus = isEditorFocused
         guard let recorder = audioRecorder else { return }
-        recorder.stop()
-        recordingDuration = recorder.currentTime
+        // Capture values needed on background queue
+        let finalDuration = recorder.currentTime
+        let fileURL = recordingURL
+        // Clear timers and UI state immediately
         audioRecorder = nil
         levelTimer?.invalidate(); levelTimer = nil
         isRecording = false
-
-        guard let url = recordingURL else { return }
-        let persisted = persistToAppGroup(originalURL: url, category: .audio, ownerClientId: ownerClientId)
-        let audio = AudioAttachment(url: persisted, duration: recordingDuration)
-        let note = Note(uploadedAt: Date(), text: nil, bundle: .audio([audio]))
-        onSend(note)
+        guard let url = fileURL else { return }
+        // Prevent onDisappear cleanup from deleting the source before copy finishes
         recordingURL = nil
-        waveformLevels.removeAll()
-        showActions = false
-        if shouldRestoreFocus {
-            DispatchQueue.main.async { isEditorFocused = true }
+        // Offload recorder stop and file copy to background to avoid blocking UI thread
+        DispatchQueue.global(qos: .userInitiated).async {
+            recorder.stop()
+            let persisted = persistToAppGroup(originalURL: url, category: .audio, ownerClientId: ownerClientId)
+            // Best-effort: remove original temp file after successful persist
+            if persisted != url {
+                try? FileManager.default.removeItem(at: url)
+            }
+            let audio = AudioAttachment(url: persisted, duration: finalDuration)
+            let note = Note(uploadedAt: Date(), text: nil, bundle: .audio([audio]))
+            DispatchQueue.main.async {
+                onSend(note)
+                waveformLevels.removeAll()
+                showActions = false
+                if shouldRestoreFocus {
+                    isEditorFocused = true
+                }
+            }
         }
     }
 
@@ -1163,21 +1293,37 @@ private extension InputBar {
     }
 
     func nextSequentialRecordingURL() -> URL {
-        let directory = FileManager.default.temporaryDirectory
+        let fm = FileManager.default
+        // Use per-client temp subdirectory to avoid global collisions influencing numbering
+        var directory = fm.temporaryDirectory.appendingPathComponent("APEXRecordings", isDirectory: true)
+        if let clientId = ownerClientId {
+            directory = directory.appendingPathComponent(clientId.uuidString, isDirectory: true)
+        }
+        try? fm.createDirectory(at: directory, withIntermediateDirectories: true)
         let base = "새로운 녹음"
-        var index = 1
+        // Per-client count of existing audio memos in ChatStore
+        var nextIndex: Int = 1
+        if let clientId = ownerClientId {
+            let notes = ChatStore.shared.notes(for: clientId)
+            var audioCount = 0
+            for note in notes {
+                if case let .audio(audios) = note.bundle {
+                    audioCount += audios.count
+                }
+            }
+            nextIndex = max(1, audioCount + 1)
+        }
+        // Ensure filesystem uniqueness in temp directory
+        var index = nextIndex
         while true {
             let candidate = directory
                 .appendingPathComponent("\(base) \(index)")
                 .appendingPathExtension("m4a")
-            if !FileManager.default.fileExists(atPath: candidate.path) {
+            if !fm.fileExists(atPath: candidate.path) {
                 return candidate
             }
             index += 1
         }
-        return directory
-            .appendingPathComponent("\(base) \(index)")
-            .appendingPathExtension("m4a")
     }
 }
 

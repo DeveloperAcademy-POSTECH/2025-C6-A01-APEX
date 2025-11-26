@@ -40,6 +40,7 @@ final class ChattingViewModel: ViewModelable {
     
     // Data
     @Published var notes: [Note] = []
+    @Published var sttInProgress: Set<UUID> = []
     
     // Selection
     @Published var isDeleteSelecting: Bool = false
@@ -54,6 +55,14 @@ final class ChattingViewModel: ViewModelable {
     // Internals
     private var cancellables: Set<AnyCancellable> = []
     
+    // STT queue to avoid concurrent heavy recognition tasks
+    private var sttQueue: [UUID] = []
+    private var isSttRunning: Bool = false
+    
+    // Speech auth cache to avoid repeated system prompts/work
+    private var speechAuthStatus: SFSpeechRecognizerAuthorizationStatus?
+    private var didRequestSpeechAuth: Bool = false
+    
     init(clientId: UUID, chatTitle: String, initialNotes: [Note]) {
         self.clientId = clientId
         self.chatTitle = chatTitle
@@ -67,6 +76,7 @@ final class ChattingViewModel: ViewModelable {
             loadInitialNotes()
             bindNotificationsIfNeeded()
             kickOffPendingUploadsIfNeeded()
+            prepareSpeechIfNeeded()
             
         case .handleIncoming(let note):
             handleIncoming(note: note)
@@ -163,6 +173,26 @@ final class ChattingViewModel: ViewModelable {
     }
 }
 
+// MARK: - AttachmentBundle helpers
+extension Optional where Wrapped == AttachmentBundle {
+    var isNilOrEmpty: Bool {
+        guard let bundle = self else { return true }
+        return bundle.isEmpty
+    }
+}
+extension AttachmentBundle {
+    var isEmpty: Bool {
+        switch self {
+        case .media(let images, let videos):
+            return images.isEmpty && videos.isEmpty
+        case .files(let files):
+            return files.isEmpty
+        case .audio(let audios):
+            return audios.isEmpty
+        }
+    }
+}
+
 // MARK: - Private helpers
 private extension ChattingViewModel {
     func loadInitialNotes() {
@@ -188,7 +218,8 @@ private extension ChattingViewModel {
                         DispatchQueue.main.async {
                             // Merge with local:
                             // 1) Preserve local STT text if CloudKit text is empty
-                            // 2) Keep local-only notes (e.g., just uploaded, not yet visible from CloudKit)
+                            // 2) Preserve local bundle if CloudKit bundle is nil/empty (avoid transient asset drop)
+                            // 3) Keep local-only notes (e.g., just uploaded, not yet visible from CloudKit)
                             let local = ChatStore.shared.notes(for: self.clientId)
                             var merged = fetched
                             for idx in merged.indices {
@@ -197,6 +228,9 @@ private extension ChattingViewModel {
                                     let cloudText = merged[idx].text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                                     if !localText.isEmpty && cloudText.isEmpty {
                                         merged[idx].text = local[lidx].text
+                                    }
+                                    if merged[idx].bundle.isNilOrEmpty, let localBundle = local[lidx].bundle, !localBundle.isEmpty {
+                                        merged[idx].bundle = localBundle
                                     }
                                 }
                             }
@@ -273,7 +307,8 @@ private extension ChattingViewModel {
         }
         // Kick off STT for audio notes so that STT appears under the tile in chat
         if let idx = notes.indices.last {
-            transcribeIfAudio(at: idx)
+            // Enqueue STT by noteId to process serially and avoid UI jank
+            enqueueSttForNoteIfAudio(noteId: notes[idx].id)
         }
     }
     
@@ -452,24 +487,62 @@ private extension ChattingViewModel {
         }
     }
     
-    // MARK: - STT for audio notes
-    func transcribeIfAudio(at index: Int) {
-        guard notes.indices.contains(index) else { return }
-        guard case let .audio(audios) = notes[index].bundle, let first = audios.first else { return }
+    // MARK: - STT for audio notes (serialized)
+    func enqueueSttForNoteIfAudio(noteId: UUID) {
+        // Skip if already has text
+        if let idx = notes.firstIndex(where: { $0.id == noteId }) {
+            let existing = notes[idx].text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if !existing.isEmpty { return }
+            if case .audio = notes[idx].bundle {
+                if !sttInProgress.contains(noteId) && !sttQueue.contains(noteId) {
+                    sttQueue.append(noteId)
+                    runNextSttIfNeeded()
+                }
+            }
+        }
+    }
+    
+    private func runNextSttIfNeeded() {
+        guard !isSttRunning, let next = sttQueue.first else { return }
+        isSttRunning = true
+        performStt(noteId: next)
+    }
+    
+    private func finishStt(noteId: UUID) {
+        sttInProgress.remove(noteId)
+        if !sttQueue.isEmpty, sttQueue.first == noteId {
+            sttQueue.removeFirst()
+        } else {
+            sttQueue.removeAll { $0 == noteId }
+        }
+        isSttRunning = false
+        runNextSttIfNeeded()
+    }
+    
+    private func performStt(noteId: UUID) {
+        guard let index = notes.firstIndex(where: { $0.id == noteId }) else { finishStt(noteId: noteId); return }
+        guard case let .audio(audios) = notes[index].bundle, let first = audios.first else { finishStt(noteId: noteId); return }
         let url = first.url
         // Avoid duplicate work if text already exists
-        if let existing = notes[index].text, !existing.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return }
+        if let existing = notes[index].text, !existing.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            finishStt(noteId: noteId); return
+        }
+        // Mark STT as in progress for placeholder rendering
+        sttInProgress.insert(noteId)
         
-        SFSpeechRecognizer.requestAuthorization { [weak self] status in
+        // Ensure speech auth is determined once
+        prepareSpeechIfNeeded()
+        guard speechAuthStatus == .authorized else { finishStt(noteId: noteId); return }
+        
+        // Start recognition off main with a tiny delay to let UI settle
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 0.15) { [weak self] in
             guard let self else { return }
-            guard status == .authorized else { return }
-            
             let ko = Locale(identifier: "ko-KR")
             let preferredLocale = SFSpeechRecognizer.supportedLocales().contains(ko) ? ko : Locale.current
-            guard let recognizer = SFSpeechRecognizer(locale: preferredLocale), recognizer.isAvailable else { return }
+            guard let recognizer = SFSpeechRecognizer(locale: preferredLocale), recognizer.isAvailable else { self.finishStt(noteId: noteId); return }
             
             let request = SFSpeechURLRecognitionRequest(url: url)
-            request.shouldReportPartialResults = true
+            request.shouldReportPartialResults = false
             request.taskHint = .dictation
             if #available(iOS 13.0, *) {
                 request.requiresOnDeviceRecognition = false
@@ -481,25 +554,35 @@ private extension ChattingViewModel {
             
             recognizer.recognitionTask(with: request) { [weak self] result, error in
                 guard let self else { return }
-                if let result = result {
+                if let result = result, result.isFinal {
+                    let text = result.bestTranscription.formattedString
                     DispatchQueue.main.async {
-                        if self.notes.indices.contains(index) {
-                            self.notes[index].text = result.bestTranscription.formattedString
+                        if let idx = self.notes.firstIndex(where: { $0.id == noteId }) {
+                            self.notes[idx].text = text
                             ChatStore.shared.setNotes(self.notes, for: self.clientId)
-                            // Persist STT text to CloudKit when final result arrives
-                            if result.isFinal {
-                                let noteId = self.notes[index].id
-                                if SyncSettings.isAutoOn {
-                                    self.updateSTTToCloudKitEventually(noteId: noteId, text: result.bestTranscription.formattedString, attempt: 0)
-                                }
+                            if SyncSettings.isAutoOn {
+                                self.updateSTTToCloudKitEventually(noteId: noteId, text: text, attempt: 0)
                             }
                         }
+                        self.finishStt(noteId: noteId)
+                    }
+                    return
+                }
+                if error != nil {
+                    DispatchQueue.main.async {
+                        self.finishStt(noteId: noteId)
                     }
                 }
-                if let _ = error {
-                    // Silently ignore errors in chat auto-STT
-                }
             }
+        }
+    }
+
+    // MARK: - Speech prep
+    private func prepareSpeechIfNeeded() {
+        guard !didRequestSpeechAuth else { return }
+        didRequestSpeechAuth = true
+        SFSpeechRecognizer.requestAuthorization { [weak self] status in
+            self?.speechAuthStatus = status
         }
     }
     
@@ -632,7 +715,8 @@ private extension ChattingViewModel {
                         DispatchQueue.main.async {
                             // Merge with local:
                             // 1) Keep existing STT text if fetched is empty
-                            // 2) Include local-only notes not yet in CloudKit results to avoid drops
+                            // 2) Preserve local bundle if fetched bundle is nil/empty
+                            // 3) Include local-only notes not yet in CloudKit results to avoid drops
                             let local = self.notes
                             var merged = fetched
                             for idx in merged.indices {
@@ -641,6 +725,9 @@ private extension ChattingViewModel {
                                     let cloudText = merged[idx].text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                                     if !localText.isEmpty && cloudText.isEmpty {
                                         merged[idx].text = local[lidx].text
+                                    }
+                                    if merged[idx].bundle.isNilOrEmpty, let localBundle = local[lidx].bundle, !localBundle.isEmpty {
+                                        merged[idx].bundle = localBundle
                                     }
                                 }
                             }

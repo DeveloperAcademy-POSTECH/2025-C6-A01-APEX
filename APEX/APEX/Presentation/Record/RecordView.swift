@@ -96,7 +96,7 @@ struct RecordView: View {
                 APEXTextField(
                     kind: .multiLine(minHeight: 144),
                     label: "음성녹음 기록",
-                    placeholder: "주요 대화",
+                    placeholder: viewModel.isTranscribing ? "..." : "주요 대화",
                     text: $viewModel.conversation,
                     state: .normal(helper: nil),
                     isRequired: false,

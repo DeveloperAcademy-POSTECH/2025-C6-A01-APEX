@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Photos
+import UIKit
 
 struct ChatMediaPickerSheet: View {
     @Binding var isPresented: Bool
@@ -30,6 +31,10 @@ struct ChatMediaPickerSheet: View {
     @State private var selectionOrder: [String] = []
     @State private var videoDurations: [String: TimeInterval] = [:]
     private let maxSelectableCount: Int = 24
+    // Permission alert
+    @State private var showPermissionAlert: Bool = false
+    @State private var permissionAlertMessage: String = ""
+    @State private var isSettingsAlert: Bool = false
 
     private let gridColumns: [GridItem] = [
         GridItem(.flexible(), spacing: 2),
@@ -90,7 +95,6 @@ struct ChatMediaPickerSheet: View {
                                             .scaledToFill()
                                             .frame(width: 122, height: 122)
                                             .clipped()
-                                            .cornerRadius(12)
                                     } else {
                                         Rectangle()
                                             .fill(Color.gray.opacity(0.15))
@@ -132,6 +136,7 @@ struct ChatMediaPickerSheet: View {
                             .onTapGesture { toggleSelection(for: asset) }
                         }
                     }
+                    .cornerRadius(15)
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8.5)
@@ -158,6 +163,23 @@ struct ChatMediaPickerSheet: View {
                 .disabled(selectedIds.isEmpty || hasPendingVideos)
                 .padding(16)
             }
+        }
+        .alert("사진 접근 안내", isPresented: $showPermissionAlert) {
+            if isSettingsAlert {
+                Button("설정 열기") { openAppSettings() }
+                Button("취소", role: .cancel) {}
+            } else {
+                Button("계속") {
+                    PHPhotoLibrary.requestAuthorization(for: .readWrite) { status in
+                        if status == .authorized || status == .limited {
+                            DispatchQueue.main.async { fetchRecents(limit: 60) }
+                        }
+                    }
+                }
+                Button("취소", role: .cancel) {}
+            }
+        } message: {
+            Text(permissionAlertMessage)
         }
     .onDisappear {
         selectedIds.removeAll()
@@ -418,11 +440,13 @@ struct ChatMediaPickerSheet: View {
         if auth == .authorized || auth == .limited {
             fetchRecents(limit: limit)
         } else if auth == .notDetermined {
-            PHPhotoLibrary.requestAuthorization(for: .readWrite) { status in
-                if status == .authorized || status == .limited {
-                    DispatchQueue.main.async { fetchRecents(limit: limit) }
-                }
-            }
+            permissionAlertMessage = "채팅에서 사진을 보려면 사진 접근 권한이 필요합니다."
+            isSettingsAlert = false
+            showPermissionAlert = true
+        } else {
+            permissionAlertMessage = "사진 접근이 차단되어 있어요. 설정 > APEX에서 권한을 허용해 주세요."
+            isSettingsAlert = true
+            showPermissionAlert = true
         }
     }
 
@@ -478,6 +502,15 @@ private struct SheetHeightKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
+    }
+}
+
+private extension ChatMediaPickerSheet {
+    func openAppSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        if UIApplication.shared.canOpenURL(url) {
+            UIApplication.shared.open(url, options: [:], completionHandler: nil)
+        }
     }
 }
 
