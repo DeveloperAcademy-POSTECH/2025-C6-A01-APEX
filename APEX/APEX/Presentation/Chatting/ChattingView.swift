@@ -117,12 +117,23 @@ struct ChattingView: View {
                                                 viewModel.send(.toggleSelection(note.id))
                                             }
                                         } label: {
-                                            Image(systemName: isChecked ? "checkmark.circle.fill" : "circle")
-                                                .font(.system(size: 24, weight: .medium))
-                                                .foregroundStyle(isChecked ? Color("Primary") : .gray)
-                                                .frame(width: 24, height: 24, alignment: .center)
-                                                .contentTransition(.identity)
-                                                .animation(nil, value: viewModel.selectedNoteIds)
+                                            // Custom checkbox to match delete modal design
+                                            ZStack {
+                                                Circle()
+                                                    .fill(isChecked ? Color("Primary") : Color.white)
+                                                    .frame(width: 24, height: 24)
+                                                    .overlay(
+                                                        Circle()
+                                                            .stroke(isChecked ? Color("Primary") : Color("BackgroundDisabled"), lineWidth: 1)
+                                                    )
+                                                Image(systemName: "checkmark")
+                                                    .font(.system(size: 12, weight: .semibold))
+                                                    .foregroundColor(.white)
+                                                    .opacity(isChecked ? 1 : 0)
+                                            }
+                                            .frame(width: 24, height: 24, alignment: .center)
+                                            .contentTransition(.identity)
+                                            .animation(.easeInOut(duration: 0.2), value: isChecked)
                                         }
                                         .buttonStyle(.plain)
                                     } else {
