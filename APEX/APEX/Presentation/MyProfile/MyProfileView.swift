@@ -27,7 +27,15 @@ struct MyProfileView: View {
                 MyProfileHeaderView(
                     client: (store.clients.first ?? ClientsStore.convertToClient(client)),
                     page: $viewModel.currentPageIndex,
-                    onCardTapped: { viewModel.send(.showCardViewer(true)) }
+                    onCardTapped: { 
+                        // 실제 이미지가 있을 때만 CardViewer 열기
+                        let hasRealImages = client.profile != nil || 
+                                          client.nameCardFront != nil || 
+                                          client.nameCardBack != nil
+                        if hasRealImages {
+                            viewModel.send(.showCardViewer(true))
+                        }
+                    }
                 )
 
                 // 프라이머리 액션
@@ -131,19 +139,35 @@ struct MyProfileView: View {
             Text(viewModel.alertMessage ?? "")
         }
         .fullScreenCover(isPresented: $viewModel.isShowingCardViewer) {
-            CardViewer(
-                images: {
-                    var images: [Image] = []
-                    if let ui = client.profile {
-                        images.append(Image(uiImage: ui))
+            let images: [Image] = {
+                var images: [Image] = []
+                // 실제 프로필 이미지만 추가 (아바타 제외)
+                if let ui = client.profile {
+                    images.append(Image(uiImage: ui))
+                }
+                // 실제 명함 이미지만 추가
+                if let front = client.nameCardFront { 
+                    images.append(front) 
+                }
+                if let back = client.nameCardBack { 
+                    images.append(back) 
+                }
+                return images
+            }()
+            
+            if !images.isEmpty {
+                CardViewer(
+                    images: images,
+                    onClose: { viewModel.send(.showCardViewer(false)) },
+                    hasProfileFirst: client.profile != nil
+                )
+            } else {
+                // 이미지가 없으면 빈 뷰 (실제로는 이 경우가 발생하지 않아야 함)
+                Color.clear
+                    .onAppear { 
+                        viewModel.send(.showCardViewer(false)) 
                     }
-                    if let front = client.nameCardFront { images.append(front) }
-                    if let back = client.nameCardBack { images.append(back) }
-                    return images
-                }(),
-                onClose: { viewModel.send(.showCardViewer(false)) },
-                hasProfileFirst: client.profile != nil
-            )
+            }
         }
         // Hidden NavigationLink removed; Router handles navigation
         .task {

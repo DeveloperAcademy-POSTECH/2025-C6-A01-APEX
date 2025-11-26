@@ -169,11 +169,11 @@ private struct NotesRow: View {
     
     // 이니셜 길이에 따른 동적 폰트 크기 계산
     private func dynamicFontSize(for initials: String) -> CGFloat {
-        let baseSize: CGFloat = 30.72 // 48 * 0.64
+        let baseSize: CGFloat = 26.88 // 48 * 0.56
         if initials.count <= 1 {
             return baseSize // 한 글자: 기본 크기
         } else if initials.count == 2 {
-            return baseSize * 0.85 // 두 글자: 15% 축소 (약 26.1)
+            return baseSize * 0.85 // 두 글자: 15% 축소 (약 22.85)
         } else {
             return baseSize * 0.7 // 세 글자 이상: 30% 축소
         }
@@ -231,7 +231,7 @@ enum NotesTextFormatter {
             // 24시간제: AM/PM 없는 패턴 사용
             formatter.dateFormat = "H:mm"
         }
-        return formatter
+        return formatter;
     }
     private static let monthDayFormatter: DateFormatter = {
         let formatter = DateFormatter()

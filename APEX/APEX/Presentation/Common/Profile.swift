@@ -28,14 +28,13 @@ struct Profile: View {
                     .resizable()
                     .scaledToFill()
             } else {
-                ZStack {
+                ZStack(alignment: .center) {
                     Circle()
                         .fill(backgroundColor)
                     Text(initials)
                         .font(.system(size: fontSize ?? dynamicFontSize, weight: fontWeight))
                         .foregroundColor(textColor)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.5) // 텍스트가 잘리면 50%까지 축소
                 }
             }
         }
@@ -43,11 +42,11 @@ struct Profile: View {
         .clipShape(Circle())
     }
 
-    private var defaultFontSize: CGFloat { side * 0.64 }
+    private var defaultFontSize: CGFloat { side * 0.56 }
     
     // 이니셜 길이에 따른 동적 폰트 크기 계산
     private var dynamicFontSize: CGFloat {
-        let baseSize = side * 0.64
+        let baseSize = side * 0.56
         if initials.count <= 1 {
             return baseSize // 한 글자: 기본 크기
         } else if initials.count == 2 {
@@ -87,8 +86,31 @@ extension Profile {
 }
 #Preview {
     VStack(spacing: 16) {
+        // 기존 테스트 케이스들
         Profile(image: nil, initials: "GK", size: .small)
         Profile(image: nil, initials: "김", size: .small)
-        Profile(image: nil, initials: "G", size: .large, fontSize: 64)
+        
+        // 한글 정렬 테스트 (애플 연락처처럼)
+        HStack(spacing: 16) {
+            Profile(image: nil, initials: "컵", size: .large)
+            Profile(image: nil, initials: "김", size: .large) 
+            Profile(image: nil, initials: "박", size: .large)
+        }
+        
+        // 영문 정렬 테스트
+        HStack(spacing: 16) {
+            Profile(image: nil, initials: "G", size: .large)
+            Profile(image: nil, initials: "아", size: .large)
+            Profile(image: nil, initials: "JD", size: .large)
+        }
+        
+        // 다양한 크기에서의 정렬 테스트
+        HStack(spacing: 16) {
+            Profile(image: nil, initials: "컵", size: .extraSmall)
+            Profile(image: nil, initials: "컵", size: .small)  
+            Profile(image: nil, initials: "컵", size: .large)
+        }
     }
+    .padding()
+    .background(Color.gray.opacity(0.1))
 }
