@@ -186,7 +186,9 @@ private extension ChattingViewModel {
                     guard let self else { return }
                     if case .success(let fetched) = result {
                         DispatchQueue.main.async {
-                            // Merge: preserve local STT text if CloudKit text is empty
+                            // Merge with local:
+                            // 1) Preserve local STT text if CloudKit text is empty
+                            // 2) Keep local-only notes (e.g., just uploaded, not yet visible from CloudKit)
                             let local = ChatStore.shared.notes(for: self.clientId)
                             var merged = fetched
                             for idx in merged.indices {
@@ -197,6 +199,9 @@ private extension ChattingViewModel {
                                         merged[idx].text = local[lidx].text
                                     }
                                 }
+                            }
+                            for localNote in local where !merged.contains(where: { $0.id == localNote.id }) {
+                                merged.append(localNote)
                             }
                             let sorted = merged.sorted { $0.uploadedAt < $1.uploadedAt }
                             self.notes = sorted
@@ -625,7 +630,9 @@ private extension ChattingViewModel {
                     defer { ClientsStore.shared.endCloudSync() }
                     if case .success(let fetched) = result {
                         DispatchQueue.main.async {
-                            // Merge: keep existing STT text if fetched is empty
+                            // Merge with local:
+                            // 1) Keep existing STT text if fetched is empty
+                            // 2) Include local-only notes not yet in CloudKit results to avoid drops
                             let local = self.notes
                             var merged = fetched
                             for idx in merged.indices {
@@ -636,6 +643,9 @@ private extension ChattingViewModel {
                                         merged[idx].text = local[lidx].text
                                     }
                                 }
+                            }
+                            for localNote in local where !merged.contains(where: { $0.id == localNote.id }) {
+                                merged.append(localNote)
                             }
                             let sorted = merged.sorted { $0.uploadedAt < $1.uploadedAt }
                             self.notes = sorted
