@@ -33,6 +33,7 @@ struct ChattingView: View {
     @State private var timestampRevealProgress: CGFloat = 0   // 0.0 ~ 1.0
     @State private var visibleDateForIndicator: Date?
     @State private var isShowingDateIndicator: Bool = false
+    @State private var isUserScrolling: Bool = false  // 사용자 스크롤 감지용
     @State private var hideIndicatorWork: DispatchWorkItem?
     @State private var didReceiveInitialPositions: Bool = false
     @State private var indicatorOffsetY: CGFloat = 0
@@ -253,6 +254,21 @@ struct ChattingView: View {
                         }
                     }
                 }
+                .simultaneousGesture(
+                    DragGesture()
+                        .onChanged { _ in
+                            // 사용자가 스크롤 중임을 감지
+                            if !isUserScrolling {
+                                isUserScrolling = true
+                            }
+                        }
+                        .onEnded { _ in
+                            // 스크롤 제스처가 끝나면 잠시 후 상태 리셋
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                isUserScrolling = false
+                            }
+                        }
+                )
                 .onAppear {
                     DispatchQueue.main.async {
                         // Pin bottom during bootstrapping window to avoid visible jumps
@@ -487,12 +503,13 @@ struct ChattingView: View {
                 // Fallback: when headers are not yet realized, seed with a known date
                 visibleDateForIndicator = viewModel.notes.last?.uploadedAt ?? viewModel.notes.first?.uploadedAt
             }
-            if visibleDateForIndicator != nil {
+            // 실제로 사용자가 스크롤하는 중일 때만 표시
+            if isUserScrolling && visibleDateForIndicator != nil {
                 isShowingDateIndicator = true
                 hideIndicatorWork?.cancel()
                 let work = DispatchWorkItem { self.isShowingDateIndicator = false }
                 hideIndicatorWork = work
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: work)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8, execute: work)
             }
 
             // Update visibility for scroll-to-bottom chevron based on content length and distance from bottom
@@ -952,11 +969,20 @@ private extension ChattingView {
         }
 
         // Show now and schedule hide after idle
-        isShowingDateIndicator = (visibleDateForIndicator != nil)
-        hideIndicatorWork?.cancel()
-        let work = DispatchWorkItem { self.isShowingDateIndicator = false }
-        hideIndicatorWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: work)
+        // 실제로 사용자가 스크롤하는 중일 때만 표시
+        if isUserScrolling && visibleDateForIndicator != nil {
+            isShowingDateIndicator = true
+            hideIndicatorWork?.cancel()
+            let work = DispatchWorkItem { self.isShowingDateIndicator = false }
+            hideIndicatorWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8, execute: work)
+        } else if !isUserScrolling {
+            // 스크롤이 멈추면 빠르게 숨김
+            hideIndicatorWork?.cancel()
+            let work = DispatchWorkItem { self.isShowingDateIndicator = false }
+            hideIndicatorWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: work)
+        }
     }
     
     func dateHeaderId(_ date: Date) -> String {
@@ -1102,7 +1128,28 @@ private struct ViewportHeightKey: PreferenceKey {
 #endif
 
 #Preview {
-    ChattingView(clientId: UUID(), chatTitle: "Preview", initialNotes: [])
+    NavigationStack {
+        ChattingView(
+            clientId: UUID(), 
+            chatTitle: "테스트 채팅", 
+            initialNotes: [
+                Note(
+                    id: UUID(),
+                    uploadedAt: Date(),
+                    text: "안녕하세요! 테스트 메시지입니다.",
+                    bundle: nil
+                ),
+                Note(
+                    id: UUID(),
+                    uploadedAt: Date().addingTimeInterval(-3600),
+                    text: "이전 메시지 예시",
+                    bundle: nil
+                )
+            ]
+        )
+    }
+    .environmentObject(NavigationRouter())
+    .previewDisplayName("채팅뷰 프리뷰")
 }
 
 #Preview("TextEditSheet") {
