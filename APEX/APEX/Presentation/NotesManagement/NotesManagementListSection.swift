@@ -80,6 +80,9 @@ struct NotesManagementListSection: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .environment(\.editMode, .constant(.active))
+        .safeAreaInset(edge: .top, spacing: 0) {
+            Color.clear.frame(height: 8)
+        }
     }
     
     private var filteredNotes: [NoteItem] {
