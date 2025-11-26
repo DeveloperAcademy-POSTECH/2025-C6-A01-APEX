@@ -56,17 +56,18 @@ struct RootView: View {
         .overlay(alignment: .center) {
             if sync.isCloudSyncInProgress {
                 ZStack {
-                    Color.white
+                    Color.black.opacity(0.2)
                         .ignoresSafeArea()
-                    VStack(spacing: 12) {
-                        ProgressView()
-                            .progressViewStyle(.circular)
-                            .tint(.gray)
-                            .scaleEffect(1.2)
-                        Text("로딩중")
-                            .font(.body)
-                            .foregroundColor(.gray)
-                    }
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                        .tint(Color("Primary"))
+                        .scaleEffect(1.2)
+                        .padding(24)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14)
+                                .fill(Color(.systemBackground))
+                                .shadow(color: Color.black.opacity(0.15), radius: 12, x: 0, y: 4)
+                        )
                 }
             }
         }

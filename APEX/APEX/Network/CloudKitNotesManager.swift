@@ -103,7 +103,9 @@ final class CloudKitNotesManager {
                                     if let url {
                                         let cached = self.persistAudioToAppGroup(originalURL: url, preferredFilename: filenameField)
                                         let dur = (a["duration"] as? NSNumber)?.doubleValue
-                                        audios.append(AudioAttachment(url: cached, duration: dur))
+                                        // displayName is UI-only; derive from filename if desired (optional)
+                                        let preferredName = filenameField?.isEmpty == false ? URL(fileURLWithPath: filenameField!).deletingPathExtension().lastPathComponent : nil
+                                        audios.append(AudioAttachment(url: cached, duration: dur, displayName: preferredName))
                                     }
                                 default:
                                     break

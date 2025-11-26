@@ -1257,7 +1257,20 @@ private extension InputBar {
             if persisted != url {
                 try? FileManager.default.removeItem(at: url)
             }
-            let audio = AudioAttachment(url: persisted, duration: finalDuration)
+            // Build display name from per-client chat audio count
+            var display: String? = nil
+            if let clientId = ownerClientId {
+                let notes = ChatStore.shared.notes(for: clientId)
+                var audioCount = 0
+                for n in notes {
+                    if case let .audio(audios) = n.bundle { audioCount += audios.count }
+                }
+                let next = max(1, audioCount + 1)
+                display = "새로운 녹음 \(next)"
+            } else {
+                display = "새로운 녹음 1"
+            }
+            let audio = AudioAttachment(url: persisted, duration: finalDuration, displayName: display)
             let note = Note(uploadedAt: Date(), text: nil, bundle: .audio([audio]))
             DispatchQueue.main.async {
                 onSend(note)

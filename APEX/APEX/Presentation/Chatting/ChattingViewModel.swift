@@ -411,7 +411,10 @@ private extension ChattingViewModel {
             images.remove(at: anchor.localIndex)
         } else {
             guard videos.indices.contains(anchor.localIndex) else { return }
+            // Remove local video file as well
+            let url = videos[anchor.localIndex].url
             videos.remove(at: anchor.localIndex)
+            try? FileManager.default.removeItem(at: url)
         }
         
         if images.isEmpty && videos.isEmpty {
@@ -453,7 +456,10 @@ private extension ChattingViewModel {
         guard let noteIndex = notes.firstIndex(where: { $0.id == noteId }) else { return }
         guard case var .files(files) = notes[noteIndex].bundle else { return }
         guard files.indices.contains(fileIndex) else { return }
+        // Remove local file
+        let url = files[fileIndex].url
         files.remove(at: fileIndex)
+        try? FileManager.default.removeItem(at: url)
         if files.isEmpty {
             if notes[noteIndex].text == nil {
                 notes.remove(at: noteIndex)
@@ -495,6 +501,8 @@ private extension ChattingViewModel {
             if !existing.isEmpty { return }
             if case .audio = notes[idx].bundle {
                 if !sttInProgress.contains(noteId) && !sttQueue.contains(noteId) {
+                    // Mark as in-progress immediately so UI can show typing indicator
+                    sttInProgress.insert(noteId)
                     sttQueue.append(noteId)
                     runNextSttIfNeeded()
                 }
@@ -642,7 +650,7 @@ private extension ChattingViewModel {
                         var changed = false
                 for audioIndex in audios.indices {
                     if audios[audioIndex].url == oldURL {
-                        audios[audioIndex] = AudioAttachment(url: newURL, duration: audios[audioIndex].duration)
+                        audios[audioIndex] = AudioAttachment(url: newURL, duration: audios[audioIndex].duration, displayName: audios[audioIndex].displayName)
                                 changed = true
                             }
                         }

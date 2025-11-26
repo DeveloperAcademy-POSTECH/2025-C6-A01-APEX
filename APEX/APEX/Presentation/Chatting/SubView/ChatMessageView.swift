@@ -169,7 +169,7 @@ struct ChatMessageView: View {
             else if case let .audio(audios) = note.bundle {
                 if let first = audios.first {
                     VStack(alignment: .trailing, spacing: 6) {
-                        AudioSquareTile(url: first.url, duration: first.duration, preferredLength: nil, titleOverride: nil, highlightQuery: highlightQuery)
+                        AudioSquareTile(url: first.url, duration: first.duration, preferredLength: nil, titleOverride: first.displayName, highlightQuery: highlightQuery)
                             
                         // Filename + STT text under the audio tile
                         VStack(alignment: .leading, spacing: 4) {
@@ -199,9 +199,8 @@ struct ChatMessageView: View {
                                         .foregroundStyle(Color("BlackLabel"))
                                 }
                             } else if isSTTLoading {
-                                Text("...")
-                                    .font(.body6)
-                                    .foregroundStyle(Color("BlackLabel"))
+                                ThreeDotsIndicator()
+                                    .padding(.top, 2)
                             }
                         }
                         .fixedSize(horizontal: false, vertical: true)
@@ -338,4 +337,22 @@ extension ChatMessageView {
     }
 }
 
+// Simple three-dots typing indicator for STT in-progress
+private struct ThreeDotsIndicator: View {
+    @State private var animate: Bool = false
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(0..<3, id: \.self) { idx in
+                Circle()
+                    .fill(Color("BlackLabel"))
+                    .frame(width: 6, height: 6)
+                    .scaleEffect(animate ? 1.0 : 0.6)
+                    .opacity(animate ? 1.0 : 0.4)
+                    .animation(.easeInOut(duration: 0.6).repeatForever().delay(Double(idx) * 0.15), value: animate)
+            }
+        }
+        .onAppear { animate = true }
+        .onDisappear { animate = false }
+    }
+}
 
