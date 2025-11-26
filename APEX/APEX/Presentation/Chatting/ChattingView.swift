@@ -315,34 +315,39 @@ struct ChattingView: View {
                     }
                 }
                 .onChange(of: viewModel.notes.count) { _ in
-                    DispatchQueue.main.async {
-                        guard !suppressAutoScroll else { return }
-                        if isBootstrappingToBottom {
-                            var transaction = Transaction()
-                            transaction.disablesAnimations = true
-                            withTransaction(transaction) {
-                                proxy.scrollTo(bottomSentinelId, anchor: .bottom)
-                            }
-                        } else {
-                            withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(bottomSentinelId, anchor: .bottom) }
+                    guard !suppressAutoScroll else { return }
+                    // 1) 즉시 비애니메이션 스크롤(레이아웃 완료 전에도 가능한 한 빠르게 고정)
+                    var tx = Transaction()
+                    tx.disablesAnimations = true
+                    withTransaction(tx) {
+                        proxy.scrollTo(bottomSentinelId, anchor: .bottom)
+                    }
+                    self.showScrollToBottom = false
+                    // 2) 레이아웃 정착 직후 한 번 더 보정
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        var tx2 = Transaction()
+                        tx2.disablesAnimations = true
+                        withTransaction(tx2) {
+                            proxy.scrollTo(bottomSentinelId, anchor: .bottom)
                         }
-                        // 확실히 맨 아래로 이동했을 때 버튼 숨김 (metrics 업데이트 전 선반영)
-                        self.showScrollToBottom = false
                     }
                 }
                 // If CloudKit mutates notes without changing count (e.g., text/attachments), still keep to bottom on initial load
                 .onChange(of: viewModel.notes.last?.id) { _ in
-                    DispatchQueue.main.async {
-                        guard !suppressAutoScroll else { return }
-                        guard !showScrollToBottom else { return }
-                        if isBootstrappingToBottom {
-                            var transaction = Transaction()
-                            transaction.disablesAnimations = true
-                            withTransaction(transaction) {
-                                proxy.scrollTo(bottomSentinelId, anchor: .bottom)
-                            }
-                        } else {
-                            withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(bottomSentinelId, anchor: .bottom) }
+                    guard !suppressAutoScroll else { return }
+                    guard !showScrollToBottom else { return }
+                    // 즉시 비애니메이션 스크롤
+                    var tx = Transaction()
+                    tx.disablesAnimations = true
+                    withTransaction(tx) {
+                        proxy.scrollTo(bottomSentinelId, anchor: .bottom)
+                    }
+                    // 짧은 지연 후 재시도로 보정
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        var tx2 = Transaction()
+                        tx2.disablesAnimations = true
+                        withTransaction(tx2) {
+                            proxy.scrollTo(bottomSentinelId, anchor: .bottom)
                         }
                     }
                 }

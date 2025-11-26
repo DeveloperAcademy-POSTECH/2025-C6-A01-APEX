@@ -80,7 +80,8 @@ private extension RootView {
         switch route {
         case .chat(let id):
             if let client = ClientsStore.shared.clients.first(where: { $0.id == id }) {
-                ChattingView(clientId: id, chatTitle: client.autoFormattedName, initialNotes: client.notes)
+                // Do not pass client.notes here to avoid resurrecting deleted notes.
+                ChattingView(clientId: id, chatTitle: client.autoFormattedName, initialNotes: [])
                     .toolbar(.hidden, for: .navigationBar)
                     .toolbar(.hidden, for: .tabBar)
             } else {

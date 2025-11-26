@@ -83,7 +83,6 @@ struct SelectableText: UIViewRepresentable {
       textView.attributedText = buildAttributed(text: text, font: font, paragraphStyle: paragraphStyle, highlightQuery: highlightQuery)
       textView.invalidateIntrinsicContentSize()
       textView.setNeedsLayout()
-      textView.layoutIfNeeded()
     }
 
     private func buildAttributed(text: String, font: UIFont, paragraphStyle: NSParagraphStyle, highlightQuery: String?) -> NSAttributedString {

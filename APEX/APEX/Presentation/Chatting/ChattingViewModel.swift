@@ -206,8 +206,9 @@ private extension ChattingViewModel {
             if !seeded.isEmpty {
                 seeded.sort { $0.uploadedAt < $1.uploadedAt }
             }
+            // Only use initialNotes for transient display; do NOT write them back to ChatStore.
+            // This avoids resurrecting notes that were deleted elsewhere (e.g., NotesView swipe delete)
             notes = seeded
-            ChatStore.shared.setNotes(seeded, for: clientId)
             // If nothing local, attempt a lightweight CloudKit pull to repopulate chat on cold start
             if SyncSettings.isAutoOn {
                 ClientsStore.shared.beginCloudSync()
@@ -220,6 +221,7 @@ private extension ChattingViewModel {
                             // 1) Preserve local STT text if CloudKit text is empty
                             // 2) Preserve local bundle if CloudKit bundle is nil/empty (avoid transient asset drop)
                             // 3) Keep local-only notes (e.g., just uploaded, not yet visible from CloudKit)
+                            // Use ChatStore as source of truth (may be empty after a wipe)
                             let local = ChatStore.shared.notes(for: self.clientId)
                             var merged = fetched
                             for idx in merged.indices {
@@ -725,7 +727,8 @@ private extension ChattingViewModel {
                             // 1) Keep existing STT text if fetched is empty
                             // 2) Preserve local bundle if fetched bundle is nil/empty
                             // 3) Include local-only notes not yet in CloudKit results to avoid drops
-                            let local = self.notes
+                            // Use ChatStore as the local source to respect wipes/clears done outside this view
+                            let local = ChatStore.shared.notes(for: self.clientId)
                             var merged = fetched
                             for idx in merged.indices {
                                 if let lidx = local.firstIndex(where: { $0.id == merged[idx].id }) {

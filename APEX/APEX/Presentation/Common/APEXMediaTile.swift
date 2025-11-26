@@ -49,8 +49,8 @@ public struct APEXMediaTile: View {
                 if variant == .grid {
                     ZStack(alignment: .bottomLeading) {
                         Group {
-                            if let t = thumb {
-                                Image(uiImage: t)
+                            if let thumbnailImage = thumb {
+                                Image(uiImage: thumbnailImage)
                                     .resizable()
                                     .scaledToFill()
                             } else {
@@ -71,8 +71,8 @@ public struct APEXMediaTile: View {
                 } else {
                     ZStack {
                         Group {
-                            if let t = thumb {
-                                Image(uiImage: t)
+                            if let thumbnailImage = thumb {
+                                Image(uiImage: thumbnailImage)
                                     .resizable()
                                     .scaledToFill()
                             } else {
@@ -100,8 +100,15 @@ public struct APEXMediaTile: View {
 		.clipped()
 		.task {
 			if case .video(let url) = source, thumb == nil {
-				thumb = generateThumbnail(for: url)
-				durationText = format(durationOf: url)
+				let urlCopy = url
+				DispatchQueue.global(qos: .userInitiated).async {
+					let generatedThumb = generateThumbnail(for: urlCopy)
+					let duration = format(durationOf: urlCopy)
+					DispatchQueue.main.async {
+						self.thumb = generatedThumb
+						self.durationText = duration
+					}
+				}
 			}
 		}
 	}
@@ -183,14 +190,17 @@ public struct APEXMediaSingleCard: View {
             .contentShape(Rectangle())
             .onAppear {
                 if thumb == nil {
-                    thumb = generateThumbnail(for: url)
-                    durationText = format(durationOf: url)
+                    let urlCopy = url
+                    DispatchQueue.global(qos: .userInitiated).async {
+                        let generatedThumb = generateThumbnail(for: urlCopy)
+                        let duration = format(durationOf: urlCopy)
+                        DispatchQueue.main.async {
+                            self.thumb = generatedThumb
+                            self.durationText = duration
+                        }
+                    }
                 }
             }
         }
     }
 }
-
- 
-
-
