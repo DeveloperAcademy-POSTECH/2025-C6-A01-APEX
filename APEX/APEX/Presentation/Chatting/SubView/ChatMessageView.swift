@@ -240,8 +240,8 @@ struct ChatMessageView: View {
                         highlightQuery: highlightQuery
                     )
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 8)
+                    .padding(.vertical, 10)
+                    .padding(.horizontal, 12)
                     .background(Color("BackgroundSecondary"))
                     .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
 
