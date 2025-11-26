@@ -132,31 +132,38 @@ struct ProfileDetailView: View {
             .buttonStyle(.plain)  // List Row의 기본 터치 효과 비활성화
             .onTapGesture { }  // 빈 탭 제스처로 List Row 선택 방지
 
-            // 메모 섹션 (내 프로필이 아닌 경우에만 표시)
+            // 메모 섹션 (내 프로필이 아닌 경우에만 표시) + 내용이 있을 때만 표시
             if !isMyProfile {
-                Section {
-                    ProfileDetailMemoSection(
-                        memo: Binding(
-                            get: { client.memo ?? "" },
-                            set: { newValue in
-                                client.memo = newValue.isEmpty ? nil : newValue
-                                // 실시간 저장을 위해 ViewModel에 업데이트 알림
-                                viewModel.updateMemo(newValue.isEmpty ? nil : newValue)
-                            }
-                        ),
-                        shouldEndEditing: shouldEndMemoEditing
+                let memoTextRaw: String? = {
+                    let fromStore = store.clients.first(where: { $0.id == clientId })?.memo
+                    return fromStore ?? client.memo
+                }()
+                let memoTextTrimmed = memoTextRaw?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                if !memoTextTrimmed.isEmpty {
+                    Section {
+                        ProfileDetailMemoSection(
+                            memo: Binding(
+                                get: { client.memo ?? "" },
+                                set: { newValue in
+                                    client.memo = newValue.isEmpty ? nil : newValue
+                                    // 실시간 저장을 위해 ViewModel에 업데이트 알림
+                                    viewModel.updateMemo(newValue.isEmpty ? nil : newValue)
+                                }
+                            ),
+                            shouldEndEditing: shouldEndMemoEditing
+                        )
+                    }
+                    .listRowInsets(
+                        EdgeInsets(
+                            top: 24,
+                            leading: 16,
+                            bottom: 16,
+                            trailing: 16
+                        )
                     )
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
                 }
-                .listRowInsets(
-                    EdgeInsets(
-                        top: 24,
-                        leading: 16,
-                        bottom: 16,
-                        trailing: 16
-                    )
-                )
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
             }
         }
         .listStyle(.plain)
@@ -278,3 +285,4 @@ struct ProfileDetailView: View {
     @Previewable @State var client: DummyClient = sampleMyProfileClient
     ProfileDetailView(clientId: UUID(), client: $client)
 }
+
