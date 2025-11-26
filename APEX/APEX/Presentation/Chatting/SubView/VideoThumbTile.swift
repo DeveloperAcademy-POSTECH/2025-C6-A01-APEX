@@ -28,10 +28,15 @@ struct VideoThumbTile: View {
                 .padding(12)
         }
         .task {
-            if thumb == nil { thumb = generateThumbnail(for: url) }
-            duration = format(durationOf: url)
+            let urlCopy = url
+            DispatchQueue.global(qos: .userInitiated).async {
+                let generatedThumb: UIImage? = (self.thumb == nil) ? generateThumbnail(for: urlCopy) : nil
+                let durationText = format(durationOf: urlCopy)
+                DispatchQueue.main.async {
+                    if self.thumb == nil { self.thumb = generatedThumb }
+                    self.duration = durationText
+                }
+            }
         }
     }
 }
-
-

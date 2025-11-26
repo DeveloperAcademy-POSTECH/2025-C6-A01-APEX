@@ -291,12 +291,18 @@ private struct VideoPage: View {
             }
         }
         .task {
-            if thumb == nil { thumb = generateThumbnail(for: url) }
-            durationText = format(durationOf: url)
-            // Ensure transport bar is visible initially by preloading duration
-            let asset = AVAsset(url: url)
-            let seconds = asset.duration.seconds
-            if seconds.isFinite && seconds > 0 { totalTime = seconds }
+            let urlCopy = url
+            DispatchQueue.global(qos: .userInitiated).async {
+                let generatedThumb: UIImage? = (self.thumb == nil) ? generateThumbnail(for: urlCopy) : nil
+                let durationTxt = format(durationOf: urlCopy)
+                let asset = AVAsset(url: urlCopy)
+                let seconds = asset.duration.seconds
+                DispatchQueue.main.async {
+                    if self.thumb == nil { self.thumb = generatedThumb }
+                    self.durationText = durationTxt
+                    if seconds.isFinite && seconds > 0 { self.totalTime = seconds }
+                }
+            }
         }
         .onDisappear { stopPlayback() }
         .onChange(of: showChrome) { _, isShown in

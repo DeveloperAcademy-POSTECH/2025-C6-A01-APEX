@@ -26,12 +26,15 @@ final class CloudKitWipeService {
                 if let err { completion(.failure(err)); return }
                 self?.deleteAll(ofType: "Client") { err in
                     if let err { completion(.failure(err)); return }
-                    // Intentionally KEEP AppUser for future re-login
-                    self?.clearLocalCloudKitMirrors()
-                    DispatchQueue.main.async {
-                        NotificationCenter.default.post(name: .cloudKitDatabaseDidChange, object: nil)
+                    // Intentionally KEEP AppUser for future re-login, but prune sensitive fields
+                    self?.pruneAppUserKeepingNameSurnameEmail { _ in
+                        // Regardless of prune result, proceed to clear local mirrors so app returns to a clean state
+                        self?.clearLocalCloudKitMirrors()
+                        DispatchQueue.main.async {
+                            NotificationCenter.default.post(name: .cloudKitDatabaseDidChange, object: nil)
+                        }
+                        completion(.success(()))
                     }
-                    completion(.success(()))
                 }
             }
         }
@@ -39,12 +42,59 @@ final class CloudKitWipeService {
 
     // MARK: - Internals
 
+    /// Keep only surname, name, email in AppUser. Clear all other known fields.
+    private func pruneAppUserKeepingNameSurnameEmail(completion: @escaping (Result<Void, Error>) -> Void) {
+        CloudKitManager.shared.query(type: "AppUser") { result in
+            switch result {
+            case .failure(let error):
+                completion(.failure(error))
+            case .success(let records):
+                guard let rec = records.first else {
+                    // No AppUser present; nothing to prune
+                    completion(.success(()))
+                    return
+                }
+                // Preserve existing surname/name/email values (do not modify them)
+                var fields: [String: CKRecordValueProtocol] = [:]
+                if let surname = rec["surname"] as? String { fields["surname"] = surname as NSString }
+                if let name = rec["name"] as? String { fields["name"] = name as NSString }
+                if let email = rec["email"] as? String { fields["email"] = email as NSString }
+                // Clear everything else we know about
+                let clearKeys: [String] = [
+                    "company",
+                    "position",
+                    "department",
+                    "phoneNumber",
+                    "linkedinURL",
+                    "memo",
+                    "industry",
+                    "address",
+                    "faxNumber",
+                    "revenue",
+                    "employees",
+                    "additionalEmails",
+                    "additionalPhones",
+                    "additionalURLs",
+                    "profileAsset",
+                    "nameCardFrontAsset",
+                    "nameCardBackAsset"
+                ]
+                CloudKitManager.shared.updateRecord(recordID: rec.recordID, fields: fields, clearKeys: clearKeys) { updateResult in
+                    switch updateResult {
+                    case .failure(let updateError): completion(.failure(updateError))
+                    case .success: completion(.success(()))
+                    }
+                }
+            }
+        }
+    }
+
     private func deleteAll(ofType type: String, completion: @escaping (Error?) -> Void) {
         fetchAllRecordIDs(ofType: type) { [weak self] result in
             guard let self else { completion(nil); return }
             switch result {
-            case .failure(let e):
-                completion(e)
+            case .failure(let error):
+                completion(error)
             case .success(let ids):
                 guard !ids.isEmpty else { completion(nil); return }
                 self.deleteRecordIDsInBatches(ids, batchSize: 200, completion: completion)
@@ -57,20 +107,20 @@ final class CloudKitWipeService {
                                    completion: @escaping (Result<[CKRecord.ID], Error>) -> Void) {
         var all: [CKRecord.ID] = []
         func run(cursor: CKQueryOperation.Cursor?) {
-            let op: CKQueryOperation
+            let operation: CKQueryOperation
             if let cursor {
-                op = CKQueryOperation(cursor: cursor)
+                operation = CKQueryOperation(cursor: cursor)
             } else {
-                let q = CKQuery(recordType: type, predicate: predicate)
-                op = CKQueryOperation(query: q)
+                let query = CKQuery(recordType: type, predicate: predicate)
+                operation = CKQueryOperation(query: query)
             }
-            op.resultsLimit = CKQueryOperation.maximumResults
-            op.recordMatchedBlock = { _, result in
+            operation.resultsLimit = CKQueryOperation.maximumResults
+            operation.recordMatchedBlock = { _, result in
                 if case .success(let rec) = result {
                     all.append(rec.recordID)
                 }
             }
-            op.queryResultBlock = { result in
+            operation.queryResultBlock = { result in
                 switch result {
                 case .success(let nextCursor):
                     if let nextCursor {
@@ -78,11 +128,11 @@ final class CloudKitWipeService {
                     } else {
                         completion(.success(all))
                     }
-                case .failure(let e):
-                    completion(.failure(e))
+                case .failure(let error):
+                    completion(.failure(error))
                 }
             }
-            database.add(op)
+            database.add(operation)
         }
         run(cursor: nil)
     }
@@ -98,15 +148,15 @@ final class CloudKitWipeService {
 
         for chunk in chunks {
             group.enter()
-            let op = CKModifyRecordsOperation(recordsToSave: nil, recordIDsToDelete: chunk)
-            op.isAtomic = false
-            op.modifyRecordsResultBlock = { result in
+            let modifyOperation = CKModifyRecordsOperation(recordsToSave: nil, recordIDsToDelete: chunk)
+            modifyOperation.isAtomic = false
+            modifyOperation.modifyRecordsResultBlock = { result in
                 if case .failure(let e) = result, firstError == nil {
                     firstError = e
                 }
                 group.leave()
             }
-            database.add(op)
+            database.add(modifyOperation)
         }
         group.notify(queue: .global()) {
             completion(firstError)
@@ -114,13 +164,12 @@ final class CloudKitWipeService {
     }
 
     private func clearLocalCloudKitMirrors() {
-        let ud = UserDefaults.standard
-        ud.removeObject(forKey: "cloudkit.mapping.clientIdToRecordName")
-        ud.removeObject(forKey: "cloudkit.mapping.userRecordName")
-        ud.removeObject(forKey: "cloudkit.mapping.noteIdToRecordName")
-        ud.removeObject(forKey: "cloudkit.token.private")
-        ud.synchronize()
+        let userDefaults = UserDefaults.standard
+        userDefaults.removeObject(forKey: "cloudkit.mapping.clientIdToRecordName")
+        userDefaults.removeObject(forKey: "cloudkit.mapping.userRecordName")
+        userDefaults.removeObject(forKey: "cloudkit.mapping.noteIdToRecordName")
+        userDefaults.removeObject(forKey: "cloudkit.token.private")
+        userDefaults.synchronize()
     }
 }
-
 
