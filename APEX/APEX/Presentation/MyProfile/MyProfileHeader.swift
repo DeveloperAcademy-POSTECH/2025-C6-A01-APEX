@@ -104,10 +104,14 @@ public struct MyProfileHeaderView: View {
             arr.append(.avatar(initials))
         }
         
-        if client.nameCardFront != nil || client.nameCardBack != nil {
-            if let frontImage = client.nameCardFront { arr.append(.cardFront(frontImage)) }
-            if let backImage = client.nameCardBack { arr.append(.cardBack(backImage)) }
+        // 명함 이미지가 있을 때만 추가 (전면 샘플 제거)
+        if let frontImage = client.nameCardFront { 
+            arr.append(.cardFront(frontImage)) 
         }
+        if let backImage = client.nameCardBack { 
+            arr.append(.cardBack(backImage)) 
+        }
+        
         return arr
     }
 
@@ -126,8 +130,14 @@ public struct MyProfileHeaderView: View {
                             switch current {
                             case .cardFront, .cardBack:
                                 onCardTapped?()
-                            case .profile, .avatar:
-                                onCardTapped?()
+                            case .profile:
+                                // 프로필 이미지가 있을 때만 CardViewer 열기
+                                if client.profile != nil {
+                                    onCardTapped?()
+                                }
+                            case .avatar:
+                                // 아바타(이니셜)일 때는 CardViewer 열지 않음
+                                break
                             }
                         }
                 }
@@ -138,23 +148,18 @@ public struct MyProfileHeaderView: View {
 
             Spacer().frame(height: 4)
             
-            HStack(spacing: 8) {
-                ForEach(0..<max(1, items.count), id: \.self) { idx in
-                    if idx < items.count {
+            if items.count > 1 {
+                HStack(spacing: 8) {
+                    ForEach(0..<items.count, id: \.self) { idx in
                         Circle()
                             .fill(idx == page ? Color("Primary") : Color(hex: "D9D9D9"))
                             .frame(width: 8, height: 8)
-                    } else {
-                        Circle()
-                            .fill(Color.clear)
-                            .frame(width: 8, height: 8)
                     }
                 }
+                .padding(.vertical, 8)
+                .background(Color.white.opacity(0.8))
+                .cornerRadius(50)
             }
-            .padding(.vertical, 8)
-            .background(items.count > 1 ? Color.white.opacity(0.8) : Color.clear)
-            .cornerRadius(50)
-            .opacity(items.count > 1 ? 1.0 : 0.0)
             
             VStack(alignment: .center, spacing: 0) {
                 Text("\(client.surname)\(client.name)")

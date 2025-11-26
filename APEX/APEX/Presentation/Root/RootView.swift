@@ -444,8 +444,8 @@ private struct ProfileDetailScreen: View {
     private static func convertToDummy(_ client: Client) -> DummyClient {
         DummyClient(
             profile: client.profile,
-            nameCardFront: client.nameCardFront ?? Image("CardL"),
-            nameCardBack: client.nameCardBack ?? Image("CardL"),
+            nameCardFront: client.nameCardFront, // 변경: 샘플 주입 제거 (nil 유지)
+            nameCardBack: client.nameCardBack,   // 변경: 샘플 주입 제거 (nil 유지)
             surname: client.surname,
             name: client.name,
             position: client.position,

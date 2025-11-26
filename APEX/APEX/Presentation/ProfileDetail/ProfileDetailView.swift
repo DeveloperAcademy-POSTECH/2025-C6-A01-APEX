@@ -29,23 +29,67 @@ struct ProfileDetailView: View {
         self._viewModel = StateObject(wrappedValue: ProfileDetailViewModel(clientId: clientId, client: client))
     }
 
-    // 임시 어댑터 제거: ViewModel이 변환 제공
+    // Store 기준으로 표시용 Client 구성
+    // - store에 실제 Client가 있으면 그대로 사용
+    // - 없으면 Dummy에서 텍스트/프로필만 가져오되, 명함(front/back)은 nil로 강제 → 샘플 명함이 표시되지 않도록
+    private var displayClient: Client {
+        if let fromStore = store.clients.first(where: { $0.id == clientId }) {
+            return fromStore
+        }
+        let d = viewModel.adaptedClient
+        return Client(
+            id: UUID(), // 표시용 임시 ID (store 미존재 시)
+            profile: d.profile,
+            nameCardFront: nil,           // 샘플 유입 방지: 폴백에서는 명함 사용 금지
+            nameCardBack: nil,            // 샘플 유입 방지
+            surname: d.surname,
+            name: d.name,
+            position: d.position,
+            company: d.company,
+            department: d.department,
+            email: d.email,
+            phoneNumber: d.phoneNumber,
+            linkedinURL: d.linkedinURL,
+            memo: d.memo,
+            action: d.action,
+            favorite: d.favorite,
+            pin: d.pin,
+            notes: [],
+            industry: d.industry,
+            address: d.address,
+            faxNumber: d.faxNumber,
+            revenue: d.revenue,
+            employees: d.employees,
+            additionalEmails: d.additionalEmails,
+            additionalPhones: d.additionalPhones,
+            additionalURLs: d.additionalURLs
+        )
+    }
+
+    // CardViewer 열기 여부 판단도 displayClient 기준으로
+    private var hasRealImagesForViewer: Bool {
+        return displayClient.profile != nil
+            || displayClient.nameCardFront != nil
+            || displayClient.nameCardBack != nil
+    }
 
     var body: some View {
         List {
             // 헤더 섹션 (패딩 없음 - 전체 화면 너비 사용)
             Section {
                 MyProfileHeaderView(
-                    client: (store.clients.first(where: { $0.id == clientId }) ?? viewModel.adaptedClient),
+                    client: displayClient,
                     page: $viewModel.currentPageIndex,
-                    onCardTapped: { viewModel.send(.showCardViewer(true)) }
+                    onCardTapped: {
+                        if hasRealImagesForViewer {
+                            viewModel.send(.showCardViewer(true))
+                        }
+                    }
                 )
             }
             .listRowInsets(EdgeInsets())
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
-
-            // 각 컴포넌트를 개별 Section으로 분리 (MyProfileView와 동일한 방식)
 
             // 프라이머리 액션
             Section {
@@ -57,9 +101,9 @@ struct ProfileDetailView: View {
                             height: 56
                         )
                     )
-                    .buttonStyle(.plain)  // 기본 스타일 제거
-                    .scaleEffect(1.0)  // 빠른 호버 효과를 위한 기본 스케일
-                    .animation(.easeInOut(duration: 0.1), value: false)  // 빠른 애니메이션
+                    .buttonStyle(.plain)
+                    .scaleEffect(1.0)
+                    .animation(.easeInOut(duration: 0.1), value: false)
             }
             .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 0, trailing: 16))
             .listRowBackground(Color.clear)
@@ -111,7 +155,6 @@ struct ProfileDetailView: View {
                         trailing: 16
                     )
                 )
-                // 24-메모-4-컨텐츠-16, 16-8-컨텐츠-8-16 구조
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
             }
@@ -119,8 +162,8 @@ struct ProfileDetailView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .background(Color("Background"))
-        .environment(\.defaultMinListRowHeight, 0)  // 최소 높이 제거
-        .listRowSpacing(0)  // Row 간격 제거
+        .environment(\.defaultMinListRowHeight, 0)
+        .listRowSpacing(0)
         .contentShape(Rectangle())
         .onTapGesture {
             // 메모 외부 영역을 터치하면 편집 완료
@@ -148,17 +191,16 @@ struct ProfileDetailView: View {
                 client: client,
                 onCancel: { },
                 onSave: { updated in
-                            let previousEmail = self.client.email
-                            viewModel.persistClientUpdate(updated, previousEmail: previousEmail)
+                    let previousEmail = self.client.email
+                    viewModel.persistClientUpdate(updated, previousEmail: previousEmail)
                 },
                 onDelete: {
                     viewModel.deleteClient()
                     router.pop()
-                }, // 직접 삭제 처리
-                showDeleteButton: !isMe  // 내 프로필이면 삭제 버튼 숨김
+                },
+                showDeleteButton: !isMe
             )
         }
-        // 기존 액션시트 유지(컴파일/동작 보장). Menu 전환 후 제거 예정.
         .confirmationDialog(
             viewModel.contactDialogTitle,
             isPresented: .init(
@@ -181,19 +223,33 @@ struct ProfileDetailView: View {
             Text(viewModel.alertMessage ?? "")
         }
         .fullScreenCover(isPresented: $viewModel.isShowingCardViewer) {
-            CardViewer(
-                images: {
-                    var images: [Image] = []
-                    if let ui = client.profile {
-                        images.append(Image(uiImage: ui))
+            // CardViewer도 store의 실제 Client 기준으로만 구성
+            let images: [Image] = {
+                var images: [Image] = []
+                if let ui = displayClient.profile {
+                    images.append(Image(uiImage: ui))
+                }
+                if let front = displayClient.nameCardFront {
+                    images.append(front)
+                }
+                if let back = displayClient.nameCardBack {
+                    images.append(back)
+                }
+                return images
+            }()
+            
+            if !images.isEmpty {
+                CardViewer(
+                    images: images,
+                    onClose: { viewModel.send(.showCardViewer(false)) },
+                    hasProfileFirst: displayClient.profile != nil
+                )
+            } else {
+                Color.clear
+                    .onAppear {
+                        viewModel.send(.showCardViewer(false))
                     }
-                    if let front = client.nameCardFront { images.append(front) }
-                    if let back = client.nameCardBack { images.append(back) }
-                    return images
-                }(),
-                onClose: { viewModel.send(.showCardViewer(false)) },
-                hasProfileFirst: client.profile != nil
-            )
+            }
         }
         // Hidden NavigationLink removed; Router handles navigation
     }

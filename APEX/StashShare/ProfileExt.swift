@@ -44,7 +44,7 @@ struct Profile: View {
     }
 
     private var dynamicFontSize: CGFloat {
-        let baseSize = side * 0.64
+        let baseSize = side * 0.56
         if initials.count <= 1 {
             return baseSize
         } else if initials.count == 2 {
@@ -82,5 +82,3 @@ extension Profile {
         return false
     }
 }
-
-

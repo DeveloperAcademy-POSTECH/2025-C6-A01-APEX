@@ -424,7 +424,7 @@ struct DMContactRow: View {
     
     // 이니셜 길이에 따른 동적 폰트 크기 계산 (ContactsView와 동일)
     private func dynamicFontSize(for initials: String) -> CGFloat {
-        let baseSize: CGFloat = 30.72 // 48 * 0.64
+        let baseSize: CGFloat = 26.88 // 48 * 0.56
         if initials.count <= 1 {
             return baseSize
         } else if initials.count == 2 {
@@ -677,11 +677,9 @@ struct DMConfirmDialog: View {
 }
 
 #Preview("ConfirmDialog (All delete)") {
-    @Previewable @State var visible = true
-    @Previewable @State var checked = false
-    return DMConfirmDialog(
-        isVisible: $visible,
-        isChecked: $checked,
+    DMConfirmDialog(
+        isVisible: .constant(true),
+        isChecked: .constant(false),
         title: "모든 미디어 데이터를 삭제하겠습니까?",
         bodyText: "모든 미디어 데이터를 삭제합니다.\ni-Cloud에 백업되지 않은 데이터는 복원 할 수 없습니다.",
         confirmTitle: "삭제",
@@ -692,11 +690,9 @@ struct DMConfirmDialog: View {
 }
 
 #Preview("ConfirmDialog (Per-contact)") {
-    @Previewable @State var visible = true
-    @Previewable @State var checked = true
-    return DMConfirmDialog(
-        isVisible: $visible,
-        isChecked: $checked,
+    DMConfirmDialog(
+        isVisible: .constant(true),
+        isChecked: .constant(true),
         title: "해당 연락처 노트의\n미디어 데이터를 모두 삭제하겠습니까?",
         bodyText: "노트를 제외한 모든 미디어 데이터\n(사진, 동영상, 음성, 파일)이 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.",
         confirmTitle: "삭제",

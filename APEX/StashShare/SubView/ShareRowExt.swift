@@ -38,7 +38,7 @@ struct ShareRowExt: View {
                     if let icon = nameBadgeIconName {
                         Image(systemName: icon)
                             .font(.system(size: Metrics.iconFontSize, weight: .medium))
-                            .foregroundColor(Color("Primary"))
+                            .foregroundColor(ShareTheme.primary)
                     }
                 }
                 
@@ -93,11 +93,10 @@ struct ShareRowExt: View {
             image: image,
             initials: initials,
             size: .extraSmall,
-            fontSize: 30.72,
+            fontSize: 26.88, // 48 * 0.56
             backgroundColor: ShareTheme.primaryContainer,
             textColor: .white,
             fontWeight: .semibold
         )
     }
 }
-
