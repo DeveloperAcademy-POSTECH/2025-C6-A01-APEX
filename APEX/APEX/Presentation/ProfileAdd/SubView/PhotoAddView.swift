@@ -44,11 +44,12 @@ struct PhotoAddView: View {
     @State private var isLoading: Bool = false
     private let previewMaxDimension: CGFloat = 2048
 
-    // Toast
-    @State private var showToast: Bool = false
-    @State private var toastText: String = ""
-    @State private var toastButtonTitle: String = "확인"
-    @State private var toastAction: () -> Void = {}
+    // Permission alert
+    @State private var showPermissionAlert: Bool = false
+    @State private var permissionAlertMessage: String = ""
+    @State private var isSettingsAlert: Bool = false
+    private enum PermissionContext { case photoLibrary, camera }
+    @State private var permissionContext: PermissionContext?
 
     init(
         type: PhotoType,
@@ -162,15 +163,26 @@ struct PhotoAddView: View {
                     isLoading = true
                     Task {
                         let status = AVCaptureDevice.authorizationStatus(for: .video)
-                        if status == .notDetermined {
-                            let granted = await AVCaptureDevice.requestAccess(for: .video)
-                            if !granted { isLoading = false; return }
-                        } else if status == .denied || status == .restricted {
+                        switch status {
+                        case .authorized:
                             isLoading = false
-                            return
+                            showCamera = true
+                        case .notDetermined:
+                            isLoading = false
+                            permissionAlertMessage = "촬영하여 추가하려면 카메라 권한이 필요합니다."
+                            isSettingsAlert = false
+                            permissionContext = .camera
+                            showPermissionAlert = true
+                        case .denied, .restricted:
+                            isLoading = false
+                            permissionAlertMessage = "카메라 접근이 차단되어 있어요. 설정 > APEX에서 권한을 허용해 주세요."
+                            isSettingsAlert = true
+                            permissionContext = .camera
+                            showPermissionAlert = true
+                        @unknown default:
+                            isLoading = false
+                            showCamera = true
                         }
-                        isLoading = false
-                        showCamera = true
                     }
                 }, label: {
                     VStack(spacing: 8) {
@@ -300,14 +312,34 @@ struct PhotoAddView: View {
                 }
             }
         }
-        .apexToast(
-            isPresented: $showToast,
-            image: Image(systemName: "info.circle.fill"),
-            text: toastText,
-            buttonTitle: toastButtonTitle,
-            duration: 3.0
-        ) {
-            toastAction()
+        .alert("권한 안내", isPresented: $showPermissionAlert) {
+            if isSettingsAlert {
+                Button("설정 열기") { openAppSettings() }
+                Button("취소", role: .cancel) {}
+            } else {
+                Button("계속") {
+                    switch permissionContext {
+                    case .some(.photoLibrary):
+                        PHPhotoLibrary.requestAuthorization(for: .readWrite) { status in
+                            if status == .authorized || status == .limited {
+                                DispatchQueue.main.async { showLibraryPicker = true }
+                            }
+                        }
+                    case .some(.camera):
+                        Task {
+                            let granted = await AVCaptureDevice.requestAccess(for: .video)
+                            if granted {
+                                await MainActor.run { showCamera = true }
+                            }
+                        }
+                    default:
+                        break
+                    }
+                }
+                Button("취소", role: .cancel) {}
+            }
+        } message: {
+            Text(permissionAlertMessage)
         }
     }
 }
@@ -493,7 +525,7 @@ private struct RectangularCropperView: View {
     }
 }
 
-// MARK: - Permissions & Toast helpers
+// MARK: - Permissions & Alert helpers
 
 private extension PhotoAddView {
     func handleLibraryTap() {
@@ -502,29 +534,18 @@ private extension PhotoAddView {
         case .authorized, .limited:
             showLibraryPicker = true
         case .notDetermined:
-            presentToast(
-                text: isProfile ? "프로필 사진을 선택하려면 사진 접근 권한이 필요합니다." : "명함 사진을 선택하려면 사진 접근 권한이 필요합니다.",
-                buttonTitle: "계속"
-            ) {
-                showLibraryPicker = true
-            }
+            permissionAlertMessage = isProfile ? "프로필 사진을 선택하려면 사진 접근 권한이 필요합니다." : "명함 사진을 선택하려면 사진 접근 권한이 필요합니다."
+            isSettingsAlert = false
+            permissionContext = .photoLibrary
+            showPermissionAlert = true
         case .denied, .restricted:
-            presentToast(
-                text: "사진 접근이 차단되어 있어요. 설정 > APEX에서 권한을 허용해 주세요.",
-                buttonTitle: "설정 열기"
-            ) {
-                openAppSettings()
-            }
+            permissionAlertMessage = "사진 접근이 차단되어 있어요. 설정 > APEX에서 권한을 허용해 주세요."
+            isSettingsAlert = true
+            permissionContext = .photoLibrary
+            showPermissionAlert = true
         @unknown default:
             showLibraryPicker = true
         }
-    }
-
-    func presentToast(text: String, buttonTitle: String, action: @escaping () -> Void) {
-        toastText = text
-        toastButtonTitle = buttonTitle
-        toastAction = action
-        withAnimation { showToast = true }
     }
 
     func openAppSettings() {

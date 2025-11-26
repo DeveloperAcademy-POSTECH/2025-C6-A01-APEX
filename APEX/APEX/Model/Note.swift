@@ -29,6 +29,8 @@ struct FileAttachment {
 struct AudioAttachment {
     let url: URL
     let duration: TimeInterval?
+    // UI-only preferred title; when present, overrides filename in tiles
+    var displayName: String? = nil
 }
 
 enum AttachmentBundle {

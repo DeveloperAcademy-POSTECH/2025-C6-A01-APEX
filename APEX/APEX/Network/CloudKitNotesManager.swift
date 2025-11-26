@@ -103,7 +103,9 @@ final class CloudKitNotesManager {
                                     if let url {
                                         let cached = self.persistAudioToAppGroup(originalURL: url, preferredFilename: filenameField)
                                         let dur = (a["duration"] as? NSNumber)?.doubleValue
-                                        audios.append(AudioAttachment(url: cached, duration: dur))
+                                        // displayName is UI-only; derive from filename if desired (optional)
+                                        let preferredName = filenameField?.isEmpty == false ? URL(fileURLWithPath: filenameField!).deletingPathExtension().lastPathComponent : nil
+                                        audios.append(AudioAttachment(url: cached, duration: dur, displayName: preferredName))
                                     }
                                 default:
                                     break
@@ -191,12 +193,16 @@ final class CloudKitNotesManager {
                             let local = ChatStore.shared.notes(for: clientId)
                             var merged = fetched
                             // Preserve local STT text if CloudKit text is empty
+                            // Preserve local bundle if CloudKit bundle is nil/empty (assets not yet visible)
                             for idx in merged.indices {
                                 if let lidx = local.firstIndex(where: { $0.id == merged[idx].id }) {
                                     let localText = local[lidx].text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                                     let cloudText = merged[idx].text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                                     if !localText.isEmpty && cloudText.isEmpty {
                                         merged[idx].text = local[lidx].text
+                                    }
+                                    if merged[idx].bundle.isNilOrEmpty, let localBundle = local[lidx].bundle, !localBundle.isEmpty {
+                                        merged[idx].bundle = localBundle
                                     }
                                 }
                             }

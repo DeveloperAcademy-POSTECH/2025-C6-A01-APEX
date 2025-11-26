@@ -203,7 +203,8 @@ private extension ShareSheetViewModel {
         for (order, item) in attachments.enumerated() {
             switch item.kind {
             case .image(let uiImage):
-                if let data = uiImage.jpegData(compressionQuality: 0.9) {
+                let normalized = normalizeUIImageToSRGB8(uiImage, opaque: false)
+                if let data = normalized.jpegData(compressionQuality: 0.9) {
                     images.append(PImageAttachment(data: data, progress: nil, orderIndex: order))
                 }
             case .video(let url, _):

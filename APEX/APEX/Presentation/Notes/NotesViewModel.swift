@@ -235,6 +235,53 @@ final class NotesViewModel: ViewModelable {
     private func deleteClient(_ client: Client) {
         // Delete all notes for this client
         let notesToDelete = ChatStore.shared.notes(for: client.id)
+        // Remove local audio files referenced by notes
+        let fm = FileManager.default
+        for note in notesToDelete {
+            if case let .audio(audios) = note.bundle {
+                for a in audios {
+                    try? fm.removeItem(at: a.url)
+                }
+            }
+            if case let .media(images, videos) = note.bundle {
+                // images are stored as Data (no file to remove)
+                for v in videos {
+                    try? fm.removeItem(at: v.url)
+                }
+            }
+            if case let .files(files) = note.bundle {
+                for f in files {
+                    try? fm.removeItem(at: f.url)
+                }
+            }
+        }
+        // Also remove per-client audio folders (App Group and temp) as a cleanup
+        if let base = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.apex.StashShareExtension") {
+            let sharedAudios = base
+                .appendingPathComponent("SharedAudios", isDirectory: true)
+                .appendingPathComponent(client.id.uuidString, isDirectory: true)
+            if fm.fileExists(atPath: sharedAudios.path) {
+                try? fm.removeItem(at: sharedAudios)
+            }
+            let sharedVideos = base
+                .appendingPathComponent("SharedVideos", isDirectory: true)
+                .appendingPathComponent(client.id.uuidString, isDirectory: true)
+            if fm.fileExists(atPath: sharedVideos.path) {
+                try? fm.removeItem(at: sharedVideos)
+            }
+            let sharedFiles = base
+                .appendingPathComponent("SharedFiles", isDirectory: true)
+                .appendingPathComponent(client.id.uuidString, isDirectory: true)
+            if fm.fileExists(atPath: sharedFiles.path) {
+                try? fm.removeItem(at: sharedFiles)
+            }
+        }
+        let tmpDir = fm.temporaryDirectory
+            .appendingPathComponent("APEXRecordings", isDirectory: true)
+            .appendingPathComponent(client.id.uuidString, isDirectory: true)
+        if fm.fileExists(atPath: tmpDir.path) {
+            try? fm.removeItem(at: tmpDir)
+        }
         // Clear locally first (keep contact)
         ChatStore.shared.setNotes([], for: client.id)
         // Reflect deletion to CloudKit

@@ -7,6 +7,7 @@ struct ChatMessageView: View {
     let currentClientId: UUID
     let highlightQuery: String?
     let leadingReservedWidth: CGFloat
+    let isSTTLoading: Bool
     struct ChatAnchor { let noteId: UUID; let isImage: Bool; let localIndex: Int }
     let buildViewerPayload: (ChatAnchor) -> (items: [MediaSource], anchors: [ChatAnchor], index: Int)
     let onOpenViewer: (ChatAnchor) -> Void
@@ -167,28 +168,9 @@ struct ChatMessageView: View {
             }
             else if case let .audio(audios) = note.bundle {
                 if let first = audios.first {
-                    VStack(spacing: 6) {
-                        AudioSquareTile(url: first.url, duration: first.duration, preferredLength: nil, titleOverride: nil, highlightQuery: highlightQuery)
-                            .contextMenu {
-                                Button { onOpenRecord(first.url) } label: {
-                                    Label("더보기", systemImage: "ellipsis.circle")
-                                }
-                                .tint(.primary)
-                                Button {
-                                    NotificationCenter.default.post(name: .apexStopAllAudioPlayback, object: nil)
-                                    onOpenShareAudio(first.url)
-                                } label: {
-                                    Label("공유", systemImage: "square.and.arrow.up")
-                                }
-                                .tint(.primary)
-                                Button(role: .destructive) {
-                                    onStartMultiDelete(note.id)
-                                } label: {
-                                    Label("삭제", systemImage: "trash")
-                                }
-                                .tint(.red)
-                            }
-                        
+                    VStack(alignment: .trailing, spacing: 6) {
+                        AudioSquareTile(url: first.url, duration: first.duration, preferredLength: nil, titleOverride: first.displayName, highlightQuery: highlightQuery)
+                            
                         // Filename + STT text under the audio tile
                         VStack(alignment: .leading, spacing: 4) {
                             let baseName = first.url.deletingPathExtension().lastPathComponent
@@ -216,6 +198,9 @@ struct ChatMessageView: View {
                                         .font(.body6)
                                         .foregroundStyle(Color("BlackLabel"))
                                 }
+                            } else if isSTTLoading {
+                                ThreeDotsIndicator()
+                                    .padding(.top, 2)
                             }
                         }
                         .fixedSize(horizontal: false, vertical: true)
@@ -223,6 +208,41 @@ struct ChatMessageView: View {
                         .padding(.horizontal, 8)
                         .background(Color("BackgroundSecondary"))
                         .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+                        
+                    }
+                    .contentShape(Rectangle())
+                    .contextMenu {
+                        Button { onOpenRecord(first.url) } label: {
+                            Label("더보기", systemImage: "ellipsis.circle")
+                        }
+                        .tint(.primary)
+                        Button {
+                            NotificationCenter.default.post(name: .apexStopAllAudioPlayback, object: nil)
+                            onOpenShareAudio(first.url)
+                        } label: {
+                            Label("공유", systemImage: "square.and.arrow.up")
+                        }
+                        .tint(.primary)
+                        if let stt = note.text, !stt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            Button {
+                                onCopyText(stt)
+                            } label: {
+                                Label("STT 복사", systemImage: "doc.on.doc")
+                            }
+                            .tint(.primary)
+                            Button {
+                                onOpenShare(stt)
+                            } label: {
+                                Label("STT 공유", systemImage: "square.and.arrow.up.on.square")
+                            }
+                            .tint(.primary)
+                        }
+                        Button(role: .destructive) {
+                            onStartMultiDelete(note.id)
+                        } label: {
+                            Label("삭제", systemImage: "trash")
+                        }
+                        .tint(.red)
                     }
                     
                 }
@@ -317,4 +337,22 @@ extension ChatMessageView {
     }
 }
 
+// Simple three-dots typing indicator for STT in-progress
+private struct ThreeDotsIndicator: View {
+    @State private var animate: Bool = false
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(0..<3, id: \.self) { idx in
+                Circle()
+                    .fill(Color("BlackLabel"))
+                    .frame(width: 6, height: 6)
+                    .scaleEffect(animate ? 1.0 : 0.6)
+                    .opacity(animate ? 1.0 : 0.4)
+                    .animation(.easeInOut(duration: 0.6).repeatForever().delay(Double(idx) * 0.15), value: animate)
+            }
+        }
+        .onAppear { animate = true }
+        .onDisappear { animate = false }
+    }
+}
 

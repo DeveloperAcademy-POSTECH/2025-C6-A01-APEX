@@ -100,13 +100,24 @@ struct AudioSquareTile: View {
             durationText = formatDuration(duration)
             return
         }
-        if let tmp = try? AVAudioPlayer(contentsOf: url) {
-            durationText = formatDuration(tmp.duration)
-            return
+        // Compute duration off the main thread to avoid UI stalls
+        DispatchQueue.global(qos: .utility).async {
+            var resolved: TimeInterval?
+            if let tmp = try? AVAudioPlayer(contentsOf: url) {
+                resolved = tmp.duration
+            } else {
+                let asset = AVAsset(url: url)
+                let secs = CMTimeGetSeconds(asset.duration)
+                if secs.isFinite && secs > 0 { resolved = secs }
+            }
+            DispatchQueue.main.async {
+                if let resolved {
+                    durationText = formatDuration(resolved)
+                } else {
+                    durationText = "--:--"
+                }
+            }
         }
-        let asset = AVAsset(url: url)
-        let seconds = CMTimeGetSeconds(asset.duration)
-        if seconds.isFinite && seconds > 0 { durationText = formatDuration(seconds) } else { durationText = "--:--" }
     }
 
     private func startPlayback() {

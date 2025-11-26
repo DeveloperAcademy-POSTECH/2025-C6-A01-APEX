@@ -4,6 +4,21 @@ import UIKit
 
 // Shared media helpers for Chatting subviews
 
+// Normalize UIImage into standard 8-bit sRGB BGRA by redrawing via UIGraphicsImageRenderer.
+// This avoids JPEG encoder failures with extended-range/wide-gamut pixel formats.
+func normalizeUIImageToSRGB8(_ image: UIImage, opaque: Bool = false) -> UIImage {
+    let format = UIGraphicsImageRendererFormat.default()
+    format.scale = image.scale
+    format.opaque = opaque
+    if #available(iOS 12.0, *) {
+        format.preferredRange = .standard
+    }
+    let renderer = UIGraphicsImageRenderer(size: image.size, format: format)
+    return renderer.image { _ in
+        image.draw(in: CGRect(origin: .zero, size: image.size))
+    }
+}
+
 func format(durationOf url: URL) -> String {
     let asset = AVAsset(url: url)
     let seconds = Int(CMTimeGetSeconds(asset.duration).rounded())

@@ -157,6 +157,7 @@ struct ChattingView: View {
                                                 viewModel.matchedNoteIds[viewModel.currentMatchIndex] == note.id
                                             ) ? viewModel.searchText : nil,
                                             leadingReservedWidth: Metrics.leftSelectWidth,
+                                            isSTTLoading: viewModel.sttInProgress.contains(note.id),
                                             buildViewerPayload: { anchor in
                                                 buildGlobalViewerPayload(startingFrom: anchor)
                                             },
@@ -523,7 +524,12 @@ struct ChattingView: View {
             if newHeight > 0 { chipHeight = newHeight }
         }
         .onPreferenceChange(ViewportHeightKey.self) { newHeight in
-            if newHeight > 0 { storedViewportHeight = newHeight }
+            let height = max(0, newHeight)
+            // Avoid same-frame feedback loops by ignoring no-op changes and deferring the state write
+            guard abs(height - storedViewportHeight) > 0.5 else { return }
+            DispatchQueue.main.async {
+                storedViewportHeight = height
+            }
         }
         .onChange(of: viewModel.isSearchActive) { _, active in
             if active {

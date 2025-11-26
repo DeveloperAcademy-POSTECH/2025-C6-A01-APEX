@@ -45,9 +45,9 @@ struct APEXApp: App {
                         // After onboarding completion, if not guest, start CloudKit + push setup now.
                         if !isGuestMode {
                             appDelegate.startCloudKitAndPushSetupIfNeeded()
-                            // Force an immediate CloudKit refresh so UI repopulates after login
+                            // Light refresh to avoid heavy note prefetch during startup
                             DispatchQueue.main.async {
-                                ClientsStore.shared.forceCloudKitRefresh()
+                                ClientsStore.shared.forceLightCloudKitRefresh()
                             }
                         }
                         if !didMigrateToAppGroup {
@@ -143,4 +143,5 @@ private extension APEXApp {
 extension Notification.Name {
     static let apexRequestOnboarding = Notification.Name("apex.requestOnboarding")
     static let apexSelectNotes = Notification.Name("apex.selectNotes")
+    static let apexSelectContacts = Notification.Name("apex.selectContacts")
 }

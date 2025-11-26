@@ -44,6 +44,9 @@ struct RootView: View {
                 .onReceive(NotificationCenter.default.publisher(for: .apexSelectNotes)) { _ in
                     selection = .notes
                 }
+                .onReceive(NotificationCenter.default.publisher(for: .apexSelectContacts)) { _ in
+                    selection = .contacts
+                }
                 .navigationDestination(for: NavigationDestination.self) { route in
                     destination(for: route)
                 }

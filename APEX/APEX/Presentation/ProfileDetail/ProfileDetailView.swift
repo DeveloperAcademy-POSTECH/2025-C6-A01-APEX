@@ -93,7 +93,12 @@ struct ProfileDetailView: View {
 
             // 프라이머리 액션
             Section {
-                MyProfilePrimaryActionView(title: "메모하기") { router.push(.chat(clientId)) }
+                MyProfilePrimaryActionView(title: "메모하기") {
+                    // Go to Contacts tab and replace current route with chat,
+                    // so popping from chat returns to Contacts instead of profile detail
+                    NotificationCenter.default.post(name: .apexSelectContacts, object: nil)
+                    router.replace(with: .chat(clientId))
+                }
                     .accessibilityLabel("메모하기")
                     .apexButtonTheme(
                         APEXButtonTheme(
