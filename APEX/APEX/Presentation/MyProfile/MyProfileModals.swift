@@ -15,6 +15,12 @@ struct CardViewer: View {
     var hasProfileFirst: Bool = false
     @State private var currentIndex = 0
     
+    init(images: [Image], onClose: @escaping () -> Void, hasProfileFirst: Bool = false) {
+        self.images = images
+        self.onClose = onClose
+        self.hasProfileFirst = hasProfileFirst
+    }
+    
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
