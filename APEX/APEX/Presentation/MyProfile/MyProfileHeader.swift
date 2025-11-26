@@ -162,7 +162,8 @@ public struct MyProfileHeaderView: View {
             }
             
             VStack(alignment: .center, spacing: 0) {
-                Text("\(client.surname)\(client.name)")
+                // 이름 표시에 NameFormatter 적용
+                Text(client.autoFormattedName)
                     .font(.title2)
                     .multilineTextAlignment(.center)
                     .foregroundColor(.black)
@@ -456,3 +457,4 @@ private extension Array {
         TestView()
     }
 }
+
