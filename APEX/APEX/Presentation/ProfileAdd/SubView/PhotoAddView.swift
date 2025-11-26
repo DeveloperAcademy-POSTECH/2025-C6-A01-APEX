@@ -127,7 +127,7 @@ struct PhotoAddView: View {
             .frame(maxWidth: .infinity)
             .padding(.bottom, 16)
             Text(isProfile ? "프로필" : (selectedCardSide == .front ? "명함 앞" : "명함 뒤"))
-                .font(.title2)
+                .font(.title4)
             if !isProfile {
                 HStack(spacing: 8) {
                     ForEach(CardSide.allCases, id: \.self) { side in
@@ -137,7 +137,7 @@ struct PhotoAddView: View {
                             .onTapGesture { selectedCardSide = side }
                     }
                 }
-                .padding(.top, 8)
+                .padding(.top, 12)
             }
             // Reset button under preview - reserve space always to prevent layout jump
             Button {

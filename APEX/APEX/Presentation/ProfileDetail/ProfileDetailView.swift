@@ -131,9 +131,9 @@ struct ProfileDetailView: View {
                 title: {
                     let fromStore = store.clients.first(where: { $0.id == clientId })
                     if let fromStore {
-                        return fromStore.company.isEmpty ? "\(fromStore.surname)\(fromStore.name)" : fromStore.company
+                        return fromStore.company.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "" : fromStore.company
                     }
-                    return client.company.isEmpty ? "\(client.surname)\(client.name)" : client.company
+                    return client.company.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "" : client.company
                 }(),
                 onBack: { router.pop() },
                 onEdit: { viewModel.send(.presentEdit(true)) }

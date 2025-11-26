@@ -80,6 +80,10 @@ struct NotesManagementListSection: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .environment(\.editMode, .constant(.active))
+        .animation(nil)  // NotesView와 통일: 리스트 전환 애니메이션 비활성화
+        .safeAreaInset(edge: .top, spacing: 0) {
+            Color.clear.frame(height: 8)
+        }
     }
     
     private var filteredNotes: [NoteItem] {

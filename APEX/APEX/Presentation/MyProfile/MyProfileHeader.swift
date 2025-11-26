@@ -200,12 +200,12 @@ public struct MyProfileHeaderView: View {
     }
     
     private var subtitle: String {
-        let company = client.company.trimmingCharacters(in: .whitespacesAndNewlines)
+        let department = (client.department ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let position = (client.position ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        if company.isEmpty && position.isEmpty { return "" }
-        if company.isEmpty { return position }
-        if position.isEmpty { return company }
-        return "\(company) \(position)"
+        if department.isEmpty && position.isEmpty { return "" }
+        if department.isEmpty { return position }
+        if position.isEmpty { return department }
+        return "\(department) \(position)"
     }
 
     @ViewBuilder
