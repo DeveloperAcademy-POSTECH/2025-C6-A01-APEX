@@ -146,7 +146,7 @@ public struct MyProfileHeaderView: View {
             .frame(height: 232)  // 아바타 크기에 맞춰서 232px로 설정
             .background(Color.clear)  // TabView 배경 투명 처리
 
-            Spacer().frame(height: 4)
+            Spacer().frame(height: 8)
             
             if items.count > 1 {
                 HStack(spacing: 8) {

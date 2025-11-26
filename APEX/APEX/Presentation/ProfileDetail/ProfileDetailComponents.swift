@@ -16,8 +16,8 @@ struct ProfileDetailMemoSection: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {  // 메모-컨텐츠 간격 4로 조정
-            // 메모 라벨
-            Text("메모")
+            // 라벨: "메모" → "한 줄 기록"
+            Text("한 줄 기록")
                 .font(.body5)
                 .foregroundColor(.gray)
                 .padding(.horizontal, 8)  // 라벨에 좌우 8 패딩 추가
@@ -63,8 +63,8 @@ struct ProfileEditMemoSection: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            // 메모 라벨 (편집시트용: 좌우 패딩 제거)
-            Text("메모")
+            // 편집시트 라벨도 "한 줄 기록"
+            Text("한 줄 기록")
                 .font(.body5)
                 .foregroundColor(.gray)
             
@@ -96,7 +96,6 @@ struct ProfileEditMemoSection: View {
                     .inset(by: 0.5)
                     .stroke(Color("BackgroundDisabled"), lineWidth: 1)
             }
-            // 편집시트용: 좌우 패딩 제거
             
             // 글자 수 표시
             if let maxLength = maxLength {
@@ -107,7 +106,6 @@ struct ProfileEditMemoSection: View {
                         .foregroundColor(.gray)
                 }
                 .padding(.top, 4)
-                // 편집시트용: 좌우 패딩 제거
             }
         }
     }

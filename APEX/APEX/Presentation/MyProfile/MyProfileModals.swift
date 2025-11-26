@@ -66,7 +66,7 @@ struct CardViewer: View {
                 
                 Spacer()
                 
-                // 페이지 인디케이터 (수동으로 추가, 더 명확한 표시를 위해)
+                // 페이지 인디케이터
                 if images.count > 1 {
                     HStack(spacing: 8) {
                         ForEach(images.indices, id: \.self) { index in
@@ -134,8 +134,8 @@ struct MyProfileEditSheet: View {
 
     var onCancel: () -> Void
     var onSave: (DummyClient) -> Void
-    var onDelete: (() -> Void)? = nil  // 삭제 콜백 추가
-    var showDeleteButton: Bool = false  // 삭제 버튼 표시 여부
+    var onDelete: (() -> Void)? = nil
+    var showDeleteButton: Bool = false  // 다른 사람 프로필 편집 시 true
     
     // 내 프로필 여부 확인
     private var isMyProfile: Bool {
@@ -171,7 +171,7 @@ struct MyProfileEditSheet: View {
         _revenue = State(initialValue: client.revenue ?? "")
         _employees = State(initialValue: client.employees ?? "")
         
-        // 동적 배열 초기값 (항상 최소 1칸 보장)
+        // 동적 배열 초기값
         let initialEmails: [String] = {
             var arr: [String] = [client.email ?? ""]
             arr.append(contentsOf: client.additionalEmails)
@@ -187,13 +187,13 @@ struct MyProfileEditSheet: View {
         _contacts = State(initialValue: initialContacts)
         _urls = State(initialValue: initialURLs)
         
-        // 편집 시트의 항목 구성은 기존 데이터 기반으로 설정
+        // 구성
         let hasPrimaryEmail = !(client.email ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let hasPrimaryPhone = !(client.phoneNumber ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let emailCount = max(1, (hasPrimaryEmail ? 1 : 0) + client.additionalEmails.count)
         let phoneCount = max(1, (hasPrimaryPhone ? 1 : 0) + client.additionalPhones.count)
         let urlCount = client.additionalURLs.count
-        let showsLinkedIn = true  // 링크드인은 항상 표시
+        let showsLinkedIn = true
         let showsIndustry = !(client.industry ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let showsAddress = !(client.address ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let showsFax = !(client.faxNumber ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -331,11 +331,10 @@ struct MyProfileEditSheet: View {
                     APEXTextField(style: .field, placeholder: "근무 인원", text: $employees)
                         .padding(.bottom, 48)
                 } else {
-                    // 연락처 그룹 후 기본 간격 유지
                     Spacer(minLength: 0).frame(height: 16)
                 }
                 
-                // 메모 필드 (ProfileDetailView에서만 - 다른 사람 프로필 편집시)
+                // 메모 필드: 다른 사람 프로필 편집 시에만 표시
                 if showDeleteButton {
                     ProfileEditMemoSection(memo: $memo)
                         .padding(.bottom, 48)
@@ -461,6 +460,7 @@ struct MyProfileEditSheet: View {
                         email: savedEmail,
                         phoneNumber: savedPhone,
                         linkedinURL: savedLinkedIn,
+                        // 메모 저장: 다른 사람 프로필 편집 시에만 반영, 내 프로필은 기존 값 유지
                         memo: showDeleteButton ? (memo.isEmpty ? nil : memo) : client.memo,
                         action: client.action,
                         favorite: client.favorite,
@@ -644,7 +644,6 @@ private extension MyProfileEditSheet {
 
 private extension Image {
     func asUIImage() -> UIImage? {
-        // 고정된 목표 크기와 스케일 사용으로 일관성 유지
         let targetSize = CGSize(width: 358, height: 214)
         let scale = UIScreen.main.scale
         
@@ -654,15 +653,10 @@ private extension Image {
                 .aspectRatio(contentMode: .fit)
                 .frame(width: targetSize.width, height: targetSize.height)
         )
-        
-        // 명시적으로 스케일 설정하여 일관성 보장
         rendered.scale = scale
-        
         return rendered.uiImage
     }
 }
-
-// makeInitials moved to common component: Profile.makeInitials
 
 // MARK: - Previews
 
@@ -690,9 +684,8 @@ private struct AddItemButton: View {
     let action: () -> Void
     @State private var isPressed: Bool = false
     
-    // 색상 정의
-    private let normalBackground = Color(red: 0xEE/255.0, green: 0xF0/255.0, blue: 0xF5/255.0) // #EEF0F5
-    private let pressedBackground = Color(red: 0xED/255.0, green: 0xF0/255.0, blue: 1.0) // #EDF0FF
+    private let normalBackground = Color(red: 0xEE/255.0, green: 0xF0/255.0, blue: 0xF5/255.0)
+    private let pressedBackground = Color(red: 0xED/255.0, green: 0xF0/255.0, blue: 1.0)
     
     var body: some View {
         Button(action: action) {
@@ -726,9 +719,8 @@ private struct DeleteContactButton: View {
     let action: () -> Void
     @State private var isPressed: Bool = false
     
-    // 색상 정의
-    private let normalBackground = Color(red: 1.0, green: 0xF6/255.0, blue: 0xF5/255.0) // #FFF6F5
-    private let pressedBackground = Color(red: 1.0, green: 0xE8/255.0, blue: 0xE5/255.0) // #FFE8E5
+    private let normalBackground = Color(red: 1.0, green: 0xF6/255.0, blue: 0xF5/255.0)
+    private let pressedBackground = Color(red: 1.0, green: 0xE8/255.0, blue: 0xE5/255.0)
     
     var body: some View {
         Button(action: action) {
