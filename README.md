@@ -9,12 +9,12 @@
 ## 🎆 Screenshots
 | Stash | Add Contacts | Notes | Search | Archive |
 |:--:|:--:|:--:|:--:|:--:|
-| ![Stash](<img width="2484" height="2688" alt="Frame 2503" src="https://github.com/user-attachments/assets/7406337b-1047-40e5-95a2-4ec796267f44") >)
-| ![연락처 추가 화면](<img width="1242" height="2688" alt="연락처" src="https://github.com/user-attachments/assets/b7ee6fe5-84af-43b4-b763-c3859169d126") >)
-| ![사람별로 메모 화면](<img width="1242" height="2688" alt="메모" src="https://github.com/user-attachments/assets/ac4ff214-ae2e-46be-9090-a6f540ad17ed") >)
-| ![검색 화면](<img width="1242" height="2688" alt="간편 음성메모" src="https://github.com/user-attachments/assets/b0eeedc6-24e9-4453-a321-746d4146b345") >)
-| ![사람별로 파일 아카이브 화면](<img width="1242" height="2688" alt="주요 회사 메모" src="https://github.com/user-attachments/assets/6267442b-223b-463a-b899-7d0fe8c13dfc"/>)
-|
+<img width="600" height="420" alt="Stash" src="https://github.com/user-attachments/assets/7406337b-1047-40e5-95a2-4ec796267f44" >|
+| [연락처 추가 화면] |<img width="621" height="1344" alt="연락처" src="https://github.com/user-attachments/assets/b7ee6fe5-84af-43b4-b763-c3859169d126" >|
+| [사람별로 메모 화면] |<img width="621" height="1344" alt="메모" src="https://github.com/user-attachments/assets/ac4ff214-ae2e-46be-9090-a6f540ad17ed" >|
+| [검색 화면] |<img width="621" height="1344" alt="간편 음성메모" src="https://github.com/user-attachments/assets/b0eeedc6-24e9-4453-a321-746d4146b345" >|
+| [사람별로 파일 아카이브 화면] |<img width="621" height="1344" alt="주요 회사 메모" src="https://github.com/user-attachments/assets/6267442b-223b-463a-b899-7d0fe8c13dfc"/>|
+
 
 
 ---
