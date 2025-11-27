@@ -4,19 +4,7 @@
 
 사람별로 메모하는 나만의 비즈니스 채팅방
 
----
-
-## 🎆 Screenshots
-| Stash | Add Contacts | Notes | Search | Archive |
-|:--:|:--:|:--:|:--:|:--:|
-<img width="600" height="420" alt="Stash" src="https://github.com/user-attachments/assets/7406337b-1047-40e5-95a2-4ec796267f44" >|
-| [연락처 추가 화면] |<img width="621" height="1344" alt="연락처" src="https://github.com/user-attachments/assets/b7ee6fe5-84af-43b4-b763-c3859169d126" >|
-| [사람별로 메모 화면] |<img width="621" height="1344" alt="메모" src="https://github.com/user-attachments/assets/ac4ff214-ae2e-46be-9090-a6f540ad17ed" >|
-| [검색 화면] |<img width="621" height="1344" alt="간편 음성메모" src="https://github.com/user-attachments/assets/b0eeedc6-24e9-4453-a321-746d4146b345" >|
-| [사람별로 파일 아카이브 화면] |<img width="621" height="1344" alt="주요 회사 메모" src="https://github.com/user-attachments/assets/6267442b-223b-463a-b899-7d0fe8c13dfc"/>|
-
-
-
+<img width="800" height="1200" alt="Stash" src="https://github.com/user-attachments/assets/7406337b-1047-40e5-95a2-4ec796267f44" >|
 ---
 
 ## 📌 Features
@@ -46,7 +34,7 @@
 | @Gyeong | [github.com/UnkyungJo](https://github.com/UnkyungJo) | ios 앱 개발(SwiftUI), 아키텍쳐, 로직 설계 |
 | @Taki5cm | [github.com/Taki5cm](https://github.com/Taki5cm) | 기획, iOS 앱 개발(SwiftUI) |
 | @Karyn | [github.com/Karynkim](https://github.com/Karynkim) | 디자인(UX/UI),UX Researcher |
-| @cchangss | [github.com/cchnagss](https://github.com/cchangss) | 기획, UX Researcher |
+| @cchangss | [github.com/cchangss](https://github.com/cchangss) | 기획, UX Researcher |
 
 ---
 
