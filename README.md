@@ -29,13 +29,12 @@
 
 ## ✨ Skills & Tech Stack
 
-![Swift](https://img.shields.io/badge/Swift-F05138?style=for-the-badge&logo=swift&logoColor=white)
-![SwiftUI](https://img.shields.io/badge/SwiftUI-007AFF?style=for-the-badge&logo=swift&logoColor=white)
-![MVVM](https://img.shields.io/badge/MVVM-blue?style=for-the-badge)
-![Clean Architecture](https://img.shields.io/badge/Clean%20Architecture-DDDDDD?style=for-the-badge)
-![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
-![OpenAI](https://img.shields.io/badge/OpenAI-412991?style=for-the-badge&logo=openai&logoColor=white)
+- ✅ SwiftUI
+- ✅ SFspeechRecognizer
+- ✅ Cloudkit
+- ✅ UIkit
+- ✅ AVFoundation
+- ✅ Photokit
 
 
 ---
@@ -44,10 +43,10 @@
 
 | 이름 | GitHub | 역할 |
 |------|--------|------|
-| @Gyeong | [github.com/heejinnn](https://github.com/heejinnn) | ios 앱 개발(SwiftUI), 아키텍쳐, 로직 설계 |
+| @Gyeong | [github.com/UnkyungJo](https://github.com/UnkyungJo) | ios 앱 개발(SwiftUI), 아키텍쳐, 로직 설계 |
 | @Taki5cm | [github.com/Taki5cm](https://github.com/Taki5cm) | 기획, iOS 앱 개발(SwiftUI) |
-| @Karyn | [github.com/Segyun](https://github.com/Segyun) | 디자인(UX/UI),UX Researcher |
-| @cchangss | [github.com/Mina-weaver](https://github.com/Mina-weaver) | 기획, UX Researcher |
+| @Karyn | [github.com/Karynkim](https://github.com/Karynkim) | 디자인(UX/UI),UX Researcher |
+| @cchangss | [github.com/cchnagss](https://github.com/cchangss) | 기획, UX Researcher |
 
 ---
 
