@@ -4,8 +4,7 @@
 
 사람별로 메모하는 나만의 비즈니스 채팅방
 
-<img width="800" height="1200" alt="Stash" src="https://github.com/user-attachments/assets/7406337b-1047-40e5-95a2-4ec796267f44" >|
----
+<img width="800" height="1200" alt="Stash" src="https://github.com/user-attachments/assets/7406337b-1047-40e5-95a2-4ec796267f44" >
 
 ## 📌 Features
 
