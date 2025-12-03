@@ -31,16 +31,16 @@ struct ChattingView: View {
     @State private var stagedAttachments: [ShareAttachmentItem] = []
     @State private var bottomBarOffsetY: CGFloat = 0
     @State private var timestampRevealProgress: CGFloat = 0   // 0.0 ~ 1.0
-    @State private var visibleDateForIndicator: Date?
-    @State private var isShowingDateIndicator: Bool = false
-    @State private var isUserScrolling: Bool = false  // 사용자 스크롤 감지용
-    @State private var hideIndicatorWork: DispatchWorkItem?
+    @State var visibleDateForIndicator: Date?
+    @State var isShowingDateIndicator: Bool = false
+    @State var isUserScrolling: Bool = false  // 사용자 스크롤 감지용
+    @State var hideIndicatorWork: DispatchWorkItem?
     @State private var didReceiveInitialPositions: Bool = false
     @State private var indicatorOffsetY: CGFloat = 0
     @State private var canScroll: Bool = false
     @State private var isAtScrollEdge: Bool = false
     @State private var chipHeight: CGFloat = 0
-    @State private var showScrollToBottom: Bool = false
+    @State var showScrollToBottom: Bool = false
     @State private var keyboardScrollWork: DispatchWorkItem?
     @State private var bottomInsetHeight: CGFloat = 0
     @State private var isEditorCurrentlyFocused: Bool = false
@@ -50,16 +50,16 @@ struct ChattingView: View {
     // moved into view model
     // Suppress auto-scroll-to-bottom when navigating to a specific note
     @State private var suppressAutoScroll: Bool = false
-    @State private var sheetModeBeforeSearch: BottomSheetMode? = nil
+    @State private var sheetModeBeforeSearch: BottomSheetMode?
     // Date search
     @State private var showDatePicker: Bool = false
     @State private var datePickerSelection: Date = Date()
-    @State private var highlightedDate: Date?
-    @State private var dateHighlightOffsetY: CGFloat = 0
+    @State var highlightedDate: Date?
+    @State var dateHighlightOffsetY: CGFloat = 0
     private struct EditingPayload: Identifiable { let id = UUID(); let noteId: UUID; var text: String }
     @State private var editing: EditingPayload?
     // Ensure initial bottom scroll even with delayed layout/data updates
-    @State private var initialBottomScrollAttemptsRemaining: Int = 3
+    @State var initialBottomScrollAttemptsRemaining: Int = 3
     // Pin the scroll position to bottom without animation during first load (e.g., CloudKit warm-up)
     @State private var isBootstrappingToBottom: Bool = true
     // Store viewport height separately to avoid multiple preference updates per frame
@@ -96,144 +96,86 @@ struct ChattingView: View {
         let size = (text as NSString).size(withAttributes: [.font: font])
         return ceil(size.width)
     }
-    private let bottomSentinelId: String = "chat-bottom-sentinel"
+    let bottomSentinelId: String = "chat-bottom-sentinel"
     var body: some View {
         ZStack {
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(alignment: .trailing, spacing: 6) {
-                        ForEach(Array(viewModel.notes.enumerated()), id: \.element.id) { idx, note in
-                            if idx == 0 || !Calendar.current.isDate(note.uploadedAt, inSameDayAs: viewModel.notes[idx - 1].uploadedAt) {
-                                dateHeaderView(note.uploadedAt)
+                    ChatMessageListSection(
+                        notes: viewModel.notes,
+                        chatTitle: chatTitle,
+                        clientId: clientId,
+                        isDeleteSelecting: viewModel.isDeleteSelecting,
+                        isSelected: { viewModel.selectedNoteIds.contains($0) },
+                        onToggleSelection: { noteId in
+                            var transaction = Transaction()
+                            transaction.disablesAnimations = true
+                            withTransaction(transaction) {
+                                viewModel.send(.toggleSelection(noteId))
                             }
-                            HStack(alignment: .center, spacing: 12) {
-                                Group {
-                                    if viewModel.isDeleteSelecting {
-                                        let isChecked = viewModel.selectedNoteIds.contains(note.id)
-                                        Button {
-                                            var tx = Transaction()
-                                            tx.disablesAnimations = true
-                                            withTransaction(tx) {
-                                                viewModel.send(.toggleSelection(note.id))
-                                            }
-                                        } label: {
-                                            // Custom checkbox to match delete modal design
-                                            ZStack {
-                                                Circle()
-                                                    .fill(isChecked ? Color("Primary") : Color.white)
-                                                    .frame(width: 24, height: 24)
-                                                    .overlay(
-                                                        Circle()
-                                                            .stroke(isChecked ? Color("Primary") : Color("BackgroundDisabled"), lineWidth: 1)
-                                                    )
-                                                Image(systemName: "checkmark")
-                                                    .font(.system(size: 12, weight: .semibold))
-                                                    .foregroundColor(.white)
-                                                    .opacity(isChecked ? 1 : 0)
-                                            }
-                                            .frame(width: 24, height: 24, alignment: .center)
-                                            .contentTransition(.identity)
-                                            .animation(.easeInOut(duration: 0.2), value: isChecked)
-                                        }
-                                        .buttonStyle(.plain)
-                                    } else {
-                                        Color.clear
-                                            .frame(width: 24, height: 24)
-                                    }
-                                }
-                                .padding(.horizontal, 6.5)
-                                .animation(nil, value: viewModel.selectedNoteIds)
-                                
-                                HStack {
-                                    Spacer(minLength: 0)
-                                    
-                                    ZStack(alignment: .trailing) {
-                                        Text(note.uploadedAt.formattedChatTime)
-                                            .font(.caption2)
-                                            .foregroundStyle(Color.secondary)
-                                            .frame(width: Metrics.timeWidth, alignment: .trailing)
-                                            .lineLimit(1)
-                                            .opacity(Double(timestampRevealProgress))
-                                            .offset(x: (1 - timestampRevealProgress) * 8)
-
-                                        ChatMessageView(
-                                            note: note,
-                                            chatTitle: chatTitle,
-                                            currentClientId: clientId,
-                                            highlightQuery: (
-                                                viewModel.isSearchActive &&
-                                                !viewModel.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-                                                !viewModel.matchedNoteIds.isEmpty &&
-                                                viewModel.matchedNoteIds.indices.contains(viewModel.currentMatchIndex) &&
-                                                viewModel.matchedNoteIds[viewModel.currentMatchIndex] == note.id
-                                            ) ? viewModel.searchText : nil,
-                                            leadingReservedWidth: Metrics.leftSelectWidth,
-                                            isSTTLoading: viewModel.sttInProgress.contains(note.id),
-                                            buildViewerPayload: { anchor in
-                                                buildGlobalViewerPayload(startingFrom: anchor)
-                                            },
-                                            onOpenViewer: { anchor in
-                                                openViewer(anchor: anchor)
-                                            },
-                                            onOpenShare: { selectedText in
-                                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                                    shareSeed = ShareSeed(text: selectedText, files: [], audios: [], images: [], videos: [])
-                                                }
-                                            },
-                                            onOpenShareFiles: { urls in
-                                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                                    shareSeed = ShareSeed(text: nil, files: urls, audios: [], images: [], videos: [])
-                                                }
-                                            },
-                                            onOpenShareAudio: { url in
-                                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                                    shareSeed = ShareSeed(text: nil, files: [], audios: [url], images: [], videos: [])
-                                                }
-                                            },
-                                            onDeleteFile: { noteId, fileIndex in
-                                                viewModel.send(.deleteFile(noteId: noteId, fileIndex: fileIndex))
-                                            },
-                                            onOpenRecord: { url in
-                                                NotificationCenter.default.post(name: .apexStopAllAudioPlayback, object: nil)
-                                                recordPayload = RecordPayload(url: url)
-                                            },
-                                            onDelete: { anchor in
-                                                viewModel.send(.deleteMedia(anchor: anchor))
-                                            },
-                                            onDeleteAudio: { noteId, url in
-                                                viewModel.send(.deleteAudio(noteId: noteId, url: url))
-                                            },
-                                            onCopyText: { text in
-                                                UIPasteboard.general.string = text
-                                                withAnimation { showCopyToast = true }
-                                            },
-                                            onStartEdit: { noteId, currentText in
-                                                editing = EditingPayload(noteId: noteId, text: currentText)
-                                            },
-                                            onStartMultiDelete: { noteId in
-                                                startDeleteSelection(preselect: noteId)
-                                            }
-                                        )
-                                        .offset(x: -timestampRevealProgress * (timeTextWidth(for: note.uploadedAt) + Metrics.timeGap))
-                                        .allowsHitTesting(!viewModel.isDeleteSelecting)
-                                    }
-                                    .contentShape(Rectangle())
-                                    .onTapGesture {
-                                        if viewModel.isDeleteSelecting {
-                                            var tx = Transaction()
-                                            tx.disablesAnimations = true
-                                            withTransaction(tx) {
-                                                viewModel.send(.toggleSelection(note.id))
-                                            }
-                                        }
-                                    }
-                                }
+                        },
+                        highlightQueryFor: { noteId in
+                            (
+                                viewModel.isSearchActive &&
+                                !viewModel.searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+                                !viewModel.matchedNoteIds.isEmpty &&
+                                viewModel.matchedNoteIds.indices.contains(viewModel.currentMatchIndex) &&
+                                viewModel.matchedNoteIds[viewModel.currentMatchIndex] == noteId
+                            ) ? viewModel.searchText : nil
+                        },
+                        isSTTLoading: { viewModel.sttInProgress.contains($0) },
+                        buildViewerPayload: { anchor in
+                            buildGlobalViewerPayload(startingFrom: anchor)
+                        },
+                        onOpenViewer: { anchor in
+                            openViewer(anchor: anchor)
+                        },
+                        onOpenShareText: { selectedText in
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                shareSeed = ShareSeed(text: selectedText, files: [], audios: [], images: [], videos: [])
                             }
-                            .id(note.id)
-                        }
-                        Color.clear
-                            .id(bottomSentinelId)
-                    }
+                        },
+                        onOpenShareFiles: { urls in
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                shareSeed = ShareSeed(text: nil, files: urls, audios: [], images: [], videos: [])
+                            }
+                        },
+                        onOpenShareAudio: { url in
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                shareSeed = ShareSeed(text: nil, files: [], audios: [url], images: [], videos: [])
+                            }
+                        },
+                        onDeleteFile: { noteId, fileIndex in
+                            viewModel.send(.deleteFile(noteId: noteId, fileIndex: fileIndex))
+                        },
+                        onOpenRecord: { url in
+                            NotificationCenter.default.post(name: .apexStopAllAudioPlayback, object: nil)
+                            recordPayload = RecordPayload(url: url)
+                        },
+                        onDeleteMedia: { anchor in
+                            viewModel.send(.deleteMedia(anchor: anchor))
+                        },
+                        onDeleteAudio: { noteId, url in
+                            viewModel.send(.deleteAudio(noteId: noteId, url: url))
+                        },
+                        onCopyText: { text in
+                            UIPasteboard.general.string = text
+                            withAnimation { showCopyToast = true }
+                        },
+                        onStartEdit: { noteId, currentText in
+                            editing = EditingPayload(noteId: noteId, text: currentText)
+                        },
+                        onStartMultiDelete: { noteId in
+                            startDeleteSelection(preselect: noteId)
+                        },
+                        timestampRevealProgress: timestampRevealProgress,
+                        timeTextWidth: { date in timeTextWidth(for: date) },
+                        timeWidth: Metrics.timeWidth,
+                        timeGap: Metrics.timeGap,
+                        leftSelectWidth: Metrics.leftSelectWidth,
+                        bottomSentinelId: bottomSentinelId,
+                        dateHeader: { date in AnyView(dateHeaderView(date)) }
+                    )
                     .padding(.horizontal, 12)
                     .background(
                         GeometryReader { geo in
@@ -317,9 +259,9 @@ struct ChattingView: View {
                 .onChange(of: viewModel.notes.count) { _ in
                     guard !suppressAutoScroll else { return }
                     // 1) 즉시 비애니메이션 스크롤(레이아웃 완료 전에도 가능한 한 빠르게 고정)
-                    var tx = Transaction()
-                    tx.disablesAnimations = true
-                    withTransaction(tx) {
+                    var transaction = Transaction()
+                    transaction.disablesAnimations = true
+                    withTransaction(transaction) {
                         proxy.scrollTo(bottomSentinelId, anchor: .bottom)
                     }
                     self.showScrollToBottom = false
@@ -337,9 +279,9 @@ struct ChattingView: View {
                     guard !suppressAutoScroll else { return }
                     guard !showScrollToBottom else { return }
                     // 즉시 비애니메이션 스크롤
-                    var tx = Transaction()
-                    tx.disablesAnimations = true
-                    withTransaction(tx) {
+                    var transaction = Transaction()
+                    transaction.disablesAnimations = true
+                    withTransaction(transaction) {
                         proxy.scrollTo(bottomSentinelId, anchor: .bottom)
                     }
                     // 짧은 지연 후 재시도로 보정
@@ -459,11 +401,11 @@ struct ChattingView: View {
         .simultaneousGesture(
             DragGesture(minimumDistance: 10)
                 .onChanged { value in
-                    let dx = value.translation.width
-                    let dy = value.translation.height
-                    guard abs(dx) > abs(dy) else { return }
-                    if dx < 0 {
-                        let progress = min(1, max(0, -dx / 80))
+                    let deltaX = value.translation.width
+                    let deltaY = value.translation.height
+                    guard abs(deltaX) > abs(deltaY) else { return }
+                    if deltaX < 0 {
+                        let progress = min(1, max(0, -deltaX / 80))
                         timestampRevealProgress = progress
                     } else {
                         timestampRevealProgress = 0
@@ -719,15 +661,18 @@ struct ChattingView: View {
                             .transition(.opacity)
                     }
 
-                    BottomSheetHost(mode: $sheetMode, onHeightChanged: { height, mode in
-                    // When partially up, lift the input bar together; when fully expanded, keep input bar at bottom
-                    if mode == .collapsed {
-                        bottomBarOffsetY = -(height + 8)
-                    } else {
-                        bottomBarOffsetY = 0
-                    }
-                    }) {
-                        ChatMediaPickerSheet(
+                    BottomSheetHost(
+                        mode: $sheetMode,
+                        onHeightChanged: { height, mode in
+                            // When partially up, lift the input bar together; when fully expanded, keep input bar at bottom
+                            if mode == .collapsed {
+                                bottomBarOffsetY = -(height + 8)
+                            } else {
+                                bottomBarOffsetY = 0
+                            }
+                        },
+                        content: {
+                            ChatMediaPickerSheet(
                             isPresented: .constant(true),
                             onTapFile: {
                                 NotificationCenter.default.post(name: .apexOpenDocumentPicker, object: nil)
@@ -755,9 +700,10 @@ struct ChattingView: View {
                                     sheetMode = .hidden
                                 }
                             }
-                        )
-                        .padding(.bottom, 0)
-                    }
+                            )
+                            .padding(.bottom, 0)
+                        }
+                    )
                     .zIndex(1)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
@@ -822,9 +768,9 @@ struct ChattingView: View {
                 // Prefer to render file seeds as visual media when possible so AttachBar appears
                 for url in seed.files {
                     let type = UTType(filenameExtension: url.pathExtension)
-                    if let t = type, t.conforms(to: .image), let data = try? Data(contentsOf: url), let ui = UIImage(data: data) {
-                        items.append(ShareAttachmentItem(id: UUID(), kind: .image(ui)))
-                    } else if let t = type, (t.conforms(to: .movie) || t.conforms(to: .audiovisualContent)) {
+                    if let resolvedType = type, resolvedType.conforms(to: .image), let data = try? Data(contentsOf: url), let image = UIImage(data: data) {
+                        items.append(ShareAttachmentItem(id: UUID(), kind: .image(image)))
+                    } else if let resolvedType = type, resolvedType.conforms(to: .movie) || resolvedType.conforms(to: .audiovisualContent) {
                         let thumb = generateThumbnail(for: url)
                         items.append(ShareAttachmentItem(id: UUID(), kind: .video(url, thumbnail: thumb)))
                     } else {
@@ -832,8 +778,8 @@ struct ChattingView: View {
                     }
                 }
                 // Also include any explicitly provided images/videos (if present)
-                for ui in seed.images {
-                    items.append(ShareAttachmentItem(id: UUID(), kind: .image(ui)))
+                for image in seed.images {
+                    items.append(ShareAttachmentItem(id: UUID(), kind: .image(image)))
                 }
                 for url in seed.videos {
                     let thumb = generateThumbnail(for: url)
@@ -888,7 +834,7 @@ private extension ChattingView {
     func startDeleteSelection(preselect noteId: UUID) {
         viewModel.send(.startDeleteSelection(noteId))
     }
-    func buildGlobalViewerPayload(startingFrom anchor: ChatMessageView.ChatAnchor) -> (items: [MediaSource], anchors: [ChatMessageView.ChatAnchor], index: Int) {
+    func buildGlobalViewerPayload(startingFrom anchor: ChatMessageView.ChatAnchor) -> MediaGalleryPayload {
         var allItems: [MediaSource] = []
         var allAnchors: [ChatMessageView.ChatAnchor] = []
         for noteItem in viewModel.notes {
@@ -916,7 +862,7 @@ private extension ChattingView {
             }
         }
         let start = allAnchors.firstIndex(where: { $0.noteId == anchor.noteId && $0.isImage == anchor.isImage && $0.localIndex == anchor.localIndex }) ?? 0
-        return (items: allItems, anchors: allAnchors, index: start)
+        return MediaGalleryPayload(items: allItems, anchors: allAnchors, index: start)
     }
 
     private func openViewer(anchor: ChatMessageView.ChatAnchor) {
@@ -951,204 +897,6 @@ private extension ChattingView {
     }
 }
 
-private extension ChattingView {
-    @ViewBuilder
-    func dateHeaderView(_ date: Date) -> some View {
-        Text(date.formattedChatDayHeader)
-            .font(.caption2)
-            .foregroundColor(isSameCalendarDay(date, highlightedDate) ? Color("Primary") : .gray)
-            .offset(y: isSameCalendarDay(date, highlightedDate) ? dateHighlightOffsetY : 0)
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.vertical, 12)
-            .background(
-                GeometryReader { geo in
-                    Color.clear.preference(
-                        key: DateHeaderPositionsKey.self,
-                        value: [date: geo.frame(in: .named("chatScroll")).minY]
-                    )
-                }
-            )
-            .id(dateHeaderId(date))
-    }
-
-    func updateScrollDateIndicator(with positions: [Date: CGFloat]) {
-        // Compute and store the visible date regardless of current canScroll,
-        // because ScrollMetrics (that sets canScroll) may arrive after header positions.
-        guard !positions.isEmpty else {
-            // Keep the last visible date when headers are temporarily not realized (e.g., LazyVStack virtualization).
-            // Do not forcibly clear, so the indicator can still show the last known date while scrolling.
-            return
-        }
-
-        // Choose the nearest header to the top: prioritize smallest positive Y (>= 0),
-        // fallback to the largest negative (just above the top).
-        let positives = positions.filter { $0.value >= 0 }
-        let candidate = positives.min(by: { $0.value < $1.value }) ?? positions.max(by: { $0.value < $1.value })
-        let newDate = candidate?.key
-
-        if newDate != visibleDateForIndicator {
-            visibleDateForIndicator = newDate
-        }
-
-        // Show now and schedule hide after idle
-        // 실제로 사용자가 스크롤하는 중일 때만 표시
-        if isUserScrolling && visibleDateForIndicator != nil {
-            isShowingDateIndicator = true
-            hideIndicatorWork?.cancel()
-            let work = DispatchWorkItem { self.isShowingDateIndicator = false }
-            hideIndicatorWork = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8, execute: work)
-        } else if !isUserScrolling {
-            // 스크롤이 멈추면 빠르게 숨김
-            hideIndicatorWork?.cancel()
-            let work = DispatchWorkItem { self.isShowingDateIndicator = false }
-            hideIndicatorWork = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: work)
-        }
-    }
-    
-    func dateHeaderId(_ date: Date) -> String {
-        let comps = Calendar.current.dateComponents([.year, .month, .day], from: date)
-        let year = comps.year ?? 0
-        let month = (comps.month ?? 0)
-        let day = (comps.day ?? 0)
-        return String(format: "date-%04d%02d%02d", year, month, day)
-    }
-
-    func isSameCalendarDay(_ lhs: Date, _ rhs: Date?) -> Bool {
-        guard let rhs else { return false }
-        return Calendar.current.isDate(lhs, inSameDayAs: rhs)
-    }
-
-    func triggerDateBounce() {
-        withAnimation(.spring(response: 0.22, dampingFraction: 0.45)) {
-            dateHighlightOffsetY = -4
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-            withAnimation(.spring(response: 0.22, dampingFraction: 0.5)) {
-                dateHighlightOffsetY = 3
-            }
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.24) {
-            withAnimation(.spring(response: 0.22, dampingFraction: 0.55)) {
-                dateHighlightOffsetY = -2
-            }
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.36) {
-            withAnimation(.spring(response: 0.26, dampingFraction: 0.7)) {
-                dateHighlightOffsetY = 0
-            }
-        }
-    }
-
-    // Retry a few times to ensure we land at bottom after first appear/layout/data updates
-    func ensureInitialScrollToBottom(_ proxy: ScrollViewProxy) {
-        guard initialBottomScrollAttemptsRemaining > 0 else { return }
-        initialBottomScrollAttemptsRemaining -= 1
-        let attemptScroll = {
-            guard !suppressAutoScroll else { return }
-            guard !showScrollToBottom else { return }
-            withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(bottomSentinelId, anchor: .bottom) }
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: attemptScroll)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.20, execute: attemptScroll)
-    }
-}
-
-extension Notification.Name {
-    static let apexInputFocused = Notification.Name("apex.inputFocused")
-    static let apexInputBlurred = Notification.Name("apex.inputBlurred")
-    static let apexNavigateToNote = Notification.Name("apex.navigateToNote")
-    static let apexNavigateToDate = Notification.Name("apex.navigateToDate")
-    static let apexAudioRenamed = Notification.Name("apex.audioRenamed")
-    static let apexAudioDeleted = Notification.Name("apex.audioDeleted")
-    static let apexOpenDocumentPicker = Notification.Name("apex.openDocumentPicker")
-    static let apexOpenCamera = Notification.Name("apex.openCamera")
-    static let apexOpenPhotoPicker = Notification.Name("apex.openPhotoPicker")
-    static let apexSendSelectedAttachments = Notification.Name("apex.sendSelectedAttachments")
-    static let apexStopAllAudioPlayback = Notification.Name("apex.stopAllAudioPlayback")
-    static let apexMediaSheetVisibilityChanged = Notification.Name("apex.mediaSheetVisibilityChanged")
-}
-
-// MARK: - Link detection & preview
-
-private struct LinkPreviewViewRepresentable: UIViewRepresentable {
-    let metadata: LPLinkMetadata
-
-    func makeUIView(context: Context) -> LPLinkView {
-        let linkView = LPLinkView(metadata: metadata)
-        linkView.translatesAutoresizingMaskIntoConstraints = false
-        linkView.isUserInteractionEnabled = false // 탭이 상위 버튼으로 전달되도록
-        return linkView
-    }
-    
-    func updateUIView(_ uiView: LPLinkView, context: Context) {
-        uiView.metadata = metadata
-    }
-}
-
-// Helper: Host text from metadata or fallback URL
-private func hostText(from meta: LPLinkMetadata?, fallback: URL) -> String {
-    let urlToShow = meta?.url ?? meta?.originalURL ?? fallback
-    return urlToShow.host ?? urlToShow.absoluteString
-}
-
-private func format(_ duration: TimeInterval?) -> String {
-    guard let duration else { return "--:--" }
-    let total = Int(duration.rounded())
-    let minutes = total / 60
-    let seconds = total % 60
-    return String(format: "%02d:%02d", minutes, seconds)
-}
-
-#if canImport(SwiftUI)
-private struct DateHeaderPositionsKey: PreferenceKey {
-    static var defaultValue: [Date: CGFloat] = [:]
-    static func reduce(value: inout [Date: CGFloat], nextValue: () -> [Date: CGFloat]) {
-        value.merge(nextValue(), uniquingKeysWith: { $1 })
-    }
-}
-
-private struct ScrollMetrics: Equatable {
-    var topY: CGFloat?
-    var bottomY: CGFloat?
-    var viewportHeight: CGFloat?
-}
-
-private struct ScrollMetricsKey: PreferenceKey {
-    static var defaultValue: ScrollMetrics = .init(topY: nil, bottomY: nil, viewportHeight: nil)
-    static func reduce(value: inout ScrollMetrics, nextValue: () -> ScrollMetrics) {
-        let next = nextValue()
-        if let t = next.topY { value.topY = t }
-        if let b = next.bottomY { value.bottomY = b }
-        if let v = next.viewportHeight { value.viewportHeight = v }
-    }
-}
-
-private struct ChipHeightKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        let next = nextValue()
-        value = max(value, next)
-    }
-}
-
-private struct BottomInsetHeightKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
-    }
-}
-
-private struct ViewportHeightKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        let next = nextValue()
-        if next > 0 { value = next }
-    }
-}
-#endif
-
 #Preview {
     NavigationStack {
         ChattingView(
@@ -1172,16 +920,4 @@ private struct ViewportHeightKey: PreferenceKey {
     }
     .environmentObject(NavigationRouter())
     .previewDisplayName("채팅뷰 프리뷰")
-}
-
-#Preview("TextEditSheet") {
-    TextEditSheet(
-        initialText: "안녕하세요",
-        onCancel: { },
-        onSave: { _ in },
-        onCopyAll: { },
-        onShare: { },
-        onDelete: { },
-        deleteSubject: "메모를"
-    )
 }

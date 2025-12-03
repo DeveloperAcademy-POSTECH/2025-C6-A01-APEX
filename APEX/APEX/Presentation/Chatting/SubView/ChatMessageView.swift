@@ -9,7 +9,7 @@ struct ChatMessageView: View {
     let leadingReservedWidth: CGFloat
     let isSTTLoading: Bool
     struct ChatAnchor { let noteId: UUID; let isImage: Bool; let localIndex: Int }
-    let buildViewerPayload: (ChatAnchor) -> (items: [MediaSource], anchors: [ChatAnchor], index: Int)
+    let buildViewerPayload: (ChatAnchor) -> MediaGalleryPayload
     let onOpenViewer: (ChatAnchor) -> Void
     let onOpenShare: (String) -> Void
     let onOpenShareFiles: ([URL]) -> Void
